@@ -1,0 +1,427 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>查询一个表</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REV="MADE"
+HREF="mailto:pgsql-docs@postgresql.org"><LINK
+REL="HOME"
+TITLE="PostgreSQL 9.3.1 中文文档"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="SQL语言"
+HREF="tutorial-sql.html"><LINK
+REL="PREVIOUS"
+TITLE="向表中添加行"
+HREF="tutorial-populate.html"><LINK
+REL="NEXT"
+TITLE="在表间连接"
+HREF="tutorial-join.html"><LINK
+REL="STYLESHEET"
+TYPE="text/css"
+HREF="stylesheet.css"><META
+HTTP-EQUIV="Content-Type"
+CONTENT="text/html; charset=gbk"><META
+NAME="creation"
+CONTENT="2013-12-03T02:30:09"></HEAD
+><BODY
+CLASS="SECT1"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="5"
+ALIGN="center"
+VALIGN="bottom"
+><A
+HREF="index.html"
+>PostgreSQL 9.3.1 中文文档</A
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+TITLE="向表中添加行"
+HREF="tutorial-populate.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="tutorial-sql.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="60%"
+ALIGN="center"
+VALIGN="bottom"
+>Chapter 2. <ACRONYM
+CLASS="ACRONYM"
+>SQL</ACRONYM
+>语言</TD
+><TD
+WIDTH="20%"
+ALIGN="right"
+VALIGN="top"
+><A
+TITLE="在表间连接"
+HREF="tutorial-join.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="SECT1"
+><H1
+CLASS="SECT1"
+><A
+NAME="TUTORIAL-SELECT"
+>2.5. 查询一个表</A
+></H1
+><P
+>    
+    
+要从一个表中检索数据就是<I
+CLASS="FIRSTTERM"
+>查询</I
+>这个表。<ACRONYM
+CLASS="ACRONYM"
+>SQL</ACRONYM
+>
+的<TT
+CLASS="COMMAND"
+>SELECT</TT
+>语句就是做这个用途的。该语句分为选择列表(列出要返回的字
+段)、表列表(列出从中检索数据的表)、以及可选的条件(声明任意限制)。比如，要检索表
+<TT
+CLASS="STRUCTNAME"
+>weather</TT
+>的所有行，键入：
+</P><PRE
+CLASS="PROGRAMLISTING"
+>SELECT * FROM weather;</PRE
+><P>
+ 
+ 这里的<TT
+CLASS="LITERAL"
+>*</TT
+>是<SPAN
+CLASS="QUOTE"
+>"所有字段"</SPAN
+>的缩写。
+ <A
+NAME="AEN716"
+HREF="#FTN.AEN716"
+><SPAN
+CLASS="footnote"
+>[1]</SPAN
+></A
+>
+  
+因此同样的结果可以用下面的语句获得：
+</P><PRE
+CLASS="PROGRAMLISTING"
+>SELECT city, temp_lo, temp_hi, prcp, date FROM weather;</PRE
+><P>
+ 
+而输出应该是：
+</P><PRE
+CLASS="SCREEN"
+>     city      | temp_lo | temp_hi | prcp |    date
+---------------+---------+---------+------+------------
+ San Francisco |      46 |      50 | 0.25 | 1994-11-27
+ San Francisco |      43 |      57 |    0 | 1994-11-29
+ Hayward       |      37 |      54 |      | 1994-11-29
+(3 rows)</PRE
+><P>
+   </P
+><P
+> 
+你可以在选择列表中写任意表达式，而不仅仅是字段列表。比如，你可以：
+</P><PRE
+CLASS="PROGRAMLISTING"
+>SELECT city, (temp_hi+temp_lo)/2 AS temp_avg, date FROM weather;</PRE
+><P>
+这样应该得到：
+</P><PRE
+CLASS="SCREEN"
+>     city      | temp_avg |    date
+---------------+----------+------------
+ San Francisco |       48 | 1994-11-27
+ San Francisco |       50 | 1994-11-29
+ Hayward       |       45 | 1994-11-29
+(3 rows)</PRE
+><P>
+请注意这里的<TT
+CLASS="LITERAL"
+>AS</TT
+>子句是如何给输出字段重新命名的。<TT
+CLASS="LITERAL"
+>AS</TT
+>
+子句是可选的。
+   </P
+><P
+> 
+一个查询可以使用<TT
+CLASS="LITERAL"
+>WHERE</TT
+>子句进行<SPAN
+CLASS="QUOTE"
+>"修饰"</SPAN
+>，声明需要哪些行。
+<TT
+CLASS="LITERAL"
+>WHERE</TT
+>子句包含一个布尔表达式（值为真），只有那些布尔表达式为
+真的行才会被返回。允许你在条件中使用常用的布尔操作符(<TT
+CLASS="LITERAL"
+>AND</TT
+>,
+<TT
+CLASS="LITERAL"
+>OR</TT
+>,<TT
+CLASS="LITERAL"
+>NOT</TT
+>)。比如，下面的查询检索旧金山的下
+雨天的天气：
+</P><PRE
+CLASS="PROGRAMLISTING"
+>SELECT * FROM weather
+    WHERE city = 'San Francisco' AND prcp &gt; 0.0;</PRE
+><P>
+结果：
+</P><PRE
+CLASS="SCREEN"
+>     city      | temp_lo | temp_hi | prcp |    date
+---------------+---------+---------+------+------------
+ San Francisco |      46 |      50 | 0.25 | 1994-11-27
+(1 row)</PRE
+><P>
+   </P
+><P
+>    
+你可以要求返回的查询是排好序的：
+</P><PRE
+CLASS="PROGRAMLISTING"
+>SELECT * FROM weather
+    ORDER BY city;</PRE
+><P>
+
+</P><PRE
+CLASS="SCREEN"
+>     city      | temp_lo | temp_hi | prcp |    date
+---------------+---------+---------+------+------------
+ Hayward       |      37 |      54 |      | 1994-11-29
+ San Francisco |      43 |      57 |    0 | 1994-11-29
+ San Francisco |      46 |      50 | 0.25 | 1994-11-27</PRE
+><P>
+在这个例子里，排序的顺序并非绝对清晰的，因此你可能看到 San Francisco 行
+随机的排序。但是如果你使用下面的语句，那么就总是会得到上面的结果：
+</P><PRE
+CLASS="PROGRAMLISTING"
+>SELECT * FROM weather
+    ORDER BY city, temp_lo;</PRE
+><P>
+   </P
+><P
+>    
+    
+你可以要求查询的结果消除重复行的输出：
+</P><PRE
+CLASS="PROGRAMLISTING"
+>SELECT DISTINCT city
+    FROM weather;</PRE
+><P>
+
+</P><PRE
+CLASS="SCREEN"
+>     city
+---------------
+ Hayward
+ San Francisco
+(2 rows)</PRE
+><P>
+再次声明，结果行的顺序可能是随机的。你可以组合使用<TT
+CLASS="LITERAL"
+>DISTINCT</TT
+>
+和<TT
+CLASS="LITERAL"
+>ORDER BY</TT
+>来获取一致的结果：
+     <A
+NAME="AEN750"
+HREF="#FTN.AEN750"
+><SPAN
+CLASS="footnote"
+>[2]</SPAN
+></A
+>
+
+</P><PRE
+CLASS="PROGRAMLISTING"
+>SELECT DISTINCT city
+    FROM weather
+    ORDER BY city;</PRE
+><P>
+   </P
+></DIV
+><H3
+CLASS="FOOTNOTES"
+>Notes</H3
+><TABLE
+BORDER="0"
+CLASS="FOOTNOTES"
+WIDTH="100%"
+><TR
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+WIDTH="5%"
+><A
+NAME="FTN.AEN716"
+HREF="tutorial-select.html#AEN716"
+><SPAN
+CLASS="footnote"
+>[1]</SPAN
+></A
+></TD
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+WIDTH="95%"
+><P
+>虽然<TT
+CLASS="LITERAL"
+>SELECT *</TT
+>可以把查询的结果翻出来，但我们普遍认为在生产代码中
+这是很糟糕的风格，因为给表增加一个字段就改变了结果。</P
+></TD
+></TR
+><TR
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+WIDTH="5%"
+><A
+NAME="FTN.AEN750"
+HREF="tutorial-select.html#AEN750"
+><SPAN
+CLASS="footnote"
+>[2]</SPAN
+></A
+></TD
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+WIDTH="95%"
+><P
+>在一些数据库系统里，包括老版本的<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>，
+<TT
+CLASS="LITERAL"
+>DISTINCT</TT
+>自动对行进行排序，因此<TT
+CLASS="LITERAL"
+>ORDER BY</TT
+>
+是多余的。但是这一点并不是 SQL 标准的要求，并且目前的<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>
+并不保证<TT
+CLASS="LITERAL"
+>DISTINCT</TT
+>导致数据行被排序。</P
+></TD
+></TR
+></TABLE
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="tutorial-populate.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="tutorial-join.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>向表中添加行</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="tutorial-sql.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>在表间连接</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

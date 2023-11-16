@@ -1,0 +1,310 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>DROP FOREIGN DATA WRAPPER</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REV="MADE"
+HREF="mailto:pgsql-docs@postgresql.org"><LINK
+REL="HOME"
+TITLE="PostgreSQL 9.3.1 中文文档"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="SQL Commands"
+HREF="sql-commands.html"><LINK
+REL="PREVIOUS"
+TITLE="DROP EVENT TRIGGER"
+HREF="sql-dropeventtrigger.html"><LINK
+REL="NEXT"
+TITLE="DROP FOREIGN TABLE"
+HREF="sql-dropforeigntable.html"><LINK
+REL="STYLESHEET"
+TYPE="text/css"
+HREF="stylesheet.css"><META
+HTTP-EQUIV="Content-Type"
+CONTENT="text/html; charset=gbk"><META
+NAME="creation"
+CONTENT="2013-12-03T02:30:09"></HEAD
+><BODY
+CLASS="REFENTRY"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="5"
+ALIGN="center"
+VALIGN="bottom"
+><A
+HREF="index.html"
+>PostgreSQL 9.3.1 中文文档</A
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+TITLE="DROP EVENT TRIGGER"
+HREF="sql-dropeventtrigger.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="sql-commands.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="60%"
+ALIGN="center"
+VALIGN="bottom"
+></TD
+><TD
+WIDTH="20%"
+ALIGN="right"
+VALIGN="top"
+><A
+TITLE="DROP FOREIGN TABLE"
+HREF="sql-dropforeigntable.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><H1
+><A
+NAME="SQL-DROPFOREIGNDATAWRAPPER"
+></A
+>DROP FOREIGN DATA WRAPPER</H1
+><DIV
+CLASS="REFNAMEDIV"
+><A
+NAME="AEN75751"
+></A
+><H2
+>Name</H2
+>DROP FOREIGN DATA WRAPPER&nbsp;--&nbsp;删除一个外部数据封装</DIV
+><DIV
+CLASS="REFSYNOPSISDIV"
+><A
+NAME="AEN75756"
+></A
+><H2
+>Synopsis</H2
+><PRE
+CLASS="SYNOPSIS"
+>DROP FOREIGN DATA WRAPPER [ IF EXISTS ] <TT
+CLASS="REPLACEABLE"
+><I
+>name</I
+></TT
+> [ CASCADE | RESTRICT ]</PRE
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN75759"
+></A
+><H2
+>描述</H2
+><P
+>   <TT
+CLASS="COMMAND"
+>DROP FOREIGN DATA WRAPPER</TT
+>删除一个已存在的外部数据封装器。
+   当前用户必须是外部数据封装器的所有者才能够执行此命令。
+  </P
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN75763"
+></A
+><H2
+>参数</H2
+><P
+></P
+><DIV
+CLASS="VARIABLELIST"
+><DL
+><DT
+><TT
+CLASS="LITERAL"
+>IF EXISTS</TT
+></DT
+><DD
+><P
+>      当使用<TT
+CLASS="LITERAL"
+>IF EXISTS</TT
+>,如果外部数据封装器不存在时，不会抛出错误，而是产生一个通知。
+     </P
+></DD
+><DT
+><TT
+CLASS="REPLACEABLE"
+><I
+>name</I
+></TT
+></DT
+><DD
+><P
+>      已存在的外部数据封装器的名称。
+     </P
+></DD
+><DT
+><TT
+CLASS="LITERAL"
+>CASCADE</TT
+></DT
+><DD
+><P
+>      自动删除依赖外部数据封装器的对象（如服务器）。
+     </P
+></DD
+><DT
+><TT
+CLASS="LITERAL"
+>RESTRICT</TT
+></DT
+><DD
+><P
+>      如果有依赖于外部数据封装器的对象，则不允许删除外部数据封装器。这是缺省行为。
+     </P
+></DD
+></DL
+></DIV
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN75787"
+></A
+><H2
+>例子</H2
+><P
+>   删除外部数据封装器<TT
+CLASS="LITERAL"
+>dbi</TT
+>:
+</P><PRE
+CLASS="PROGRAMLISTING"
+>DROP FOREIGN DATA WRAPPER dbi;</PRE
+><P></P
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN75792"
+></A
+><H2
+>兼容性</H2
+><P
+>    <TT
+CLASS="COMMAND"
+>DROP FOREIGN DATA WRAPPER</TT
+>兼容ISO/IEC 9075-9 (SQL/MED)标准。
+    <TT
+CLASS="LITERAL"
+>IF EXISTS</TT
+>选项是<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>的扩展。
+  </P
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN75798"
+></A
+><H2
+>又见</H2
+><A
+HREF="sql-createforeigndatawrapper.html"
+>CREATE FOREIGN DATA WRAPPER</A
+>, <A
+HREF="sql-alterforeigndatawrapper.html"
+>ALTER FOREIGN DATA WRAPPER</A
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="sql-dropeventtrigger.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="sql-dropforeigntable.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>DROP EVENT TRIGGER</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="sql-commands.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>DROP FOREIGN TABLE</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

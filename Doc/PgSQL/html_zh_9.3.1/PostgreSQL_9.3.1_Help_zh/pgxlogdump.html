@@ -1,0 +1,505 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>pg_xlogdump</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REV="MADE"
+HREF="mailto:pgsql-docs@postgresql.org"><LINK
+REL="HOME"
+TITLE="PostgreSQL 9.3.1 中文文档"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="Server Applications"
+HREF="contrib-prog-server.html"><LINK
+REL="PREVIOUS"
+TITLE="pg_upgrade"
+HREF="pgupgrade.html"><LINK
+REL="NEXT"
+TITLE="External Projects"
+HREF="external-projects.html"><LINK
+REL="STYLESHEET"
+TYPE="text/css"
+HREF="stylesheet.css"><META
+HTTP-EQUIV="Content-Type"
+CONTENT="text/html; charset=gbk"><META
+NAME="creation"
+CONTENT="2013-12-03T02:30:09"></HEAD
+><BODY
+CLASS="REFENTRY"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="5"
+ALIGN="center"
+VALIGN="bottom"
+><A
+HREF="index.html"
+>PostgreSQL 9.3.1 中文文档</A
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+TITLE="pg_upgrade"
+HREF="pgupgrade.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="contrib-prog-server.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="60%"
+ALIGN="center"
+VALIGN="bottom"
+></TD
+><TD
+WIDTH="20%"
+ALIGN="right"
+VALIGN="top"
+><A
+TITLE="External Projects"
+HREF="external-projects.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><H1
+><A
+NAME="PGXLOGDUMP"
+></A
+><SPAN
+CLASS="APPLICATION"
+>pg_xlogdump</SPAN
+></H1
+><DIV
+CLASS="REFNAMEDIV"
+><A
+NAME="AEN153209"
+></A
+><H2
+>Name</H2
+>pg_xlogdump&nbsp;--&nbsp;显示人类易读渲染的<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+> 数据库集合实例的预写日志</DIV
+><DIV
+CLASS="REFSYNOPSISDIV"
+><A
+NAME="AEN153215"
+></A
+><H2
+>Synopsis</H2
+><P
+><TT
+CLASS="COMMAND"
+>pg_xlogdump</TT
+> [<TT
+CLASS="OPTION"
+>option</TT
+>...] [<TT
+CLASS="OPTION"
+>startseg</TT
+>
+     [<TT
+CLASS="OPTION"
+>endseg</TT
+>]
+   ]</P
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="R1-APP-PGXLOGDUMP-1"
+></A
+><H2
+>描述</H2
+><P
+>  
+   <TT
+CLASS="COMMAND"
+>pg_xlogdump</TT
+> 显示预写日志(WAL) 并且主要用于调试或者教学演示。
+  </P
+><P
+>这个实用工具只能被安装数据库的用户来运行，因为这需要只读的方式访问数据字典。
+  </P
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN153229"
+></A
+><H2
+>选项</H2
+><P
+>以下的命令行参数控制了输出的位置和格式：
+
+    <P
+></P
+></P><DIV
+CLASS="VARIABLELIST"
+><DL
+><DT
+><TT
+CLASS="REPLACEABLE"
+><I
+>startseg</I
+></TT
+></DT
+><DD
+><P
+>开始从指定WAL段文件读取。这隐式的确定了搜索文件和使用的时间线。
+       </P
+></DD
+><DT
+><TT
+CLASS="REPLACEABLE"
+><I
+>endseg</I
+></TT
+></DT
+><DD
+><P
+>指定到哪个WAL段文件停止读取。
+       </P
+></DD
+><DT
+><TT
+CLASS="OPTION"
+>-b</TT
+><BR><TT
+CLASS="OPTION"
+>--bkp-details</TT
+></DT
+><DD
+><P
+>输出关于备份数据块的详细信息。
+       </P
+></DD
+><DT
+><TT
+CLASS="OPTION"
+>-e <TT
+CLASS="REPLACEABLE"
+><I
+>end</I
+></TT
+></TT
+><BR><TT
+CLASS="OPTION"
+>--end=<TT
+CLASS="REPLACEABLE"
+><I
+>end</I
+></TT
+></TT
+></DT
+><DD
+><P
+>指定停止读取的日志位置，代替读取的日志流的结尾。
+       </P
+></DD
+><DT
+><TT
+CLASS="OPTION"
+>-n <TT
+CLASS="REPLACEABLE"
+><I
+>limit</I
+></TT
+></TT
+><BR><TT
+CLASS="OPTION"
+>--limit=<TT
+CLASS="REPLACEABLE"
+><I
+>limit</I
+></TT
+></TT
+></DT
+><DD
+><P
+>指定显示记录的条目数。
+       </P
+></DD
+><DT
+><TT
+CLASS="OPTION"
+>-p <TT
+CLASS="REPLACEABLE"
+><I
+>path</I
+></TT
+></TT
+><BR><TT
+CLASS="OPTION"
+>--path=<TT
+CLASS="REPLACEABLE"
+><I
+>path</I
+></TT
+></TT
+></DT
+><DD
+><P
+>        指定搜索WAL段文件的目录。默认从当前目录的 <TT
+CLASS="LITERAL"
+>pg_xlog</TT
+> 
+        子目录去搜索它们。
+       </P
+></DD
+><DT
+><TT
+CLASS="OPTION"
+>-r <TT
+CLASS="REPLACEABLE"
+><I
+>rmgr</I
+></TT
+></TT
+><BR><TT
+CLASS="OPTION"
+>--rmgr=<TT
+CLASS="REPLACEABLE"
+><I
+>rmgr</I
+></TT
+></TT
+></DT
+><DD
+><P
+>过滤由指定资源管理器产生的记录。如果 <TT
+CLASS="LITERAL"
+>list</TT
+> 一个指定一个名字， 
+打印一列合法的资源管理器的名字的记录，然后退出。
+       </P
+></DD
+><DT
+><TT
+CLASS="OPTION"
+>-s <TT
+CLASS="REPLACEABLE"
+><I
+>start</I
+></TT
+></TT
+><BR><TT
+CLASS="OPTION"
+>--start=<TT
+CLASS="REPLACEABLE"
+><I
+>start</I
+></TT
+></TT
+></DT
+><DD
+><P
+>开始读取日志的位置。默认是从最早的文件搜索到的第一个有效的日志记录开始。
+       </P
+></DD
+><DT
+><TT
+CLASS="OPTION"
+>-t <TT
+CLASS="REPLACEABLE"
+><I
+>timeline</I
+></TT
+></TT
+><BR><TT
+CLASS="OPTION"
+>--timelime=<TT
+CLASS="REPLACEABLE"
+><I
+>timeline</I
+></TT
+></TT
+></DT
+><DD
+><P
+>从哪个时间线读取日志记录。如果<TT
+CLASS="LITERAL"
+>startseg</TT
+>的值被指定默认就使用startseg;
+否则默认值是1。 
+       </P
+></DD
+><DT
+><TT
+CLASS="OPTION"
+>-V</TT
+><BR><TT
+CLASS="OPTION"
+>--version</TT
+></DT
+><DD
+><P
+>       打印出 <SPAN
+CLASS="APPLICATION"
+>pg_xlogdump</SPAN
+> 版本并且退出。
+       </P
+></DD
+><DT
+><TT
+CLASS="OPTION"
+>-x <TT
+CLASS="REPLACEABLE"
+><I
+>xid</I
+></TT
+></TT
+><BR><TT
+CLASS="OPTION"
+>--xid=<TT
+CLASS="REPLACEABLE"
+><I
+>xid</I
+></TT
+></TT
+></DT
+><DD
+><P
+>仅显示指定事务ID的记录。
+       </P
+></DD
+><DT
+><TT
+CLASS="OPTION"
+>-?</TT
+><BR><TT
+CLASS="OPTION"
+>--help</TT
+></DT
+><DD
+><P
+>         显示 <SPAN
+CLASS="APPLICATION"
+>pg_xlogdump</SPAN
+> 命令参数帮助，然后退出。 
+        </P
+></DD
+></DL
+></DIV
+><P>
+   </P
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN153332"
+></A
+><H2
+>注意</H2
+><P
+>能在系统运行时得到错误结果。
+  </P
+><P
+>仅显示指定时间线的记录（如果未指定，就用默认值）。其它时间线的记录将被忽略。
+  </P
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN153336"
+></A
+><H2
+>参考</H2
+><A
+HREF="wal-internals.html"
+>Section 29.5</A
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="pgupgrade.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="external-projects.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><SPAN
+CLASS="APPLICATION"
+>pg_upgrade</SPAN
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="contrib-prog-server.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>External Projects</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

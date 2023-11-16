@@ -1,0 +1,778 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>ALTER FUNCTION</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REV="MADE"
+HREF="mailto:pgsql-docs@postgresql.org"><LINK
+REL="HOME"
+TITLE="PostgreSQL 9.3.1 中文文档"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="SQL Commands"
+HREF="sql-commands.html"><LINK
+REL="PREVIOUS"
+TITLE="ALTER FOREIGN TABLE"
+HREF="sql-alterforeigntable.html"><LINK
+REL="NEXT"
+TITLE="ALTER GROUP"
+HREF="sql-altergroup.html"><LINK
+REL="STYLESHEET"
+TYPE="text/css"
+HREF="stylesheet.css"><META
+HTTP-EQUIV="Content-Type"
+CONTENT="text/html; charset=gbk"><META
+NAME="creation"
+CONTENT="2013-12-03T02:30:09"></HEAD
+><BODY
+CLASS="REFENTRY"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="5"
+ALIGN="center"
+VALIGN="bottom"
+><A
+HREF="index.html"
+>PostgreSQL 9.3.1 中文文档</A
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+TITLE="ALTER FOREIGN TABLE"
+HREF="sql-alterforeigntable.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="sql-commands.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="60%"
+ALIGN="center"
+VALIGN="bottom"
+></TD
+><TD
+WIDTH="20%"
+ALIGN="right"
+VALIGN="top"
+><A
+TITLE="ALTER GROUP"
+HREF="sql-altergroup.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><H1
+><A
+NAME="SQL-ALTERFUNCTION"
+></A
+>ALTER FUNCTION</H1
+><DIV
+CLASS="REFNAMEDIV"
+><A
+NAME="AEN65069"
+></A
+><H2
+>Name</H2
+>ALTER FUNCTION&nbsp;--&nbsp;修改一个函数的定义</DIV
+><DIV
+CLASS="REFSYNOPSISDIV"
+><A
+NAME="AEN65074"
+></A
+><H2
+>Synopsis</H2
+><PRE
+CLASS="SYNOPSIS"
+>ALTER FUNCTION <TT
+CLASS="REPLACEABLE"
+><I
+>name</I
+></TT
+> ( [ [ <TT
+CLASS="REPLACEABLE"
+><I
+>argmode</I
+></TT
+> ] [ <TT
+CLASS="REPLACEABLE"
+><I
+>argname</I
+></TT
+> ] <TT
+CLASS="REPLACEABLE"
+><I
+>argtype</I
+></TT
+> [, ...] ] )
+<TT
+CLASS="REPLACEABLE"
+><I
+>action</I
+></TT
+> [ ... ] [ RESTRICT ]
+ALTER FUNCTION <TT
+CLASS="REPLACEABLE"
+><I
+>name</I
+></TT
+> ( [ [ <TT
+CLASS="REPLACEABLE"
+><I
+>argmode</I
+></TT
+> ] [ <TT
+CLASS="REPLACEABLE"
+><I
+>argname</I
+></TT
+> ] <TT
+CLASS="REPLACEABLE"
+><I
+>argtype</I
+></TT
+> [, ...] ] )
+RENAME TO <TT
+CLASS="REPLACEABLE"
+><I
+>new_name</I
+></TT
+>
+ALTER FUNCTION <TT
+CLASS="REPLACEABLE"
+><I
+>name</I
+></TT
+> ( [ [ <TT
+CLASS="REPLACEABLE"
+><I
+>argmode</I
+></TT
+> ] [ <TT
+CLASS="REPLACEABLE"
+><I
+>argname</I
+></TT
+> ] <TT
+CLASS="REPLACEABLE"
+><I
+>argtype</I
+></TT
+> [, ...] ] )
+OWNER TO <TT
+CLASS="REPLACEABLE"
+><I
+>new_owner</I
+></TT
+>
+ALTER FUNCTION <TT
+CLASS="REPLACEABLE"
+><I
+>name</I
+></TT
+> ( [ [ <TT
+CLASS="REPLACEABLE"
+><I
+>argmode</I
+></TT
+> ] [ <TT
+CLASS="REPLACEABLE"
+><I
+>argname</I
+></TT
+> ] <TT
+CLASS="REPLACEABLE"
+><I
+>argtype</I
+></TT
+> [, ...] ] )
+SET SCHEMA <TT
+CLASS="REPLACEABLE"
+><I
+>new_schema</I
+></TT
+>
+<SPAN
+CLASS="phrase"
+><SPAN
+CLASS="PHRASE"
+>where <TT
+CLASS="REPLACEABLE"
+><I
+>action</I
+></TT
+> is one of:</SPAN
+></SPAN
+>
+CALLED ON NULL INPUT | RETURNS NULL ON NULL INPUT | STRICT
+IMMUTABLE | STABLE | VOLATILE | [ NOT ] LEAKPROOF
+[ EXTERNAL ] SECURITY INVOKER | [ EXTERNAL ] SECURITY DEFINER
+COST <TT
+CLASS="REPLACEABLE"
+><I
+>execution_cost</I
+></TT
+>
+ROWS <TT
+CLASS="REPLACEABLE"
+><I
+>result_rows</I
+></TT
+>
+SET <TT
+CLASS="REPLACEABLE"
+><I
+>configuration_parameter</I
+></TT
+> { TO | = } { <TT
+CLASS="REPLACEABLE"
+><I
+>value</I
+></TT
+> | DEFAULT }
+SET <TT
+CLASS="REPLACEABLE"
+><I
+>configuration_parameter</I
+></TT
+> FROM CURRENT
+RESET <TT
+CLASS="REPLACEABLE"
+><I
+>configuration_parameter</I
+></TT
+>
+RESET ALL</PRE
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN65104"
+></A
+><H2
+>描述</H2
+><P
+><TT
+CLASS="COMMAND"
+>ALTER FUNCTION</TT
+> 修改一个函数的定义。</P
+><P
+>要使用<TT
+CLASS="COMMAND"
+>ALTER FUNCTION</TT
+> ，你必须是该函数的所有者。 
+要修改一个函数的模式，你还必须在新模式上拥有 <TT
+CLASS="LITERAL"
+>CREATE</TT
+> 权限。 
+要修改所有者，你必须还是新的所有角色的直接或者间接的成员，并且该成员必须在此函数的模式上有 <TT
+CLASS="LITERAL"
+>CREATE</TT
+> 权限。 
+（这些限制保证了修改所有者和删除、重建函数的动作没啥区别。 不过，超级用户可以用任何方法修改函数的所有关系。） </P
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN65112"
+></A
+><H2
+>参数</H2
+><P
+></P
+><DIV
+CLASS="VARIABLELIST"
+><DL
+><DT
+><TT
+CLASS="REPLACEABLE"
+><I
+>name</I
+></TT
+></DT
+><DD
+><P
+>一个现有的函数名字(可以有模式修饰) 。</P
+></DD
+><DT
+><TT
+CLASS="REPLACEABLE"
+><I
+>argmode</I
+></TT
+></DT
+><DD
+><P
+>参数的模式：<TT
+CLASS="LITERAL"
+>IN</TT
+>、<TT
+CLASS="LITERAL"
+>OUT</TT
+>、<TT
+CLASS="LITERAL"
+>INOUT</TT
+>或是<TT
+CLASS="LITERAL"
+>VARIADIC</TT
+>。
+如省略的话，缺省是<TT
+CLASS="LITERAL"
+>IN</TT
+>。
+注意<TT
+CLASS="COMMAND"
+>ALTER FUNCTION</TT
+> 实际不会关注任何<TT
+CLASS="LITERAL"
+>OUT</TT
+> 参数， 因为确认函数的逻辑只需要知道输入参数。
+因此列出<TT
+CLASS="LITERAL"
+>IN</TT
+>、<TT
+CLASS="LITERAL"
+>INOUT</TT
+>和<TT
+CLASS="LITERAL"
+>VARIADIC</TT
+>参数就足够了。 </P
+></DD
+><DT
+><TT
+CLASS="REPLACEABLE"
+><I
+>argname</I
+></TT
+></DT
+><DD
+><P
+>参数的名字。
+请注意<TT
+CLASS="COMMAND"
+>ALTER FUNCTION</TT
+>实际上不会关注参数的名字，因为只有参数的数据类型用于确认函数的逻辑。</P
+></DD
+><DT
+><TT
+CLASS="REPLACEABLE"
+><I
+>argtype</I
+></TT
+></DT
+><DD
+><P
+>如果有的话，是该函数参数的数据类型(可以用模式修饰)。 </P
+></DD
+><DT
+><TT
+CLASS="REPLACEABLE"
+><I
+>new_name</I
+></TT
+></DT
+><DD
+><P
+>函数的新名字。</P
+></DD
+><DT
+><TT
+CLASS="REPLACEABLE"
+><I
+>new_owner</I
+></TT
+></DT
+><DD
+><P
+>函数的新所有者。请注意如果函数标记为<TT
+CLASS="LITERAL"
+>SECURITY DEFINER</TT
+>，那么它随后将以新的所有者执行。</P
+></DD
+><DT
+><TT
+CLASS="REPLACEABLE"
+><I
+>new_schema</I
+></TT
+></DT
+><DD
+><P
+>函数的新模式名称。</P
+></DD
+><DT
+><TT
+CLASS="LITERAL"
+>CALLED ON NULL INPUT</TT
+><BR><TT
+CLASS="LITERAL"
+>RETURNS NULL ON NULL INPUT</TT
+><BR><TT
+CLASS="LITERAL"
+>STRICT</TT
+></DT
+><DD
+><P
+><TT
+CLASS="LITERAL"
+>CALLED ON NULL INPUT</TT
+> 选项会在函数的部分或是全部的参数是NULL的时候会调用它。
+<TT
+CLASS="LITERAL"
+>RETURNS NULL ON NULL INPUT</TT
+>或<TT
+CLASS="LITERAL"
+>STRICT</TT
+> 把函数改成如果任何一个参数是NULL就根本不执行并且自动返回NULL 。
+参阅<A
+HREF="sql-createfunction.html"
+>CREATE FUNCTION</A
+>获取更多信息。</P
+></DD
+><DT
+><TT
+CLASS="LITERAL"
+>IMMUTABLE</TT
+><BR><TT
+CLASS="LITERAL"
+>STABLE</TT
+><BR><TT
+CLASS="LITERAL"
+>VOLATILE</TT
+></DT
+><DD
+><P
+>把函数的易失属性修改为指定类型。参阅<A
+HREF="sql-createfunction.html"
+>CREATE FUNCTION</A
+>了解更多细节。</P
+></DD
+><DT
+><TT
+CLASS="LITERAL"
+>[<SPAN
+CLASS="OPTIONAL"
+> EXTERNAL </SPAN
+>] SECURITY INVOKER</TT
+><BR><TT
+CLASS="LITERAL"
+>[<SPAN
+CLASS="OPTIONAL"
+> EXTERNAL </SPAN
+>] SECURITY DEFINER</TT
+></DT
+><DD
+><P
+><TT
+CLASS="LITERAL"
+>SECURITY INVOKER</TT
+>表明该函数将带着调用它的用户的权限执行。 
+<TT
+CLASS="LITERAL"
+>SECURITY DEFINER</TT
+> 声明该函数将以创建它的用户的权限执行。
+关键字 <TT
+CLASS="LITERAL"
+>EXTERNAL</TT
+> 不是必需的，仅是为了和 SQL 兼容。参阅 <A
+HREF="sql-createfunction.html"
+>CREATE FUNCTION</A
+> 了解更多细节。</P
+></DD
+><DT
+><TT
+CLASS="LITERAL"
+>LEAKPROOF</TT
+></DT
+><DD
+><P
+>更改函数的密封性。
+参阅 <A
+HREF="sql-createfunction.html"
+>CREATE FUNCTION</A
+> 了解更多细节。</P
+></DD
+><DT
+><TT
+CLASS="LITERAL"
+>COST</TT
+> <TT
+CLASS="REPLACEABLE"
+><I
+>execution_cost</I
+></TT
+></DT
+><DD
+><P
+>更改函数的估计执行成本。 参阅<A
+HREF="sql-createfunction.html"
+>CREATE FUNCTION</A
+>了解更多细节。</P
+></DD
+><DT
+><TT
+CLASS="LITERAL"
+>ROWS</TT
+> <TT
+CLASS="REPLACEABLE"
+><I
+>result_rows</I
+></TT
+></DT
+><DD
+><P
+>更改返回数据集类型函数的返回估计行数。参阅<A
+HREF="sql-createfunction.html"
+>CREATE FUNCTION</A
+>了解更多细节。</P
+></DD
+><DT
+><TT
+CLASS="REPLACEABLE"
+><I
+>configuration_parameter</I
+></TT
+><BR><TT
+CLASS="REPLACEABLE"
+><I
+>value</I
+></TT
+></DT
+><DD
+><P
+>当函数被调用时，添加或者更改对配置参数值的配置。如果 <TT
+CLASS="REPLACEABLE"
+><I
+>value</I
+></TT
+>是<TT
+CLASS="LITERAL"
+>DEFAULT</TT
+>，
+或者相应地<TT
+CLASS="LITERAL"
+>RESET</TT
+>选项被使用，函数的局部设置参数会被清除，这样函数会使用当前环境中的参数值来执行。
+使用<TT
+CLASS="LITERAL"
+>RESET ALL</TT
+>来清理所有的函数局部设置参数。 
+<TT
+CLASS="LITERAL"
+>SET FROM CURRENT</TT
+>保存会话的参数当前值为函数调用时会应用的参数值。</P
+><P
+>参阅<A
+HREF="sql-set.html"
+>SET</A
+>和<A
+HREF="runtime-config.html"
+>Chapter 18</A
+> 了解更多关于允许的参数名称和数值的信息。 </P
+></DD
+><DT
+><TT
+CLASS="LITERAL"
+>RESTRICT</TT
+></DT
+><DD
+><P
+>可忽略的选项，仅为了符合SQL标准。</P
+></DD
+></DL
+></DIV
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN65238"
+></A
+><H2
+>例子</H2
+><P
+> 把参数类型为<TT
+CLASS="TYPE"
+>integer</TT
+>的函数<TT
+CLASS="LITERAL"
+>sqrt</TT
+>重命名为<TT
+CLASS="LITERAL"
+>square_root</TT
+> ： 
+</P><PRE
+CLASS="PROGRAMLISTING"
+>ALTER FUNCTION sqrt(integer) RENAME TO square_root;</PRE
+><P></P
+><P
+> 把参数类型为<TT
+CLASS="TYPE"
+>integer</TT
+>的函数<TT
+CLASS="LITERAL"
+>sqrt</TT
+>的所有者修改为<TT
+CLASS="LITERAL"
+>joe</TT
+> ：
+</P><PRE
+CLASS="PROGRAMLISTING"
+>ALTER FUNCTION sqrt(integer) OWNER TO joe;</PRE
+><P></P
+><P
+> 把参数类型为<TT
+CLASS="TYPE"
+>integer</TT
+>的函数<TT
+CLASS="LITERAL"
+>sqrt</TT
+>的模式修改为<TT
+CLASS="LITERAL"
+>maths</TT
+>： 
+</P><PRE
+CLASS="PROGRAMLISTING"
+>ALTER FUNCTION sqrt(integer) SET SCHEMA maths;</PRE
+><P></P
+><P
+>调整自动为函数设定的搜索路径：
+</P><PRE
+CLASS="PROGRAMLISTING"
+>ALTER FUNCTION check_password(text) SET search_path = admin, pg_temp;</PRE
+><P></P
+><P
+> 禁用针对一个函数的<TT
+CLASS="VARNAME"
+>search_path</TT
+>自动设置：
+</P><PRE
+CLASS="PROGRAMLISTING"
+>ALTER FUNCTION check_password(text) RESET search_path;</PRE
+><P>
+这个函数在执行时所用的搜索路径将是根据调用者所用的搜索路径。</P
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN65260"
+></A
+><H2
+>兼容性</H2
+><P
+>这个语句部分兼容SQL标准里面的<TT
+CLASS="COMMAND"
+>ALTER FUNCTION</TT
+>语句。
+标准允许修改函数的更多属性，但是没有提供修改函数名字的功能， 也没有提供把一个函数定义为安全定义器的功能，
+更没有修改函数所有者、模式、易失性的功能。 标准还要求<TT
+CLASS="LITERAL"
+>RESTRICT</TT
+>关键字，这在<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>里是可选的。 </P
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN65266"
+></A
+><H2
+>参见</H2
+><A
+HREF="sql-createfunction.html"
+>CREATE FUNCTION</A
+>, <A
+HREF="sql-dropfunction.html"
+>DROP FUNCTION</A
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="sql-alterforeigntable.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="sql-altergroup.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>ALTER FOREIGN TABLE</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="sql-commands.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>ALTER GROUP</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

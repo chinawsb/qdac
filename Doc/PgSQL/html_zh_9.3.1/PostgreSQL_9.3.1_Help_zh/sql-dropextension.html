@@ -1,0 +1,330 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>DROP EXTENSION</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REV="MADE"
+HREF="mailto:pgsql-docs@postgresql.org"><LINK
+REL="HOME"
+TITLE="PostgreSQL 9.3.1 中文文档"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="SQL Commands"
+HREF="sql-commands.html"><LINK
+REL="PREVIOUS"
+TITLE="DROP DOMAIN"
+HREF="sql-dropdomain.html"><LINK
+REL="NEXT"
+TITLE="DROP EVENT TRIGGER"
+HREF="sql-dropeventtrigger.html"><LINK
+REL="STYLESHEET"
+TYPE="text/css"
+HREF="stylesheet.css"><META
+HTTP-EQUIV="Content-Type"
+CONTENT="text/html; charset=gbk"><META
+NAME="creation"
+CONTENT="2013-12-03T02:30:09"></HEAD
+><BODY
+CLASS="REFENTRY"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="5"
+ALIGN="center"
+VALIGN="bottom"
+><A
+HREF="index.html"
+>PostgreSQL 9.3.1 中文文档</A
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+TITLE="DROP DOMAIN"
+HREF="sql-dropdomain.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="sql-commands.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="60%"
+ALIGN="center"
+VALIGN="bottom"
+></TD
+><TD
+WIDTH="20%"
+ALIGN="right"
+VALIGN="top"
+><A
+TITLE="DROP EVENT TRIGGER"
+HREF="sql-dropeventtrigger.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><H1
+><A
+NAME="SQL-DROPEXTENSION"
+></A
+>DROP EXTENSION</H1
+><DIV
+CLASS="REFNAMEDIV"
+><A
+NAME="AEN75630"
+></A
+><H2
+>Name</H2
+>DROP EXTENSION&nbsp;--&nbsp;删除一个扩展</DIV
+><DIV
+CLASS="REFSYNOPSISDIV"
+><A
+NAME="AEN75635"
+></A
+><H2
+>Synopsis</H2
+><PRE
+CLASS="SYNOPSIS"
+>DROP EXTENSION [ IF EXISTS ] <TT
+CLASS="REPLACEABLE"
+><I
+>name</I
+></TT
+> [, ...] [ CASCADE | RESTRICT ]</PRE
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN75638"
+></A
+><H2
+>描述</H2
+><P
+>   <TT
+CLASS="COMMAND"
+>DROP EXTENSION</TT
+> 命令从数据库中删除一个扩展。
+   在删除扩展的过程中，构成扩展的组件也会一起删除。
+  </P
+><P
+>   必须是扩展的拥有者才能够使用<TT
+CLASS="COMMAND"
+>DROP EXTENSION</TT
+>命令。
+  </P
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN75644"
+></A
+><H2
+>参数</H2
+><P
+></P
+><DIV
+CLASS="VARIABLELIST"
+><DL
+><DT
+><TT
+CLASS="LITERAL"
+>IF EXISTS</TT
+></DT
+><DD
+><P
+>      当使用<TT
+CLASS="LITERAL"
+>IF EXISTS</TT
+>参数，如果扩展不存在时，不会抛出错误，而是产生一个通知。
+     </P
+></DD
+><DT
+><TT
+CLASS="REPLACEABLE"
+><I
+>name</I
+></TT
+></DT
+><DD
+><P
+>      已经安装的扩展模块的名称。
+     </P
+></DD
+><DT
+><TT
+CLASS="LITERAL"
+>CASCADE</TT
+></DT
+><DD
+><P
+>      自动删除依赖于该扩展的对象。
+     </P
+></DD
+><DT
+><TT
+CLASS="LITERAL"
+>RESTRICT</TT
+></DT
+><DD
+><P
+>      如果有依赖于扩展的对象，则不允许删除次扩展（除非它所有的成员对象和其它扩展对象在一条
+      <TT
+CLASS="COMMAND"
+>DROP</TT
+>命令一起删除）。
+      这是缺省行为。
+     </P
+></DD
+></DL
+></DIV
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN75669"
+></A
+><H2
+>例子</H2
+><P
+>   从当前数据库中删除扩展<TT
+CLASS="LITERAL"
+>hstore</TT
+>
+</P><PRE
+CLASS="PROGRAMLISTING"
+>DROP EXTENSION hstore;</PRE
+><P>
+   在当前数据库中，如果有使用<TT
+CLASS="LITERAL"
+>hstore</TT
+>的对象的，这条命令就会失败，比如
+   任一表中的字段使用<TT
+CLASS="TYPE"
+>hstore</TT
+>类型。这时增加<TT
+CLASS="LITERAL"
+>CASCADE</TT
+>选项会强制删除扩展和
+   依赖于扩展的对象。
+  </P
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN75677"
+></A
+><H2
+>兼容性</H2
+><P
+>   <TT
+CLASS="COMMAND"
+>DROP EXTENSION</TT
+>是<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>的扩展。
+  </P
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN75682"
+></A
+><H2
+>又见</H2
+><A
+HREF="sql-createextension.html"
+>CREATE EXTENSION</A
+>, <A
+HREF="sql-alterextension.html"
+>ALTER EXTENSION</A
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="sql-dropdomain.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="sql-dropeventtrigger.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>DROP DOMAIN</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="sql-commands.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>DROP EVENT TRIGGER</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

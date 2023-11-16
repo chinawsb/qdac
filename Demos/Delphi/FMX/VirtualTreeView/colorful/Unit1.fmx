@@ -1,0 +1,138 @@
+object frmGridStyles: TfrmGridStyles
+  Left = 0
+  Top = 0
+  Caption = 'Grid Style demos'
+  ClientHeight = 226
+  ClientWidth = 640
+  FormFactor.Width = 320
+  FormFactor.Height = 480
+  FormFactor.Devices = [Desktop]
+  DesignerMasterStyle = 0
+  object QVirtualTreeView1: TQVirtualTreeView
+    Stroke.Color = xFF4F81BD
+    SelectionColor = claSteelblue
+    HoverColor = claLightpink
+    TintColor = claLightblue
+    NodeIndent = 16.000000000000000000
+    Header.Columns = <
+      item
+        TextSettings.HorzAlign = Leading
+        Title.TextSettings.FontColor = claWhite
+        Title.TextSettings.HorzAlign = Center
+        Title.Fill.Color = xFF4F81BD
+        Title.Text = 'Color'
+        Title.DrawerType = dtHeader
+        Title.Clickable = False
+        Title.SortOnClick = False
+        Title.SortMarker = smNone
+        Frozen = False
+        Visible = True
+        ReadOnly = False
+        Enabled = True
+        DrawerType = dtText
+        Width = 75.000000000000000000
+        CellData = QVTCustomTextCell1
+        Editor = QVTTextEditor1
+        Tag = 0
+      end
+      item
+        TextSettings.HorzAlign = Leading
+        Title.TextSettings.FontColor = claWhite
+        Title.TextSettings.HorzAlign = Center
+        Title.Fill.Color = xFF4F81BD
+        Title.Text = 'Name'
+        Title.DrawerType = dtHeader
+        Title.Clickable = False
+        Title.SortOnClick = False
+        Title.SortMarker = smNone
+        Frozen = False
+        Visible = True
+        ReadOnly = False
+        Enabled = True
+        DrawerType = dtDefault
+        Width = 102.000000000000000000
+        CellData = QVTCustomTextCell1
+        Editor = QVTTextEditor1
+        Tag = 0
+      end
+      item
+        TextSettings.HorzAlign = Leading
+        Title.TextSettings.FontColor = claWhite
+        Title.TextSettings.HorzAlign = Center
+        Title.Fill.Color = xFF4F81BD
+        Title.Text = 'Title'
+        Title.DrawerType = dtHeader
+        Title.Clickable = False
+        Title.SortOnClick = False
+        Title.SortMarker = smNone
+        Frozen = False
+        Visible = True
+        ReadOnly = False
+        Enabled = True
+        DrawerType = dtDefault
+        Width = 120.000000000000000000
+        CellData = QVTCustomTextCell1
+        Editor = QVTTextEditor1
+        Tag = 0
+      end>
+    Header.Options = [hoVisible, hoResizable]
+    Header.MasterColumn = 0
+    Header.AutoSizeColumn = 1
+    Header.Height = 20.000000000000000000
+    DefaultRowHeight = 20.000000000000000000
+    Options = [toEditable, toClickToEdit]
+    PaintOptions = [poHorizLine, poVertLine, poRowSelection, poNodeButton]
+    RootNodeCount = 7
+    ColSpace = 1.000000000000000000
+    RowSpace = 0.000000000000000000
+    OnInitNode = QVirtualTreeView1InitNode
+    OnGetNodeBackground = QVirtualTreeView1GetNodeBackground
+    HitTest = True
+    Position.X = 16.000000000000000000
+    Position.Y = 16.000000000000000000
+    Size.Width = 300.000000000000000000
+    Size.Height = 185.000000000000000000
+    Size.PlatformDefault = False
+    TextSettings.HorzAlign = Leading
+    TextSettings.WordWrap = False
+    TabOrder = 0
+  end
+  object Memo1: TMemo
+    Touch.InteractiveGestures = [Pan, LongTap, DoubleTap]
+    DataDetectorTypes = []
+    Lines.Strings = (
+      
+        'A bit better example to show interline color display effect of Q' +
+        'VirtualTreeView.'
+      'Art is not my specialty. I hope you can do better.')
+    TextSettings.WordWrap = True
+    Position.X = 336.000000000000000000
+    Position.Y = 16.000000000000000000
+    Size.Width = 281.000000000000000000
+    Size.Height = 193.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 2
+    Viewport.Width = 277.000000000000000000
+    Viewport.Height = 189.000000000000000000
+  end
+  object QVTCustomTextCell1: TQVTCustomTextCell
+    Enabled = True
+    Sides = [Top, Left, Bottom, Right]
+    TextSettings.HorzAlign = Leading
+    OnGetText = QVTCustomTextCell1GetText
+    Left = 256
+    Top = 48
+  end
+  object QVTTextEditor1: TQVTTextEditor
+    EnterAsTab = False
+    Left = 304
+    Top = 112
+  end
+  object QVTPickListCell1: TQVTPickListCell
+    Enabled = True
+    Sides = [Top, Left, Bottom, Right]
+    TextSettings.HorzAlign = Leading
+    Left = 304
+    Top = 96
+  end
+end

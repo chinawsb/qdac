@@ -1,3 +1,4 @@
-# qdac
+## QDAC3
 
-QDAC 3.0 
+Quick Data Access Components 3.0
+

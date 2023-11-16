@@ -1,0 +1,323 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>SQL语法</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REV="MADE"
+HREF="mailto:pgsql-docs@postgresql.org"><LINK
+REL="HOME"
+TITLE="PostgreSQL 9.3.1 中文文档"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="SQL 语言"
+HREF="sql.html"><LINK
+REL="PREVIOUS"
+TITLE="SQL 语言"
+HREF="sql.html"><LINK
+REL="NEXT"
+TITLE="词法结构"
+HREF="sql-syntax-lexical.html"><LINK
+REL="STYLESHEET"
+TYPE="text/css"
+HREF="stylesheet.css"><META
+HTTP-EQUIV="Content-Type"
+CONTENT="text/html; charset=gbk"><META
+NAME="creation"
+CONTENT="2013-12-03T02:30:09"></HEAD
+><BODY
+CLASS="CHAPTER"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="5"
+ALIGN="center"
+VALIGN="bottom"
+><A
+HREF="index.html"
+>PostgreSQL 9.3.1 中文文档</A
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+TITLE="SQL 语言"
+HREF="sql.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="sql.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="60%"
+ALIGN="center"
+VALIGN="bottom"
+></TD
+><TD
+WIDTH="20%"
+ALIGN="right"
+VALIGN="top"
+><A
+TITLE="词法结构"
+HREF="sql-syntax-lexical.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="CHAPTER"
+><H1
+><A
+NAME="SQL-SYNTAX"
+></A
+>Chapter 4. SQL语法</H1
+><DIV
+CLASS="TOC"
+><DL
+><DT
+><B
+>Table of Contents</B
+></DT
+><DT
+>4.1. <A
+HREF="sql-syntax-lexical.html"
+>词法结构</A
+></DT
+><DD
+><DL
+><DT
+>4.1.1. <A
+HREF="sql-syntax-lexical.html#SQL-SYNTAX-IDENTIFIERS"
+>标识符和关键字</A
+></DT
+><DT
+>4.1.2. <A
+HREF="sql-syntax-lexical.html#SQL-SYNTAX-CONSTANTS"
+>常量</A
+></DT
+><DT
+>4.1.3. <A
+HREF="sql-syntax-lexical.html#SQL-SYNTAX-OPERATORS"
+>操作符</A
+></DT
+><DT
+>4.1.4. <A
+HREF="sql-syntax-lexical.html#SQL-SYNTAX-SPECIAL-CHARS"
+>特殊字符</A
+></DT
+><DT
+>4.1.5. <A
+HREF="sql-syntax-lexical.html#SQL-SYNTAX-COMMENTS"
+>注释</A
+></DT
+><DT
+>4.1.6. <A
+HREF="sql-syntax-lexical.html#SQL-PRECEDENCE"
+>操作符优先级</A
+></DT
+></DL
+></DD
+><DT
+>4.2. <A
+HREF="sql-expressions.html"
+>值表达式</A
+></DT
+><DD
+><DL
+><DT
+>4.2.1. <A
+HREF="sql-expressions.html#SQL-EXPRESSIONS-COLUMN-REFS"
+>字段引用</A
+></DT
+><DT
+>4.2.2. <A
+HREF="sql-expressions.html#SQL-EXPRESSIONS-PARAMETERS-POSITIONAL"
+>位置参数</A
+></DT
+><DT
+>4.2.3. <A
+HREF="sql-expressions.html#SQL-EXPRESSIONS-SUBSCRIPTS"
+>下标</A
+></DT
+><DT
+>4.2.4. <A
+HREF="sql-expressions.html#FIELD-SELECTION"
+>字段选择</A
+></DT
+><DT
+>4.2.5. <A
+HREF="sql-expressions.html#SQL-EXPRESSIONS-OPERATOR-CALLS"
+>操作符调用</A
+></DT
+><DT
+>4.2.6. <A
+HREF="sql-expressions.html#SQL-EXPRESSIONS-FUNCTION-CALLS"
+>函数调用</A
+></DT
+><DT
+>4.2.7. <A
+HREF="sql-expressions.html#SYNTAX-AGGREGATES"
+>聚集表达式</A
+></DT
+><DT
+>4.2.8. <A
+HREF="sql-expressions.html#SYNTAX-WINDOW-FUNCTIONS"
+>窗口调用函数</A
+></DT
+><DT
+>4.2.9. <A
+HREF="sql-expressions.html#SQL-SYNTAX-TYPE-CASTS"
+>类型转换</A
+></DT
+><DT
+>4.2.10. <A
+HREF="sql-expressions.html#SQL-SYNTAX-COLLATE-EXPRS"
+>排序规则表达式</A
+></DT
+><DT
+>4.2.11. <A
+HREF="sql-expressions.html#SQL-SYNTAX-SCALAR-SUBQUERIES"
+>标量子查询</A
+></DT
+><DT
+>4.2.12. <A
+HREF="sql-expressions.html#SQL-SYNTAX-ARRAY-CONSTRUCTORS"
+>数组构造器</A
+></DT
+><DT
+>4.2.13. <A
+HREF="sql-expressions.html#SQL-SYNTAX-ROW-CONSTRUCTORS"
+>行构造器</A
+></DT
+><DT
+>4.2.14. <A
+HREF="sql-expressions.html#SYNTAX-EXPRESS-EVAL"
+>表达式计算规则</A
+></DT
+></DL
+></DD
+><DT
+>4.3. <A
+HREF="sql-syntax-calling-funcs.html"
+>调用函数</A
+></DT
+><DD
+><DL
+><DT
+>4.3.1. <A
+HREF="sql-syntax-calling-funcs.html#SQL-SYNTAX-CALLING-FUNCS-POSITIONAL"
+>使用位置表示法</A
+></DT
+><DT
+>4.3.2. <A
+HREF="sql-syntax-calling-funcs.html#SQL-SYNTAX-CALLING-FUNCS-NAMED"
+>使用名称表示法</A
+></DT
+><DT
+>4.3.3. <A
+HREF="sql-syntax-calling-funcs.html#SQL-SYNTAX-CALLING-FUNCS-MIXED"
+>使用混合表示法</A
+></DT
+></DL
+></DD
+></DL
+></DIV
+><P
+>本章描述 SQL 的语法。这些内容是理解随后各章的基础，
+那些章里面将详细介绍 SQL 命令如何用于定义和修改数据。
+ </P
+><P
+>我们也建议那些已经很熟悉 SQL 的用户仔细阅读本章，因为有一些规则和概念在 SQL
+数据库之间并不一致，或者是有些东西是<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>特有的。 </P
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="sql.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="sql-syntax-lexical.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>SQL 语言</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="sql.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>词法结构</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

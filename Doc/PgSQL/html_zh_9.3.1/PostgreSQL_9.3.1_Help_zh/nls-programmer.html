@@ -1,0 +1,463 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>寄语程序员</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REV="MADE"
+HREF="mailto:pgsql-docs@postgresql.org"><LINK
+REL="HOME"
+TITLE="PostgreSQL 9.3.1 中文文档"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="本地语言支持"
+HREF="nls.html"><LINK
+REL="PREVIOUS"
+TITLE="寄语翻译家"
+HREF="nls-translator.html"><LINK
+REL="NEXT"
+TITLE="Writing A Procedural Language Handler"
+HREF="plhandler.html"><LINK
+REL="STYLESHEET"
+TYPE="text/css"
+HREF="stylesheet.css"><META
+HTTP-EQUIV="Content-Type"
+CONTENT="text/html; charset=gbk"><META
+NAME="creation"
+CONTENT="2013-12-03T02:30:09"></HEAD
+><BODY
+CLASS="SECT1"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="5"
+ALIGN="center"
+VALIGN="bottom"
+><A
+HREF="index.html"
+>PostgreSQL 9.3.1 中文文档</A
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+TITLE="寄语翻译家"
+HREF="nls-translator.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="nls.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="60%"
+ALIGN="center"
+VALIGN="bottom"
+>Chapter 50. 本地语言支持</TD
+><TD
+WIDTH="20%"
+ALIGN="right"
+VALIGN="top"
+><A
+TITLE="Writing A Procedural Language Handler"
+HREF="plhandler.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="SECT1"
+><H1
+CLASS="SECT1"
+><A
+NAME="NLS-PROGRAMMER"
+>50.2. 寄语程序员</A
+></H1
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="NLS-MECHANICS"
+>50.2.1. 机理</A
+></H2
+><P
+>本节描述如何在属于 <SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+> 版本的程序或者库里面支持本地语言。
+目前它只适用于 C 语言。
+  </P
+><DIV
+CLASS="PROCEDURE"
+><P
+><B
+>向程序中增加 NLS 支持</B
+></P
+><OL
+TYPE="1"
+><LI
+CLASS="STEP"
+><P
+>把下面的代码插入到程序的开头：
+</P><PRE
+CLASS="PROGRAMLISTING"
+>#ifdef ENABLE_NLS
+#include &lt;locale.h&gt;
+#endif
+
+...
+
+#ifdef ENABLE_NLS
+setlocale(LC_ALL, "");
+bindtextdomain("<TT
+CLASS="REPLACEABLE"
+><I
+>progname</I
+></TT
+>", LOCALEDIR);
+textdomain("<TT
+CLASS="REPLACEABLE"
+><I
+>progname</I
+></TT
+>");
+#endif</PRE
+><P>
+（这里的 <TT
+CLASS="REPLACEABLE"
+><I
+>progname</I
+></TT
+> 实际上可以自由选择。）
+    </P
+></LI
+><LI
+CLASS="STEP"
+><P
+>如果发现一条需要翻译的消息，那么就需要插入一个对 <CODE
+CLASS="FUNCTION"
+>gettext()</CODE
+> 的调用。比如
+</P><PRE
+CLASS="PROGRAMLISTING"
+>fprintf(stderr, "panic level %d\n", lvl);</PRE
+><P>
+会改成
+</P><PRE
+CLASS="PROGRAMLISTING"
+>fprintf(stderr, gettext("panic level %d\n"), lvl);</PRE
+><P>
+（如果没有配置 NLS ，那么 <TT
+CLASS="SYMBOL"
+>gettext</TT
+> 会定义成空操作。）
+    </P
+><P
+>这么干会出现一堆东西。一种常用的缩写是
+</P><PRE
+CLASS="PROGRAMLISTING"
+>#define _(x) gettext(x)</PRE
+><P>
+如果程序只通过一个或者少数几个函数做大部分的消息传递，比如后端里的 <CODE
+CLASS="FUNCTION"
+>ereport()</CODE
+> ，
+那么也可以用另外一个方法。在这些函数的内部对所有输入字符串调用 <CODE
+CLASS="FUNCTION"
+>gettext</CODE
+> 。
+    </P
+></LI
+><LI
+CLASS="STEP"
+><P
+>在程序源代码所在的目录里加一个文件 <TT
+CLASS="FILENAME"
+>nls.mk</TT
+> 。
+这个文件将被当做 makefile 读取。在这里需要做下面一些变量的赋值：
+     <P
+></P
+></P><DIV
+CLASS="VARIABLELIST"
+><DL
+><DT
+><TT
+CLASS="VARNAME"
+>CATALOG_NAME</TT
+></DT
+><DD
+><P
+>那些在 <CODE
+CLASS="FUNCTION"
+>textdomain()</CODE
+> 调用里提供的程序的名字。
+        </P
+></DD
+><DT
+><TT
+CLASS="VARNAME"
+>AVAIL_LANGUAGES</TT
+></DT
+><DD
+><P
+>提供的翻译的语言列表，开始的时候是空的。
+        </P
+></DD
+><DT
+><TT
+CLASS="VARNAME"
+>GETTEXT_FILES</TT
+></DT
+><DD
+><P
+>一列包含可翻译字符串的文件，也就是那些用 <CODE
+CLASS="FUNCTION"
+>gettext</CODE
+> 或者其它相应手段标记了的文件。
+最终，这里会包括几乎所有的程序源文件。如果列表太长，你可以把第一个<SPAN
+CLASS="QUOTE"
+>"文件"</SPAN
+>写成一个
+ <TT
+CLASS="LITERAL"
+>+</TT
+> 和第二个词组成，第二个词是一个文件，在这个文件里每行包含一个文件名。
+        </P
+></DD
+><DT
+><TT
+CLASS="VARNAME"
+>GETTEXT_TRIGGERS</TT
+></DT
+><DD
+><P
+>生成给翻译者使用的消息表的工具，以便知道哪些函数调用包含可翻译字符串。
+缺省时只知道 <CODE
+CLASS="FUNCTION"
+>gettext()</CODE
+> 调用。
+如果你使用了 <CODE
+CLASS="FUNCTION"
+>_</CODE
+> 或其它标识符，那么你需要把它们列在这里。
+如果可翻译字符串不是第一个参数，那么该项需要是这样的形式：<TT
+CLASS="LITERAL"
+>func:2</TT
+> (用于第二给参数)。
+如果函数支持多个消息，那么该项看起来就像这样:<TT
+CLASS="LITERAL"
+>func:1,2</TT
+>(识别单个和多个消息参数)。
+        </P
+></DD
+></DL
+></DIV
+><P>
+    </P
+></LI
+></OL
+></DIV
+><P
+>编译系统将自动制作和安装消息表。
+  </P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="NLS-GUIDELINES"
+>50.2.2. 消息书写指导</A
+></H2
+><P
+>这里是一些关于如何书写易于翻译的消息的指导：
+   <P
+></P
+></P><UL
+><LI
+><P
+>不要在运行时构造语句，比如像
+</P><PRE
+CLASS="PROGRAMLISTING"
+>printf("Files were %s.\n", flag ? "copied" : "removed");</PRE
+><P>
+语句里这样的单词顺序会让其它语言很难翻译。
+而且，即使你记得在每个片断上调用 <CODE
+CLASS="FUNCTION"
+>gettext()</CODE
+>，这些片断也不一定能很好地独立翻译。
+最好复制一些代码，好让每条消息可以当作有机的整体进行翻译。
+只有数字，文件名和类似的运行时变量才应该在运行时插入消息文本。
+     </P
+></LI
+><LI
+><P
+>出于类似的原因，下面的东西不能用：
+</P><PRE
+CLASS="PROGRAMLISTING"
+>printf("copied %d file%s", n, n!=1 ? "s" : "");</PRE
+><P>
+因为它假设了如何形成复数形。如果你看到这样的东西，你可以用下面方法解决
+</P><PRE
+CLASS="PROGRAMLISTING"
+>if (n==1)
+    printf("copied 1 file");
+else
+    printf("copied %d files", n):</PRE
+><P>
+不过还是有让人失望的时候，有些语言在某些特殊规则上有超过两种形式。
+通常最好是通过消息的设计避免这些东西，比如你可以这样写：
+</P><PRE
+CLASS="PROGRAMLISTING"
+>printf("number of copied files: %d", n);</PRE
+><P>
+     </P
+><P
+>如果你真的要构造一条恰当的复数形消息，也是支持的，但形式上有一点笨拙。
+比如当通过<CODE
+CLASS="FUNCTION"
+>ereport()</CODE
+>生成一条概要或者详细消息时，你可以这样写：
+</P><PRE
+CLASS="PROGRAMLISTING"
+>errmsg_plural("copied %d file",
+              "copied %d files",
+              n,
+              n)</PRE
+><P>
+第一个参数是对应英文单数形的格式字符串，第二个参数是对应英文复数形的格式字符串，第三个参数是决定是否是复数形的一个整数值。
+随后的参数和通常一样对应与格式字符串中的参数值。（通常，控制复数形的值也是格式字符串中的其中一个参数。）
+英语中只关心<TT
+CLASS="REPLACEABLE"
+><I
+>n</I
+></TT
+>是不是1，但其它语言中可能有多个复数形。
+针对英文中作为一组的2个格式字符串，翻译者能够为根据<TT
+CLASS="REPLACEABLE"
+><I
+>n</I
+></TT
+>的运行值选中的恰当的那个提供多个替代字符串。
+     </P
+><P
+>如果你需要一条不直接调用<CODE
+CLASS="FUNCTION"
+>errmsg</CODE
+>或<CODE
+CLASS="FUNCTION"
+>errdetail</CODE
+>的复数形消息，
+必须使用下层的<CODE
+CLASS="FUNCTION"
+>ngettext</CODE
+>函数。具体参考gettext的文档。
+     </P
+></LI
+><LI
+><P
+>如果你想和翻译者进行交流，比如说一条消息是如何与其它输出对齐的，那么在该字符串出现之前，放上一条以 <TT
+CLASS="LITERAL"
+>translator</TT
+> 开头的注释，比如
+</P><PRE
+CLASS="PROGRAMLISTING"
+>/* translator: This message is not what it seems to be. */</PRE
+><P>
+这些注释都拷贝到消息表文件里，这样翻译者就可以看见它们了。
+     </P
+></LI
+></UL
+><P>
+  </P
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="nls-translator.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="plhandler.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>寄语翻译家</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="nls.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>Writing A Procedural Language Handler</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

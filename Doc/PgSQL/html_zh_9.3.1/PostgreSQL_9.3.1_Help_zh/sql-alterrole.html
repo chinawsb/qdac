@@ -1,0 +1,723 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>ALTER ROLE</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REV="MADE"
+HREF="mailto:pgsql-docs@postgresql.org"><LINK
+REL="HOME"
+TITLE="PostgreSQL 9.3.1 中文文档"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="SQL Commands"
+HREF="sql-commands.html"><LINK
+REL="PREVIOUS"
+TITLE="ALTER OPERATOR FAMILY"
+HREF="sql-alteropfamily.html"><LINK
+REL="NEXT"
+TITLE="ALTER RULE"
+HREF="sql-alterrule.html"><LINK
+REL="STYLESHEET"
+TYPE="text/css"
+HREF="stylesheet.css"><META
+HTTP-EQUIV="Content-Type"
+CONTENT="text/html; charset=gbk"><META
+NAME="creation"
+CONTENT="2013-12-03T02:30:09"></HEAD
+><BODY
+CLASS="REFENTRY"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="5"
+ALIGN="center"
+VALIGN="bottom"
+><A
+HREF="index.html"
+>PostgreSQL 9.3.1 中文文档</A
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+TITLE="ALTER OPERATOR FAMILY"
+HREF="sql-alteropfamily.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="sql-commands.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="60%"
+ALIGN="center"
+VALIGN="bottom"
+></TD
+><TD
+WIDTH="20%"
+ALIGN="right"
+VALIGN="top"
+><A
+TITLE="ALTER RULE"
+HREF="sql-alterrule.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><H1
+><A
+NAME="SQL-ALTERROLE"
+></A
+>ALTER ROLE</H1
+><DIV
+CLASS="REFNAMEDIV"
+><A
+NAME="AEN65966"
+></A
+><H2
+>Name</H2
+>ALTER ROLE&nbsp;--&nbsp;修改一个数据库角色</DIV
+><DIV
+CLASS="REFSYNOPSISDIV"
+><A
+NAME="AEN65971"
+></A
+><H2
+>Synopsis</H2
+><PRE
+CLASS="SYNOPSIS"
+>ALTER ROLE <TT
+CLASS="REPLACEABLE"
+><I
+>name</I
+></TT
+> [ [ WITH ] <TT
+CLASS="REPLACEABLE"
+><I
+>option</I
+></TT
+> [ ... ] ]
+
+
+<SPAN
+CLASS="phrase"
+><SPAN
+CLASS="PHRASE"
+>这里的 <TT
+CLASS="REPLACEABLE"
+><I
+>option</I
+></TT
+> 可以是：</SPAN
+></SPAN
+>
+
+SUPERUSER | NOSUPERUSER
+| CREATEDB | NOCREATEDB
+| CREATEROLE | NOCREATEROLE
+| CREATEUSER | NOCREATEUSER
+| INHERIT | NOINHERIT
+| LOGIN | NOLOGIN
+| REPLICATION | NOREPLICATION
+| CONNECTION LIMIT <TT
+CLASS="REPLACEABLE"
+><I
+>connlimit</I
+></TT
+>
+| [ ENCRYPTED | UNENCRYPTED ] PASSWORD '<TT
+CLASS="REPLACEABLE"
+><I
+>password</I
+></TT
+>'
+| VALID UNTIL '<TT
+CLASS="REPLACEABLE"
+><I
+>timestamp</I
+></TT
+>'
+
+ALTER ROLE <TT
+CLASS="REPLACEABLE"
+><I
+>name</I
+></TT
+> RENAME TO <TT
+CLASS="REPLACEABLE"
+><I
+>new_name</I
+></TT
+>
+
+ALTER ROLE <TT
+CLASS="REPLACEABLE"
+><I
+>name</I
+></TT
+> [ IN DATABASE <TT
+CLASS="REPLACEABLE"
+><I
+>database_name</I
+></TT
+> ] SET <TT
+CLASS="REPLACEABLE"
+><I
+>configuration_parameter</I
+></TT
+> { TO | = } { <TT
+CLASS="REPLACEABLE"
+><I
+>value</I
+></TT
+> | DEFAULT }
+ALTER ROLE { <TT
+CLASS="REPLACEABLE"
+><I
+>name</I
+></TT
+> | ALL } [ IN DATABASE <TT
+CLASS="REPLACEABLE"
+><I
+>database_name</I
+></TT
+> ] SET <TT
+CLASS="REPLACEABLE"
+><I
+>configuration_parameter</I
+></TT
+> FROM CURRENT
+ALTER ROLE { <TT
+CLASS="REPLACEABLE"
+><I
+>name</I
+></TT
+> | ALL } [ IN DATABASE <TT
+CLASS="REPLACEABLE"
+><I
+>database_name</I
+></TT
+> ] RESET <TT
+CLASS="REPLACEABLE"
+><I
+>configuration_parameter</I
+></TT
+>
+ALTER ROLE { <TT
+CLASS="REPLACEABLE"
+><I
+>name</I
+></TT
+> | ALL } [ IN DATABASE <TT
+CLASS="REPLACEABLE"
+><I
+>database_name</I
+></TT
+> ] RESET ALL</PRE
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN65994"
+></A
+><H2
+>描述</H2
+><P
+><TT
+CLASS="COMMAND"
+>ALTER ROLE</TT
+>修改一个<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>角色的属性。</P
+><P
+>这个命令的第一种形式可以修改很多<A
+HREF="sql-createrole.html"
+>CREATE ROLE</A
+>里面声明的角色属性。
+（除了增加和删除成员关系的选项之外，所有可能的属性都有介绍；使用<A
+HREF="sql-grant.html"
+>GRANT</A
+>和<A
+HREF="sql-revoke.html"
+>REVOKE</A
+>可以实现前述两件事。)
+没有在命令里提到的属性维持它们以前的设置。数据库超级用户可以给任何角色改变任何设置。
+拥有<TT
+CLASS="LITERAL"
+>CREATEROLE</TT
+>权限的角色可以修改任意这些设置，但是只能给非超级用户角色设置。普通的角色只能修改它们自己的口令。</P
+><P
+>第二种形式可以修改角色的名称。数据库超级用户可以修改任何角色的名称。
+拥有<TT
+CLASS="LITERAL"
+>CREATEROLE</TT
+>权限的角色可以给非超级用户角色进行重命名。
+当前会话的用户的角色是不能改名的。（如果一定需要这么做，则必须以另外一个用户的身份连接系统。）
+因为<TT
+CLASS="LITERAL"
+>MD5</TT
+>加密的口令使用角色名字作为加密的参数因子，所以， 如果口令是<TT
+CLASS="LITERAL"
+>MD5</TT
+>加密的，那么给一个角色改名会清空其口令。</P
+><P
+>其他的形式为一个配置变量更改一个角色的会话默认值，要么是对所有的数据库，
+要么是当<TT
+CLASS="LITERAL"
+>IN DATABASE</TT
+>选项使用时，仅针对指定的数据库中的会话。 
+如果是未指定角色名称而是使用了<TT
+CLASS="LITERAL"
+>ALL</TT
+>选项，则所有角色的相关参数都会更改。
+当同时使用<TT
+CLASS="LITERAL"
+>ALL</TT
+>和<TT
+CLASS="LITERAL"
+>IN DATABASE</TT
+>选项时，就等同于使用<TT
+CLASS="LITERAL"
+>ALTER DATABASE ... SET ...</TT
+>。</P
+><P
+>当角色随后开启一个新会话，指定的值变成了会话的默认值，这些参数值会覆盖任何<TT
+CLASS="FILENAME"
+>postgresql.conf</TT
+>中的设置或者从<TT
+CLASS="COMMAND"
+>postgres</TT
+> 命令行接收到的参数值。
+这仅在登录时发生；执行<A
+HREF="sql-set-role.html"
+>SET ROLE</A
+>或者<A
+HREF="sql-set-session-authorization.html"
+>SET SESSION AUTHORIZATION</A
+>不会引起新的配置值设置。 
+为所有数据库所设定的参数会被附加到一个角色上的特定数据库的参数所覆盖。为指定数据库或指定角色所设定的参数会覆盖为所有角色设定的参数。</P
+><P
+>超级用户可以更改任何一个会话默认值。有<TT
+CLASS="LITERAL"
+>CREATEROLE</TT
+>权限的角色可以为非超级用户角色更改默认值。
+普通的角色只能为自己设置默认值。 某些配置变量不能这样设置。
+只有超级用户才能为所有数据库中的所有角色更改参数设置。</P
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN66021"
+></A
+><H2
+>参数</H2
+><P
+></P
+><DIV
+CLASS="VARIABLELIST"
+><DL
+><DT
+><TT
+CLASS="REPLACEABLE"
+><I
+>name</I
+></TT
+></DT
+><DD
+><P
+>需要修改属性的角色的名称。</P
+></DD
+><DT
+><TT
+CLASS="LITERAL"
+>SUPERUSER</TT
+><BR><TT
+CLASS="LITERAL"
+>NOSUPERUSER</TT
+><BR><TT
+CLASS="LITERAL"
+>CREATEDB</TT
+><BR><TT
+CLASS="LITERAL"
+>NOCREATEDB</TT
+><BR><TT
+CLASS="LITERAL"
+>CREATEROLE</TT
+><BR><TT
+CLASS="LITERAL"
+>NOCREATEROLE</TT
+><BR><TT
+CLASS="LITERAL"
+>CREATEUSER</TT
+><BR><TT
+CLASS="LITERAL"
+>NOCREATEUSER</TT
+><BR><TT
+CLASS="LITERAL"
+>INHERIT</TT
+><BR><TT
+CLASS="LITERAL"
+>NOINHERIT</TT
+><BR><TT
+CLASS="LITERAL"
+>LOGIN</TT
+><BR><TT
+CLASS="LITERAL"
+>NOLOGIN</TT
+><BR><TT
+CLASS="LITERAL"
+>REPLICATION</TT
+><BR><TT
+CLASS="LITERAL"
+>NOREPLICATION</TT
+><BR><TT
+CLASS="LITERAL"
+>CONNECTION LIMIT</TT
+> <TT
+CLASS="REPLACEABLE"
+><I
+>connlimit</I
+></TT
+><BR><TT
+CLASS="LITERAL"
+>PASSWORD</TT
+> <TT
+CLASS="REPLACEABLE"
+><I
+>password</I
+></TT
+><BR><TT
+CLASS="LITERAL"
+>ENCRYPTED</TT
+><BR><TT
+CLASS="LITERAL"
+>UNENCRYPTED</TT
+><BR><TT
+CLASS="LITERAL"
+>VALID UNTIL</TT
+> '<TT
+CLASS="REPLACEABLE"
+><I
+>timestamp</I
+></TT
+>'</DT
+><DD
+><P
+>这些选项修改由<A
+HREF="sql-createrole.html"
+>CREATE ROLE</A
+>初始设置的属性。 要获取更多详细信息，请参阅<TT
+CLASS="COMMAND"
+>CREATE ROLE</TT
+>参考页。</P
+></DD
+><DT
+><TT
+CLASS="REPLACEABLE"
+><I
+>new_name</I
+></TT
+></DT
+><DD
+><P
+>角色的新名字。</P
+></DD
+><DT
+><TT
+CLASS="REPLACEABLE"
+><I
+>database_name</I
+></TT
+></DT
+><DD
+><P
+>应设置配置变量的数据库的名称。</P
+></DD
+><DT
+><TT
+CLASS="REPLACEABLE"
+><I
+>configuration_parameter</I
+></TT
+><BR><TT
+CLASS="REPLACEABLE"
+><I
+>value</I
+></TT
+></DT
+><DD
+><P
+>把该角色指定的参数缺省值设置为给定值。如果<TT
+CLASS="REPLACEABLE"
+><I
+>value</I
+></TT
+>是<TT
+CLASS="LITERAL"
+>DEFAULT</TT
+>或是相当于使用<TT
+CLASS="LITERAL"
+>RESET</TT
+>，
+指定角色的参数值会被清除，这样该角色将在新的会话里继承系统级的参数缺省值。
+使用<TT
+CLASS="LITERAL"
+>RESET ALL</TT
+>会清除所有角色相关的设置。
+使用<TT
+CLASS="LITERAL"
+>SET FROM CURRENT</TT
+>会将会话的当前参数值保存为特定角色的缺省参数值。
+如果使用了<TT
+CLASS="LITERAL"
+>IN DATABASE</TT
+>选项，则仅仅指定的角色和数据库可以设置或者清除相关参数。</P
+><P
+>特定角色的参数设置仅仅在登录时起效；<A
+HREF="sql-set-role.html"
+>SET ROLE</A
+>和<A
+HREF="sql-set-session-authorization.html"
+>SET SESSION AUTHORIZATION</A
+>不能进行特定角色的参数设置。</P
+><P
+>参阅<A
+HREF="sql-set.html"
+>SET</A
+>和<A
+HREF="runtime-config.html"
+>Chapter 18</A
+>获取有关允许的参数名称和数值的更多信息。</P
+></DD
+></DL
+></DIV
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN66104"
+></A
+><H2
+>注意</H2
+><P
+>使用<A
+HREF="sql-createrole.html"
+>CREATE ROLE</A
+>增加新角色，使用<A
+HREF="sql-droprole.html"
+>DROP ROLE</A
+>删除旧角色。</P
+><P
+><TT
+CLASS="COMMAND"
+>ALTER ROLE</TT
+>不能改变角色的成员关系。可以使用<A
+HREF="sql-grant.html"
+>GRANT</A
+>和<A
+HREF="sql-revoke.html"
+>REVOKE</A
+>做这个事情。</P
+><P
+>使用这个命令指定一个未加密的密码时必须小心，因为密码将以明文方式传送到服务器，并且可能被客户端命令历史记录或者被服务器日志记录。
+<A
+HREF="app-psql.html"
+><SPAN
+CLASS="APPLICATION"
+>psql</SPAN
+></A
+>包含一个可以用来安全修改角色密码的<TT
+CLASS="COMMAND"
+>\password</TT
+>命令，这个命令不会暴露明文的密码。</P
+><P
+>也可以把会话缺省参数值与数据库绑定而不是与角色绑定；参阅<A
+HREF="sql-alterdatabase.html"
+>ALTER DATABASE</A
+>。
+如果有冲突，那么指定角色加数据库的参数设置将覆盖指定角色的参数设置，而后者又可以覆盖指定数据库的参数设置。</P
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN66118"
+></A
+><H2
+>例子</H2
+><P
+>改变一个角色的口令：
+</P><PRE
+CLASS="PROGRAMLISTING"
+>ALTER ROLE davide WITH PASSWORD 'hu8jmn3';</PRE
+><P></P
+><P
+>清除一个角色的口令:
+</P><PRE
+CLASS="PROGRAMLISTING"
+>ALTER ROLE davide WITH PASSWORD NULL;</PRE
+><P></P
+><P
+>改变口令失效的日期，声明口令应该在2015年5月4日中午失效，时区比<ACRONYM
+CLASS="ACRONYM"
+>UTC</ACRONYM
+>早一个小时：
+</P><PRE
+CLASS="PROGRAMLISTING"
+>ALTER ROLE chris VALID UNTIL 'May 4 12:00:00 2015 +1';</PRE
+><P></P
+><P
+>设置一个口令永久有效：
+</P><PRE
+CLASS="PROGRAMLISTING"
+>ALTER ROLE fred VALID UNTIL 'infinity';</PRE
+><P></P
+><P
+>授予一个角色创建其它角色和新数据库的权限：
+</P><PRE
+CLASS="PROGRAMLISTING"
+>ALTER ROLE miriam CREATEROLE CREATEDB;</PRE
+><P></P
+><P
+>给一个角色设置非缺省的<A
+HREF="runtime-config-resource.html#GUC-MAINTENANCE-WORK-MEM"
+>maintenance_work_mem</A
+>参数值：
+</P><PRE
+CLASS="PROGRAMLISTING"
+>ALTER ROLE worker_bee SET maintenance_work_mem = 100000;</PRE
+><P></P
+><P
+>给一个角色设置非缺省的、指定数据库的<A
+HREF="runtime-config-logging.html#GUC-CLIENT-MIN-MESSAGES"
+>client_min_messages</A
+>参数值：
+</P><PRE
+CLASS="PROGRAMLISTING"
+>ALTER ROLE fred IN DATABASE devel SET client_min_messages = DEBUG;</PRE
+><P></P
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN66137"
+></A
+><H2
+>兼容性</H2
+><P
+><TT
+CLASS="COMMAND"
+>ALTER ROLE</TT
+>语句是一个<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>扩展。</P
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN66142"
+></A
+><H2
+>参见</H2
+><A
+HREF="sql-createrole.html"
+>CREATE ROLE</A
+>, <A
+HREF="sql-droprole.html"
+>DROP ROLE</A
+>, <A
+HREF="sql-alterdatabase.html"
+>ALTER DATABASE</A
+>, <A
+HREF="sql-set.html"
+>SET</A
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="sql-alteropfamily.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="sql-alterrule.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>ALTER OPERATOR FAMILY</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="sql-commands.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>ALTER RULE</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

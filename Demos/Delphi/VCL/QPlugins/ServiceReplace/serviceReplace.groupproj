@@ -1,0 +1,60 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{EC93EC08-60A6-435D-9D4C-50246520163D}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="hostmain.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="dll_origin.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="dll_replace_on_run.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="hostmain">
+        <MSBuild Projects="hostmain.dproj"/>
+    </Target>
+    <Target Name="hostmain:Clean">
+        <MSBuild Projects="hostmain.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="hostmain:Make">
+        <MSBuild Projects="hostmain.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="dll_origin">
+        <MSBuild Projects="dll_origin.dproj"/>
+    </Target>
+    <Target Name="dll_origin:Clean">
+        <MSBuild Projects="dll_origin.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="dll_origin:Make">
+        <MSBuild Projects="dll_origin.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="dll_replace_on_run">
+        <MSBuild Projects="dll_replace_on_run.dproj"/>
+    </Target>
+    <Target Name="dll_replace_on_run:Clean">
+        <MSBuild Projects="dll_replace_on_run.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="dll_replace_on_run:Make">
+        <MSBuild Projects="dll_replace_on_run.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="hostmain;dll_origin;dll_replace_on_run"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="hostmain:Clean;dll_origin:Clean;dll_replace_on_run:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="hostmain:Make;dll_origin:Make;dll_replace_on_run:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>

@@ -1,0 +1,401 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>聚集函数</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REV="MADE"
+HREF="mailto:pgsql-docs@postgresql.org"><LINK
+REL="HOME"
+TITLE="PostgreSQL 9.3.1 中文文档"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="SQL语言"
+HREF="tutorial-sql.html"><LINK
+REL="PREVIOUS"
+TITLE="在表间连接"
+HREF="tutorial-join.html"><LINK
+REL="NEXT"
+TITLE="更新"
+HREF="tutorial-update.html"><LINK
+REL="STYLESHEET"
+TYPE="text/css"
+HREF="stylesheet.css"><META
+HTTP-EQUIV="Content-Type"
+CONTENT="text/html; charset=gbk"><META
+NAME="creation"
+CONTENT="2013-12-03T02:30:09"></HEAD
+><BODY
+CLASS="SECT1"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="5"
+ALIGN="center"
+VALIGN="bottom"
+><A
+HREF="index.html"
+>PostgreSQL 9.3.1 中文文档</A
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+TITLE="在表间连接"
+HREF="tutorial-join.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="tutorial-sql.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="60%"
+ALIGN="center"
+VALIGN="bottom"
+>Chapter 2. <ACRONYM
+CLASS="ACRONYM"
+>SQL</ACRONYM
+>语言</TD
+><TD
+WIDTH="20%"
+ALIGN="right"
+VALIGN="top"
+><A
+TITLE="更新"
+HREF="tutorial-update.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="SECT1"
+><H1
+CLASS="SECT1"
+><A
+NAME="TUTORIAL-AGG"
+>2.7. 聚集函数</A
+></H1
+><P
+> 
+和大多数其它关系数据库产品一样，<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>支持<I
+CLASS="FIRSTTERM"
+>聚集函数</I
+>。
+一个聚集函数从多个输入行中计算出一个结果。比如，我们有在一个行集合上计算<CODE
+CLASS="FUNCTION"
+>count</CODE
+>(数目),
+<CODE
+CLASS="FUNCTION"
+>sum</CODE
+>(总和),<CODE
+CLASS="FUNCTION"
+>avg</CODE
+>(均值),<CODE
+CLASS="FUNCTION"
+>max</CODE
+>(最大值), 
+<CODE
+CLASS="FUNCTION"
+>min</CODE
+>(最小值)的函数。</P
+><P
+>比如，我们可以用下面的语句找出所有低温中的最高温度：
+</P><PRE
+CLASS="PROGRAMLISTING"
+>SELECT max(temp_lo) FROM weather;</PRE
+><P>
+
+</P><PRE
+CLASS="SCREEN"
+> max
+-----
+  46
+(1 row)</PRE
+><P>
+   </P
+><P
+>    
+如果我们想知道该读数发生在哪个城市，可能会用：
+</P><PRE
+CLASS="PROGRAMLISTING"
+>SELECT city FROM weather WHERE temp_lo = max(temp_lo);     <I
+CLASS="LINEANNOTATION"
+>错</I
+></PRE
+><P>
+
+    
+不过这个方法不能运转，因为聚集函数<CODE
+CLASS="FUNCTION"
+>max</CODE
+>不能用于<TT
+CLASS="LITERAL"
+>WHERE</TT
+>
+子句中。存在这个限制是因为<TT
+CLASS="LITERAL"
+>WHERE</TT
+>子句决定哪些行可以进入聚集阶段；
+因此它必需在聚集函数之前计算。不过，我们可以用其它方法实现这个目的；
+这里我们使用<I
+CLASS="FIRSTTERM"
+>子查询</I
+>：
+
+</P><PRE
+CLASS="PROGRAMLISTING"
+>SELECT city FROM weather
+    WHERE temp_lo = (SELECT max(temp_lo) FROM weather);</PRE
+><P>
+
+</P><PRE
+CLASS="SCREEN"
+>     city
+---------------
+ San Francisco
+(1 row)</PRE
+><P>
+
+这样做是可以的，因为子查询是一次独立的计算，它独立于外层查询计算自己的聚集。
+   </P
+><P
+>    
+    
+
+    
+聚集同样也常用于 <TT
+CLASS="LITERAL"
+>GROUP BY</TT
+>子句。比如，我们可以获取每个城市低温的最高值：
+</P><PRE
+CLASS="PROGRAMLISTING"
+>SELECT city, max(temp_lo)
+    FROM weather
+    GROUP BY city;</PRE
+><P>
+
+</P><PRE
+CLASS="SCREEN"
+>     city      | max
+---------------+-----
+ Hayward       |  37
+ San Francisco |  46
+(2 rows)</PRE
+><P>
+
+这样每个城市一个输出。每个聚集结果都是在匹配该城市的行上面计算的。
+我们可以用<TT
+CLASS="LITERAL"
+>HAVING</TT
+>过滤这些分组：
+</P><PRE
+CLASS="PROGRAMLISTING"
+>SELECT city, max(temp_lo)
+    FROM weather
+    GROUP BY city
+    HAVING max(temp_lo) &lt; 40;</PRE
+><P>
+
+</P><PRE
+CLASS="SCREEN"
+>  city   | max
+---------+-----
+ Hayward |  37
+(1 row)</PRE
+><P>
+
+这样就只给出那些<TT
+CLASS="STRUCTFIELD"
+>temp_lo</TT
+>值曾经有低于 40 度的城市。最后，
+如果我们只关心那些名字以<SPAN
+CLASS="QUOTE"
+>"<TT
+CLASS="LITERAL"
+>S</TT
+>"</SPAN
+>开头的城市，我们可以用：
+</P><PRE
+CLASS="PROGRAMLISTING"
+>SELECT city, max(temp_lo)
+    FROM weather
+    WHERE city LIKE 'S%'<A
+NAME="CO.TUTORIAL-AGG-LIKE"
+><B
+>(1)</B
+></A
+>
+    GROUP BY city
+    HAVING max(temp_lo) &lt; 40;</PRE
+><P>
+   <DIV
+CLASS="CALLOUTLIST"
+><DL
+COMPACT="COMPACT"
+><DT
+><A
+HREF="tutorial-agg.html#CO.TUTORIAL-AGG-LIKE"
+><B
+>(1)</B
+></A
+></DT
+><DD
+> 
+语句中的<TT
+CLASS="LITERAL"
+>LIKE</TT
+>执行模式匹配，在<A
+HREF="functions-matching.html"
+>Section 9.7</A
+>里有解释。 </DD
+></DL
+></DIV
+>
+   </P
+><P
+>理解聚集和<ACRONYM
+CLASS="ACRONYM"
+>SQL</ACRONYM
+>的<TT
+CLASS="LITERAL"
+>WHERE</TT
+>和<TT
+CLASS="LITERAL"
+>HAVING</TT
+>
+子句之间的关系非常重要。<TT
+CLASS="LITERAL"
+>WHERE</TT
+>和<TT
+CLASS="LITERAL"
+>HAVING</TT
+>的基本区别如下：
+<TT
+CLASS="LITERAL"
+>WHERE</TT
+>在分组和聚集计算之前选取输入行(它控制哪些行进入聚集计算)，
+而<TT
+CLASS="LITERAL"
+>HAVING</TT
+>在分组和聚集之后选取输出行。因此，<TT
+CLASS="LITERAL"
+>WHERE</TT
+>
+子句不能包含聚集函数；因为试图用聚集函数判断那些行将要输入给聚集运算是没有意义的。
+相反，<TT
+CLASS="LITERAL"
+>HAVING</TT
+>子句总是包含聚集函数。当然，你可以写不使用聚集的<TT
+CLASS="LITERAL"
+>HAVING</TT
+>
+子句，但这样做没什么好处，因为同样的条件可以更有效地用于<TT
+CLASS="LITERAL"
+>WHERE</TT
+>阶段。</P
+><P
+>在前面的例子里，我们可以在<TT
+CLASS="LITERAL"
+>WHERE</TT
+>里应用城市名称限制，因为它不需要聚集。
+这样比在<TT
+CLASS="LITERAL"
+>HAVING</TT
+>里增加限制更加高效，因为我们避免了为那些未通过
+<TT
+CLASS="LITERAL"
+>WHERE</TT
+>检查的行进行分组和聚集计算。</P
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="tutorial-join.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="tutorial-update.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>在表间连接</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="tutorial-sql.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>更新</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

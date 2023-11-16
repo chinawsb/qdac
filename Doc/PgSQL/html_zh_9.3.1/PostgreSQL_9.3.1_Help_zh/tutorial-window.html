@@ -1,0 +1,527 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>窗口函数</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REV="MADE"
+HREF="mailto:pgsql-docs@postgresql.org"><LINK
+REL="HOME"
+TITLE="PostgreSQL 9.3.1 中文文档"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="高级特性"
+HREF="tutorial-advanced.html"><LINK
+REL="PREVIOUS"
+TITLE="事务"
+HREF="tutorial-transactions.html"><LINK
+REL="NEXT"
+TITLE="继承"
+HREF="tutorial-inheritance.html"><LINK
+REL="STYLESHEET"
+TYPE="text/css"
+HREF="stylesheet.css"><META
+HTTP-EQUIV="Content-Type"
+CONTENT="text/html; charset=gbk"><META
+NAME="creation"
+CONTENT="2013-12-03T02:30:09"></HEAD
+><BODY
+CLASS="SECT1"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="5"
+ALIGN="center"
+VALIGN="bottom"
+><A
+HREF="index.html"
+>PostgreSQL 9.3.1 中文文档</A
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+TITLE="事务"
+HREF="tutorial-transactions.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="tutorial-advanced.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="60%"
+ALIGN="center"
+VALIGN="bottom"
+>Chapter 3. 高级特性</TD
+><TD
+WIDTH="20%"
+ALIGN="right"
+VALIGN="top"
+><A
+TITLE="继承"
+HREF="tutorial-inheritance.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="SECT1"
+><H1
+CLASS="SECT1"
+><A
+NAME="TUTORIAL-WINDOW"
+>3.5. 窗口函数</A
+></H1
+><P
+><I
+CLASS="FIRSTTERM"
+>窗口函数</I
+>通过在某种程度上关系到当前行的表行执行一组计算。
+这相当于可以做一个聚合函数的计算类型。但不同于常规的聚合函数，
+使用的窗口函数不会导致行成为分组到一个单一的输出行；行保留其独立的身份。
+在后台，窗口函数能够访问不止查询结果的当前行。   </P
+><P
+>    
+这里是一个例子，说明如何比较每个员工的工资和在他或她的部门的平均工资： 
+</P><PRE
+CLASS="PROGRAMLISTING"
+>SELECT depname, empno, salary, avg(salary) OVER (PARTITION BY depname) FROM empsalary;</PRE
+><P>
+
+</P><PRE
+CLASS="SCREEN"
+>  depname  | empno | salary |          avg          
+-----------+-------+--------+-----------------------
+ develop   |    11 |   5200 | 5020.0000000000000000
+ develop   |     7 |   4200 | 5020.0000000000000000
+ develop   |     9 |   4500 | 5020.0000000000000000
+ develop   |     8 |   6000 | 5020.0000000000000000
+ develop   |    10 |   5200 | 5020.0000000000000000
+ personnel |     5 |   3500 | 3700.0000000000000000
+ personnel |     2 |   3900 | 3700.0000000000000000
+ sales     |     3 |   4800 | 4866.6666666666666667
+ sales     |     1 |   5000 | 4866.6666666666666667
+ sales     |     4 |   4800 | 4866.6666666666666667
+(10 rows)</PRE
+><P>
+
+    
+前三输出列直接来自表<TT
+CLASS="STRUCTNAME"
+>empsalary</TT
+>，并有一个针对表中的每一行的输出行。
+第四列将代表所有含有相同的<TT
+CLASS="STRUCTFIELD"
+>depname</TT
+>值的表行的平均值作为当前值。
+（这实际上与标准<CODE
+CLASS="FUNCTION"
+>avg</CODE
+>聚合函数的功能相同，
+但是<TT
+CLASS="LITERAL"
+>OVER</TT
+>子句使其视为一个窗口函数和计算一组合适的行。）
+   </P
+><P
+>窗口函数的调用总是包含一个<TT
+CLASS="LITERAL"
+>OVER</TT
+>子句，后面直接跟着窗口函数的名称和参数。
+这是该语法区别于普通函数或聚合功能的原因。
+<TT
+CLASS="LITERAL"
+>OVER</TT
+>子句决定如何将查询的行通过窗口函数拆分处理。
+<TT
+CLASS="LITERAL"
+>OVER</TT
+>子句内的<TT
+CLASS="LITERAL"
+>PARTITION BY</TT
+>列表指定将行划分成组，或分区，
+共享相同的<TT
+CLASS="LITERAL"
+>PARTITION BY</TT
+>表达式的值。对于每一行，
+窗口函数通过同一个分区作为当前行的行进行计算。</P
+><P
+>    
+你还可以使用窗口函数<TT
+CLASS="LITERAL"
+>OVER</TT
+>内的<TT
+CLASS="LITERAL"
+>ORDER BY</TT
+>来控制行的顺序。
+（<TT
+CLASS="LITERAL"
+>ORDER BY</TT
+>窗口甚至不需要与行的输出顺序相匹配。）下面是一个例子： 
+</P><PRE
+CLASS="PROGRAMLISTING"
+>SELECT depname, empno, salary, rank() OVER (PARTITION BY depname ORDER BY salary DESC) FROM empsalary;</PRE
+><P>
+
+</P><PRE
+CLASS="SCREEN"
+>  depname  | empno | salary | rank 
+-----------+-------+--------+------
+ develop   |     8 |   6000 |    1
+ develop   |    10 |   5200 |    2
+ develop   |    11 |   5200 |    2
+ develop   |     9 |   4500 |    4
+ develop   |     7 |   4200 |    5
+ personnel |     2 |   3900 |    1
+ personnel |     5 |   3500 |    2
+ sales     |     1 |   5000 |    1
+ sales     |     4 |   4800 |    2
+ sales     |     3 |   4800 |    2
+(10 rows)</PRE
+><P>
+
+    
+正如此处所示，在由<TT
+CLASS="LITERAL"
+>ORDER BY</TT
+>定义子句的顺序中，<CODE
+CLASS="FUNCTION"
+>rank</CODE
+>函数在每个不同
+<TT
+CLASS="LITERAL"
+>ORDER BY</TT
+>值的当前行分区产生一个数值排名。<CODE
+CLASS="FUNCTION"
+>rank</CODE
+> 需要没有明确的参数，
+因为它的行为完全取决于<TT
+CLASS="LITERAL"
+>OVER</TT
+>子句。 
+   </P
+><P
+>   
+窗口函数的行是通过查询<TT
+CLASS="LITERAL"
+>FROM</TT
+>子句<SPAN
+CLASS="QUOTE"
+>"virtual table"</SPAN
+>产生的，如果有的话，
+通过<TT
+CLASS="LITERAL"
+>WHERE</TT
+>,<TT
+CLASS="LITERAL"
+>GROUP BY</TT
+>和<TT
+CLASS="LITERAL"
+>HAVING</TT
+>子句过滤。例如，行删除，
+因为它不符合<TT
+CLASS="LITERAL"
+>WHERE</TT
+>条件，所以是不能被任何窗口函数可见的。一个查询可以包含多个窗口函数，
+通过不同的<TT
+CLASS="LITERAL"
+>OVER</TT
+>子句用不同的方式分割数据，
+但是他们都作用在这个虚拟表定义的同一行的集合。    </P
+><P
+>   
+我们已经看到了，如果行排序并不重要，<TT
+CLASS="LITERAL"
+>ORDER BY</TT
+>可以省略。
+在只有一个分区包含所有行的情况下，也可以省略<TT
+CLASS="LITERAL"
+>PARTITION BY</TT
+>。    </P
+><P
+>    
+还有一个与窗口功能相关的重要的概念：对于每一行，有在其分区范围内的行集，
+又称为它的<I
+CLASS="FIRSTTERM"
+>window frame</I
+>。许多（但不是全部）窗口函数，只作用于窗口框架中的行上，
+而不是整个分区。默认情况下，如果使用<TT
+CLASS="LITERAL"
+>ORDER BY</TT
+>，
+那么这个frame包含从分区开始到当前的所有行，以及那些当前行后面的，根据<TT
+CLASS="LITERAL"
+>ORDER BY</TT
+>
+子句等于当前行的所有行，如果省略<TT
+CLASS="LITERAL"
+>ORDER BY</TT
+>，那么，frame默认包含分区中的所有行。
+     <A
+NAME="AEN1045"
+HREF="#FTN.AEN1045"
+><SPAN
+CLASS="footnote"
+>[1]</SPAN
+></A
+>
+    
+下面是一个使用<CODE
+CLASS="FUNCTION"
+>sum</CODE
+>的例子：</P
+><PRE
+CLASS="PROGRAMLISTING"
+>SELECT salary, sum(salary) OVER () FROM empsalary;</PRE
+><PRE
+CLASS="SCREEN"
+> salary |  sum  
+--------+-------
+   5200 | 47100
+   5000 | 47100
+   3500 | 47100
+   4800 | 47100
+   3900 | 47100
+   4200 | 47100
+   4500 | 47100
+   4800 | 47100
+   6000 | 47100
+   5200 | 47100
+(10 rows)</PRE
+><P
+>如上，因为在<TT
+CLASS="LITERAL"
+>OVER</TT
+>子句中没有使用<TT
+CLASS="LITERAL"
+>ORDER BY</TT
+>，因此，
+窗口框架与分区(不使用<TT
+CLASS="LITERAL"
+>PARTITION BY</TT
+>时即整个表)相同；换句话说，
+每一次sum求和都是使用表中所有的salary，所以我们得到的每个输出行的结果相同。
+但是，如果我们添加<TT
+CLASS="LITERAL"
+>ORDER BY</TT
+>子句，我们会得到不同的结果：    </P
+><PRE
+CLASS="PROGRAMLISTING"
+>SELECT salary, sum(salary) OVER (ORDER BY salary) FROM empsalary;</PRE
+><PRE
+CLASS="SCREEN"
+> salary |  sum  
+--------+-------
+   3500 |  3500
+   3900 |  7400
+   4200 | 11600
+   4500 | 16100
+   4800 | 25700
+   4800 | 25700
+   5000 | 30700
+   5200 | 41100
+   5200 | 41100
+   6000 | 47100
+(10 rows)</PRE
+><P
+> 
+这里的总和是从第一个（最低）工资到当前一个，包括任何当前重复的（注意重复薪金的结果）。   </P
+><P
+>窗口函数仅允许在查询的<TT
+CLASS="LITERAL"
+>SELECT</TT
+>列表和<TT
+CLASS="LITERAL"
+>ORDER BY</TT
+>子句中使用。
+在其他地方禁止使用，比如<TT
+CLASS="LITERAL"
+>GROUP BY</TT
+>,<TT
+CLASS="LITERAL"
+>HAVING</TT
+>和<TT
+CLASS="LITERAL"
+>WHERE</TT
+>子句。
+这是因为它们逻辑上在处理这些子句之后执行。此外，窗口函数在标准聚合函数之后执行。
+这意味在一个窗口函数的参数中包含一个标准聚合函数的调用是有效的，但反过来不行。</P
+><P
+>    
+执行窗口计算后，如果有必要进行过滤或组行，你可以使用子查询。例如：
+</P><PRE
+CLASS="PROGRAMLISTING"
+>SELECT depname, empno, salary, enroll_date
+FROM
+  (SELECT depname, empno, salary, enroll_date,
+          rank() OVER (PARTITION BY depname ORDER BY salary DESC, empno) AS pos
+     FROM empsalary
+  ) AS ss
+WHERE pos &lt; 3;</PRE
+><P>
+
+    
+上面的查询只显示内部查询<TT
+CLASS="LITERAL"
+>rank</TT
+>小于3的行。 
+   </P
+><P
+>    
+当查询涉及多个窗口函数功能时，可以写出每一个都带有单独的<TT
+CLASS="LITERAL"
+>OVER</TT
+>子句，
+但是，如果同一窗口行为需要多种功能，就会产生重复，并且容易出错。相反，
+每个窗口的行为可以在<TT
+CLASS="LITERAL"
+>WINDOW</TT
+>子句中进行命名，然后再被<TT
+CLASS="LITERAL"
+>OVER</TT
+>引用。例如： 
+</P><PRE
+CLASS="PROGRAMLISTING"
+>SELECT sum(salary) OVER w, avg(salary) OVER w
+  FROM empsalary
+  WINDOW w AS (PARTITION BY depname ORDER BY salary DESC);</PRE
+><P>
+   </P
+><P
+>有关窗口函数的更多详细信息查阅<A
+HREF="sql-expressions.html#SYNTAX-WINDOW-FUNCTIONS"
+>Section 4.2.8</A
+>,
+<A
+HREF="functions-window.html"
+>Section 9.21</A
+>,<A
+HREF="queries-table-expressions.html#QUERIES-WINDOW"
+>Section 7.2.4</A
+>,和
+<A
+HREF="sql-select.html"
+>SELECT</A
+>的参考页。 </P
+></DIV
+><H3
+CLASS="FOOTNOTES"
+>Notes</H3
+><TABLE
+BORDER="0"
+CLASS="FOOTNOTES"
+WIDTH="100%"
+><TR
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+WIDTH="5%"
+><A
+NAME="FTN.AEN1045"
+HREF="tutorial-window.html#AEN1045"
+><SPAN
+CLASS="footnote"
+>[1]</SPAN
+></A
+></TD
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+WIDTH="95%"
+><P
+>  
+当然，还有其他定义window frame的方法，但本教程并不包括它们。详情请参阅<A
+HREF="sql-expressions.html#SYNTAX-WINDOW-FUNCTIONS"
+>Section 4.2.8</A
+>。</P
+></TD
+></TR
+></TABLE
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="tutorial-transactions.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="tutorial-inheritance.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>事务</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="tutorial-advanced.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>继承</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

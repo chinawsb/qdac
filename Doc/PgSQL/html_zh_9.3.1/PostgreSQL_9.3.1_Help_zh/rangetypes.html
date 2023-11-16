@@ -1,0 +1,960 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>范围类型</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REV="MADE"
+HREF="mailto:pgsql-docs@postgresql.org"><LINK
+REL="HOME"
+TITLE="PostgreSQL 9.3.1 中文文档"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="Data Types"
+HREF="datatype.html"><LINK
+REL="PREVIOUS"
+TITLE="Composite Types"
+HREF="rowtypes.html"><LINK
+REL="NEXT"
+TITLE="Object Identifier Types"
+HREF="datatype-oid.html"><LINK
+REL="STYLESHEET"
+TYPE="text/css"
+HREF="stylesheet.css"><META
+HTTP-EQUIV="Content-Type"
+CONTENT="text/html; charset=gbk"><META
+NAME="creation"
+CONTENT="2013-12-03T02:30:09"></HEAD
+><BODY
+CLASS="SECT1"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="5"
+ALIGN="center"
+VALIGN="bottom"
+><A
+HREF="index.html"
+>PostgreSQL 9.3.1 中文文档</A
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+TITLE="Composite Types"
+HREF="rowtypes.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="datatype.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="60%"
+ALIGN="center"
+VALIGN="bottom"
+>Chapter 8. Data Types</TD
+><TD
+WIDTH="20%"
+ALIGN="right"
+VALIGN="top"
+><A
+TITLE="Object Identifier Types"
+HREF="datatype-oid.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="SECT1"
+><H1
+CLASS="SECT1"
+><A
+NAME="RANGETYPES"
+>8.17. 范围类型</A
+></H1
+><P
+>  范围是数据类型，代表着某一元素类型在一定范围内的值。
+  (此元素类型称为该范围的 <I
+CLASS="FIRSTTERM"
+>子类型</I
+>)。
+  例如，<TT
+CLASS="TYPE"
+>timestamp</TT
+> 范围可能被用于代表一间会议室被预定的时间范围。 这种情况下数据
+  类型为<TT
+CLASS="TYPE"
+>tsrange</TT
+> (<SPAN
+CLASS="QUOTE"
+>"timestamp range"</SPAN
+>的简写)，并且<TT
+CLASS="TYPE"
+>timestamp</TT
+>
+  是子类型。子类型必须具备完整的排序，这样清晰定义了元素值在范围之内，之前，或者之后。
+ </P
+><P
+>  范围类型是有用的。因为他们代表了在单一范围内的许多元素值，并且清晰表达了诸如重叠范围等概念。
+  出于计划目的的时间和日期范围的使用是一个最清晰的例子；价格范围，仪器测量的范围等也有用。 
+ </P
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="RANGETYPES-BUILTIN"
+>8.17.1. 内嵌范围类型</A
+></H2
+><P
+>  PostgreSQL 提供下列内嵌范围类型：
+  <P
+></P
+></P><UL
+><LI
+><P
+>       <TT
+CLASS="TYPE"
+>int4range</TT
+> &mdash; <TT
+CLASS="TYPE"
+>integer</TT
+>的范围
+      </P
+></LI
+><LI
+><P
+>       <TT
+CLASS="TYPE"
+>int8range</TT
+> &mdash;<TT
+CLASS="TYPE"
+>bigint</TT
+>的范围
+      </P
+></LI
+><LI
+><P
+>       <TT
+CLASS="TYPE"
+>numrange</TT
+> &mdash;<TT
+CLASS="TYPE"
+>numeric</TT
+>的范围
+      </P
+></LI
+><LI
+><P
+>       <TT
+CLASS="TYPE"
+>tsrange</TT
+> &mdash;<TT
+CLASS="TYPE"
+>timestamp without time zone</TT
+>的范围
+      </P
+></LI
+><LI
+><P
+>       <TT
+CLASS="TYPE"
+>tstzrange</TT
+> &mdash;<TT
+CLASS="TYPE"
+>timestamp with time zone</TT
+>的范围
+      </P
+></LI
+><LI
+><P
+>       <TT
+CLASS="TYPE"
+>daterange</TT
+> &mdash;<TT
+CLASS="TYPE"
+>date</TT
+>的范围
+      </P
+></LI
+></UL
+><P>
+  此外，你可以定义你自己的范围类型；更多信息见<A
+HREF="sql-createtype.html"
+>CREATE TYPE</A
+>。
+ </P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="RANGETYPES-EXAMPLES"
+>8.17.2. 范例</A
+></H2
+><P
+></P><PRE
+CLASS="PROGRAMLISTING"
+>CREATE TABLE reservation (room int, during tsrange);
+INSERT INTO reservation VALUES
+    (1108, '[2010-01-01 14:30, 2010-01-01 15:30)');
+
+-- 包含
+SELECT int4range(10, 20) @&#62; 3;
+
+-- 重叠
+SELECT numrange(11.1, 22.2) &amp;&amp; numrange(20.0, 30.0);
+
+-- 提取上边界
+SELECT upper(int8range(15, 25));
+
+-- 计算交叉
+SELECT int4range(10, 20) * int4range(15, 25);
+
+-- 范围是空的？
+SELECT isempty(numrange(1, 5));</PRE
+><P>
+
+   范围类型的操作数和函数的完整列表见<A
+HREF="functions-range.html#RANGE-OPERATORS-TABLE"
+>Table 9-44</A
+>
+   及<A
+HREF="functions-range.html#RANGE-FUNCTIONS-TABLE"
+>Table 9-45</A
+>。
+  </P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="RANGETYPES-INCLUSIVITY"
+>8.17.3. 包含及不包含边界</A
+></H2
+><P
+>   每个非空范围有两个边界，下边界和上边界。这两个值之间的所有点都包含在范围内。
+   包含边界意味着边界点本身包含在范围内，而不包含边界意味着边界点不包含在范围内。
+  </P
+><P
+>   在一个文本格式的范围里，包含下边界由<SPAN
+CLASS="QUOTE"
+>"<TT
+CLASS="LITERAL"
+>[</TT
+>"</SPAN
+>代表，而不包含下边
+   界由 <SPAN
+CLASS="QUOTE"
+>"<TT
+CLASS="LITERAL"
+>(</TT
+>"</SPAN
+>代表。同样，一个包含上边界由
+   <SPAN
+CLASS="QUOTE"
+>"<TT
+CLASS="LITERAL"
+>]</TT
+>"</SPAN
+>代表，而不包含上边界由<SPAN
+CLASS="QUOTE"
+>"<TT
+CLASS="LITERAL"
+>)</TT
+>"</SPAN
+>
+   代表。  
+   (更多细节见<A
+HREF="rangetypes.html#RANGETYPES-IO"
+>Section 8.17.5</A
+>）
+  </P
+><P
+>   函数<TT
+CLASS="LITERAL"
+>lower_inc</TT
+>和<TT
+CLASS="LITERAL"
+>upper_inc</TT
+>分别检测一个范围值的上下边界
+   是否包含。 
+  </P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="RANGETYPES-INFINITE"
+>8.17.4. 无限（无边界）范围</A
+></H2
+><P
+>   一个范围的下边界可以被省略，意味着小于上边界的所有点都包含在范围内。同样，如果范围的上边界
+   被省略，那么所有大于下边界的点都包含在范围内。如果上下边界都被省略，那么所有元素类型的值都
+   被认为在范围内。
+  </P
+><P
+>   相当于分别认为下边界是<SPAN
+CLASS="QUOTE"
+>"负无穷大"</SPAN
+>，或者上边界是<SPAN
+CLASS="QUOTE"
+>"正无穷大"</SPAN
+>。但是注意
+   这些无穷大值绝不是范围元素类型的值，而且绝不是范围的一部分。（所以没有包含无穷边界之类的东西&mdash;；
+   如果你尝试写一个，它会被自动转换成一个不包含边界。）
+  </P
+><P
+>   某些元素类型还有一个<SPAN
+CLASS="QUOTE"
+>"无限"</SPAN
+>的概念，但是只要涉及到范围类型机制它就只是另一个值。例如，
+   在timestamp范围里，<TT
+CLASS="LITERAL"
+>[today,]</TT
+>意味着和<TT
+CLASS="LITERAL"
+>[today,)</TT
+>是相同的东西。但是
+   <TT
+CLASS="LITERAL"
+>[today,infinity]</TT
+>意味着与<TT
+CLASS="LITERAL"
+>[today,infinity)</TT
+> &mdash;不同的东西；后者不
+   包含特殊的<TT
+CLASS="TYPE"
+>timestamp</TT
+>值<TT
+CLASS="LITERAL"
+>infinity</TT
+>。
+  </P
+><P
+>   函数<TT
+CLASS="LITERAL"
+>lower_inf</TT
+>和<TT
+CLASS="LITERAL"
+>upper_inf</TT
+>分别检测一个范围的无限下边界
+   和上边界。
+  </P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="RANGETYPES-IO"
+>8.17.5. 范围输入/输出</A
+></H2
+><P
+>   范围值的输入必须遵循下面的格式：
+</P><PRE
+CLASS="SYNOPSIS"
+>(<TT
+CLASS="REPLACEABLE"
+><I
+>下边界</I
+></TT
+>,<TT
+CLASS="REPLACEABLE"
+><I
+>上边界</I
+></TT
+>)
+(<TT
+CLASS="REPLACEABLE"
+><I
+>下边界</I
+></TT
+>,<TT
+CLASS="REPLACEABLE"
+><I
+>上边界</I
+></TT
+>]
+[<TT
+CLASS="REPLACEABLE"
+><I
+>下边界</I
+></TT
+>,<TT
+CLASS="REPLACEABLE"
+><I
+>上边界</I
+></TT
+>)
+[<TT
+CLASS="REPLACEABLE"
+><I
+>下边界</I
+></TT
+>,<TT
+CLASS="REPLACEABLE"
+><I
+>上边界</I
+></TT
+>]
+空</PRE
+><P>
+   如前所述，圆括号或者方括号显示下边界和上边界是不包含的还是包含的。注意最后的格式是
+   <TT
+CLASS="LITERAL"
+>空</TT
+>，代表着一个空的范围（一个不含有值的范围）。
+  </P
+><P
+>   <TT
+CLASS="REPLACEABLE"
+><I
+>下边界</I
+></TT
+>可以是子类型有效输入的一个字符串，或者是空以显示没有下边
+   界。同样，<TT
+CLASS="REPLACEABLE"
+><I
+>上边界</I
+></TT
+>可以是子类型有效输入的一个字符串，或者是空以显
+   示没有上边界。
+  </P
+><P
+>   每个边界值可以用<TT
+CLASS="LITERAL"
+>"</TT
+>（双引号）字符引用。如果边界值包含圆括号，方括号，逗号，
+   双引号，或者反斜杠，这就很有必要。因为不这样的话，这些字符会被当成范围语法的一部分。要想把
+   双引号或反斜杠放入一个引用的边界值，就在它前面加一个反斜杠。（另外，一个加了双引号的边界值内
+   的双引号用来表示一个双引号字符，类似于SQL文字串内的单引号规则。）或者，你可以避免用引号，使
+   用反斜杠转义来保护所有数据字符不被认为是范围语法。而且，要写入一个空字符串边界值，用<TT
+CLASS="LITERAL"
+>""</TT
+>
+   。这是因为什么也不写入意味着无限边界。   
+  </P
+><P
+>   在范围值前后可以有空格，但是在圆括号和方括号之间的任何空格都被认为是上边界或下边界的一部分。
+   （重要还是不重要取决于元素类型。）
+  </P
+><DIV
+CLASS="NOTE"
+><BLOCKQUOTE
+CLASS="NOTE"
+><P
+><B
+>Note: </B
+>    这些规则很类似于在复杂文本中写入字段值。更多注释见<A
+HREF="rowtypes.html#ROWTYPES-IO-SYNTAX"
+>Section 8.16.5</A
+>。
+   </P
+></BLOCKQUOTE
+></DIV
+><P
+>  例子：
+</P><PRE
+CLASS="PROGRAMLISTING"
+>-- 包括3，不包括7，并且包括二者之间的所有点
+SELECT '[3,7)'::int4range;
+
+-- 不包括3和7，但是包括二者之间所有点
+SELECT '(3,7)'::int4range;
+
+-- 只包括单一值4
+SELECT '[4,4]'::int4range;
+
+-- 不包括点（被标准化为‘空’）
+SELECT '[4,4)'::int4range;</PRE
+><P>
+  </P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="RANGETYPES-CONSTRUCT"
+>8.17.6. 构造范围</A
+></H2
+><P
+>   每个范围有一个与范围类型同名的构造函数。使用构造函数往往比写入一个范围文本常量更便利，因为
+   它避免了额外引用边界值的需要。构造函数接受两到三个参数。两参数方式构造一个标准格式的范围（
+   包含下边界，不包含上边界），而三参数方式用第三个参数指定边界来构造范围。
+   第三个参数必须是下面的字符串之一
+   <SPAN
+CLASS="QUOTE"
+>"<TT
+CLASS="LITERAL"
+>()</TT
+>"</SPAN
+>,
+   <SPAN
+CLASS="QUOTE"
+>"<TT
+CLASS="LITERAL"
+>(]</TT
+>"</SPAN
+>,
+   <SPAN
+CLASS="QUOTE"
+>"<TT
+CLASS="LITERAL"
+>[)</TT
+>"</SPAN
+>, 或
+   <SPAN
+CLASS="QUOTE"
+>"<TT
+CLASS="LITERAL"
+>[]</TT
+>"</SPAN
+>.
+   例如：
+
+</P><PRE
+CLASS="PROGRAMLISTING"
+>-- 完整方式为：下边界，上边界，和显示的文本参数
+-- 边界包含/不包含。
+SELECT numrange(1.0, 14.0, '(]');
+
+-- 如果第三个参数省略，使用‘[)’。
+SELECT numrange(1.0, 14.0);
+
+-- 尽管‘(]’在这里指定显示，然而该值会被转换成标准格式。这是由于int8range是一个离散范围类型
+（见下面）。
+SELECT int8range(1, 14, '(]');
+
+-- 使用NULL作任一边界会导致范围在那一边没有边界。
+SELECT numrange(NULL, 2.2);</PRE
+><P>
+  </P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="RANGETYPES-DISCRETE"
+>8.17.7. 离散范围类型</A
+></H2
+><P
+>   离散范围的元素类型有一个完善定义的<SPAN
+CLASS="QUOTE"
+>"阶梯"</SPAN
+>，例如<TT
+CLASS="TYPE"
+>整数</TT
+>或者
+   <TT
+CLASS="TYPE"
+>日期</TT
+>。当在这些类型里两个元素中间没有有效值时，它们可被称为是邻近的。与之形成
+   对比的是连续范围，总是（或者几乎总是）可能在两个给定值之间识别其它元素。例如， 
+   <TT
+CLASS="TYPE"
+>numeric</TT
+>类型的范围是连续的，和<TT
+CLASS="TYPE"
+>timestamp</TT
+>一样。（即使<TT
+CLASS="TYPE"
+>timestamp</TT
+>精度
+   有限，理论上可以被当做是离散的，但是既然不关心阶梯大小最好还是把它当做是连续的。) 
+  </P
+><P
+>   考虑一个离散范围的另一种方式是每一个元素值都清晰知道它的<SPAN
+CLASS="QUOTE"
+>"下一个"</SPAN
+>或者<SPAN
+CLASS="QUOTE"
+>"上一个"</SPAN
+>
+   值。 知道了这个，通过选择下一个或者上一个元素值而不是开始给定的值，就可能在一个范围边界的包
+   含和不包含表达之间进行转换。例如，在一个整数范围类型里<TT
+CLASS="LITERAL"
+>[4,8]</TT
+>和<TT
+CLASS="LITERAL"
+>(3,9)</TT
+>
+   提供相同的值集合；但是数值范围不是这样。
+  </P
+><P
+>   离散范围应当有一个<I
+CLASS="FIRSTTERM"
+>标准</I
+>函数，该函数知道元素类型想要的阶梯大小。这个标准函数
+   负责把该范围类型的等效值转换成同一表达方式，尤其是包含或不包含边界。如果不指定一个标准函数，
+   不同格式的范围会被认为是不相等的，即使它们实际上可能代表相同的值集合。   
+  </P
+><P
+>   内嵌范围类型<TT
+CLASS="TYPE"
+>int4range</TT
+>，<TT
+CLASS="TYPE"
+>int8range</TT
+>，和<TT
+CLASS="TYPE"
+>daterange</TT
+>都使用
+   包括下边界不包含上边界的标准格式；即，<TT
+CLASS="LITERAL"
+>[)</TT
+>。然而用户定义的范围类型可以使用
+   其他规则。
+  </P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="RANGETYPES-DEFINING"
+>8.17.8. 定义新的范围类型</A
+></H2
+><P
+>   用户可以定义他们自己的范围类型。这么做的最普通原因是为了使用内嵌范围类型所不提供的子类型范围。
+   例如，定义一个新的范围子类型<TT
+CLASS="TYPE"
+>float8</TT
+>:
+
+</P><PRE
+CLASS="PROGRAMLISTING"
+>CREATE TYPE floatrange AS RANGE (
+    subtype = float8,
+    subtype_diff = float8mi
+);
+
+SELECT '[1.234, 5.678]'::floatrange;</PRE
+><P>
+
+   因为<TT
+CLASS="TYPE"
+>float8</TT
+>没有有意义的<SPAN
+CLASS="QUOTE"
+>"阶梯"</SPAN
+>，我们在此例中不定义一个标准函数。
+  </P
+><P
+>   如果子类型被认为含有离散的而不是连续的值，命令<TT
+CLASS="COMMAND"
+>CREATE TYPE</TT
+>应当指定一个
+   <TT
+CLASS="LITERAL"
+>canonical</TT
+>函数。
+   标准函数使用一个输入范围值，并且必须返回一个可能含有不同边界和格式的相应的范围值。代表相同
+   值集合的两个范围的输出比如整数范围<TT
+CLASS="LITERAL"
+>[1, 7]</TT
+>和<TT
+CLASS="LITERAL"
+>[1,8)</TT
+>，必
+   须相同。你选择哪个表达方式作为标准没有关系，只要两个内容相当但格式不同的值总是映射到相同格
+   式的相同值。除了调整包含/不包含边界格式以外，一旦想要的阶梯大小大于子类型能够储存的范围，
+   标准函数可能圆化边界值。例如，<TT
+CLASS="TYPE"
+>timestamp</TT
+>范围类型可以被定义为以一个小时作为阶梯值。这
+   种情况下标准函数需要把不是一小时的整数倍的值化成一小时的整数倍，或者可能抛出一个错误。
+  </P
+><P
+>   定义你自己的范围类型也允许你指定使用一个不同的子类型B-树操作数类或排序规则，以便改变排序次序
+   来决定哪些值落入一个给定的范围。
+  </P
+><P
+>   此外，任何打算要使用GiST或SP-GiST索引的范围类型应当定义一个子类型差异，或者
+   <TT
+CLASS="LITERAL"
+>subtype_diff</TT
+>函数。（没有<TT
+CLASS="LITERAL"
+>subtype_diff</TT
+>索引仍然可以起作用，但是比起提
+   供差异函数时可能相当低效。）子类型差异函数采用子类型的两个输入值，并返回它们之间表示为
+   <TT
+CLASS="TYPE"
+>float8</TT
+>值的差异（就是说，<TT
+CLASS="REPLACEABLE"
+><I
+>X</I
+></TT
+>减去<TT
+CLASS="REPLACEABLE"
+><I
+>Y</I
+></TT
+>）。在我们上面的例子
+   中，常规<TT
+CLASS="TYPE"
+>float8</TT
+>减操作数下面的函数可以被使用；但是对其它子类型，类型转换似乎必要的。
+   关于怎样将差异表示为数字的某些创新想法可能也是必要的。 <TT
+CLASS="LITERAL"
+>subtype_diff</TT
+>函数应当尽最
+   大可能与所选操作数类和排序规则表明的排序次序相一致；即，每当根据排序次序第一个参数大于第
+   二个参数时，结果应当是正数。
+  </P
+><P
+>   更多创建范围类型的信息见<A
+HREF="sql-createtype.html"
+>CREATE TYPE</A
+>。
+  </P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="RANGETYPES-INDEXING"
+>8.17.9. 索引</A
+></H2
+><P
+>   可以对范围类型的表列创建GiST和SP-GiST索引。例如，要创建一个GiST索引：
+</P><PRE
+CLASS="PROGRAMLISTING"
+>CREATE INDEX reservation_idx ON reservation USING gist (during);</PRE
+><P>
+   一个GiST或者SP-GiST索引可以加速包含这些范围操作数的查询：
+   <TT
+CLASS="LITERAL"
+>=</TT
+>,
+   <TT
+CLASS="LITERAL"
+>&amp;&amp;</TT
+>,
+   <TT
+CLASS="LITERAL"
+>&lt;@</TT
+>,
+   <TT
+CLASS="LITERAL"
+>@&gt;</TT
+>,
+   <TT
+CLASS="LITERAL"
+>&lt;&lt;</TT
+>,
+   <TT
+CLASS="LITERAL"
+>&gt;&gt;</TT
+>,
+   <TT
+CLASS="LITERAL"
+>-|-</TT
+>,
+   <TT
+CLASS="LITERAL"
+>&amp;&lt;</TT
+>, and
+   <TT
+CLASS="LITERAL"
+>&amp;&gt;</TT
+>
+   （更多信息见<A
+HREF="functions-range.html#RANGE-OPERATORS-TABLE"
+>Table 9-44</A
+>）。
+  </P
+><P
+>   此外，对范围类型的表列可以创建B-树和哈希索引。对这些索引类型，基本上唯一可用的范围操作是等
+   于。用相应的<TT
+CLASS="LITERAL"
+>&lt;</TT
+>和<TT
+CLASS="LITERAL"
+>&gt;</TT
+>操作数可以为范围索引定义一个B-树排序次序，但
+   是这个次序相当武断，在现实世界中通常没有用。范围类型的B-树和哈希支持主要是用于查询内部的排
+   序和哈希操作，而不是用于实际索引的创建。
+  </P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="RANGETYPES-CONSTRAINT"
+>8.17.10. 范围上的约束</A
+></H2
+><P
+>   当<TT
+CLASS="LITERAL"
+>UNIQUE</TT
+>是一个对标量值的自然约束时，对范围类型通常是不合适的。反而不包含
+   约束往往更合适（见<A
+HREF="sql-createtable.html#SQL-CREATETABLE-EXCLUDE"
+>CREATE TABLE
+   ... CONSTRAINT ... EXCLUDE</A
+>）。不包含约束允许对一个范围类型指定约束，比如
+   <SPAN
+CLASS="QUOTE"
+>"非重叠"</SPAN
+>。例如： 
+
+</P><PRE
+CLASS="PROGRAMLISTING"
+>CREATE TABLE reservation (
+    during tsrange,
+    EXCLUDE USING gist (during WITH &amp;&amp;)
+);</PRE
+><P>
+
+   这个约束将会防止任何重叠的值同时存在于表中：
+</P><PRE
+CLASS="PROGRAMLISTING"
+>INSERT INTO reservation VALUES
+    ('[2010-01-01 11:30, 2010-01-01 15:00)');
+INSERT 0 1
+
+INSERT INTO reservation VALUES
+    ('[2010-01-01 14:45, 2010-01-01 15:45)');
+ERROR:  conflicting key value violates exclusion constraint "reservation_during_excl"
+DETAIL:  Key (during)=(["2010-01-01 14:45:00","2010-01-01 15:45:00")) conflicts
+with existing key (during)=(["2010-01-01 11:30:00","2010-01-01 15:00:00")).</PRE
+><P>
+  </P
+><P
+>   你可以使用<A
+HREF="btree-gist.html"
+><TT
+CLASS="LITERAL"
+>btree_gist</TT
+></A
+>扩展对简单标量数据类型
+   定义不包含约束。简单标量数据类型可以和范围不包含结合来获得最大的灵活性。例如，
+   在<TT
+CLASS="LITERAL"
+>btree_gist</TT
+>安装后，下列的约束排除重叠的范围，除非会议室房间号相等：
+
+</P><PRE
+CLASS="PROGRAMLISTING"
+>CREATE EXTENSION btree_gist;
+CREATE TABLE room_reservation (
+    room text,
+    during tsrange,
+    EXCLUDE USING gist (room WITH =, during WITH &amp;&amp;)
+);
+
+INSERT INTO room_reservation VALUES
+    ('123A', '[2010-01-01 14:00, 2010-01-01 15:00)');
+INSERT 0 1
+
+INSERT INTO room_reservation VALUES
+    ('123A', '[2010-01-01 14:30, 2010-01-01 15:30)');
+ERROR:  conflicting key value violates exclusion constraint "room_reservation_room_during_excl"
+DETAIL:  Key (room, during)=(123A, ["2010-01-01 14:30:00","2010-01-01 15:30:00")) conflicts
+with existing key (room, during)=(123A, ["2010-01-01 14:00:00","2010-01-01 15:00:00")).
+
+INSERT INTO room_reservation VALUES
+    ('123B', '[2010-01-01 14:30, 2010-01-01 15:30)');
+INSERT 0 1</PRE
+><P>
+  </P
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="rowtypes.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="datatype-oid.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>Composite Types</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="datatype.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>Object Identifier Types</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

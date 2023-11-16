@@ -1,0 +1,351 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>ALTER CONVERSION</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REV="MADE"
+HREF="mailto:pgsql-docs@postgresql.org"><LINK
+REL="HOME"
+TITLE="PostgreSQL 9.3.1 中文文档"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="SQL Commands"
+HREF="sql-commands.html"><LINK
+REL="PREVIOUS"
+TITLE="ALTER COLLATION"
+HREF="sql-altercollation.html"><LINK
+REL="NEXT"
+TITLE="ALTER DATABASE"
+HREF="sql-alterdatabase.html"><LINK
+REL="STYLESHEET"
+TYPE="text/css"
+HREF="stylesheet.css"><META
+HTTP-EQUIV="Content-Type"
+CONTENT="text/html; charset=gbk"><META
+NAME="creation"
+CONTENT="2013-12-03T02:30:09"></HEAD
+><BODY
+CLASS="REFENTRY"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="5"
+ALIGN="center"
+VALIGN="bottom"
+><A
+HREF="index.html"
+>PostgreSQL 9.3.1 中文文档</A
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+TITLE="ALTER COLLATION"
+HREF="sql-altercollation.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="sql-commands.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="60%"
+ALIGN="center"
+VALIGN="bottom"
+></TD
+><TD
+WIDTH="20%"
+ALIGN="right"
+VALIGN="top"
+><A
+TITLE="ALTER DATABASE"
+HREF="sql-alterdatabase.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><H1
+><A
+NAME="SQL-ALTERCONVERSION"
+></A
+>ALTER CONVERSION</H1
+><DIV
+CLASS="REFNAMEDIV"
+><A
+NAME="AEN64040"
+></A
+><H2
+>Name</H2
+>ALTER CONVERSION&nbsp;--&nbsp;修改编码转换的定义</DIV
+><DIV
+CLASS="REFSYNOPSISDIV"
+><A
+NAME="AEN64045"
+></A
+><H2
+>Synopsis</H2
+><PRE
+CLASS="SYNOPSIS"
+>ALTER CONVERSION <TT
+CLASS="REPLACEABLE"
+><I
+>name</I
+></TT
+> RENAME TO <TT
+CLASS="REPLACEABLE"
+><I
+>new_name</I
+></TT
+>
+ALTER CONVERSION <TT
+CLASS="REPLACEABLE"
+><I
+>name</I
+></TT
+> OWNER TO <TT
+CLASS="REPLACEABLE"
+><I
+>new_owner</I
+></TT
+>
+ALTER CONVERSION <TT
+CLASS="REPLACEABLE"
+><I
+>name</I
+></TT
+> SET SCHEMA <TT
+CLASS="REPLACEABLE"
+><I
+>new_schema</I
+></TT
+></PRE
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN64053"
+></A
+><H2
+>描述</H2
+><P
+><TT
+CLASS="COMMAND"
+>ALTER CONVERSION</TT
+> 修改编码转换的定义。</P
+><P
+>要使用<TT
+CLASS="COMMAND"
+>ALTER CONVERSION</TT
+> ，您必须是该编码转换的所有者。要修改其所有者， 您必须是新的所属角色的直接或者间接成员，
+并且该角色还必须在该编码转换的模式上有 <TT
+CLASS="LITERAL"
+>CREATE</TT
+> 权限。
+（这些限制强制了修改该所有者不会做任何通过删除和重建编码转换不能做的事情。不过，超级用户可以任何方式修改任意编码转换的所有属关系。） </P
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN64060"
+></A
+><H2
+>参数</H2
+><P
+></P
+><DIV
+CLASS="VARIABLELIST"
+><DL
+><DT
+><TT
+CLASS="REPLACEABLE"
+><I
+>name</I
+></TT
+></DT
+><DD
+><P
+>现有的编码转换的名称(可以有模式修饰)。</P
+></DD
+><DT
+><TT
+CLASS="REPLACEABLE"
+><I
+>new_name</I
+></TT
+></DT
+><DD
+><P
+>编码转换的新名字。</P
+></DD
+><DT
+><TT
+CLASS="REPLACEABLE"
+><I
+>new_owner</I
+></TT
+></DT
+><DD
+><P
+>编码转换的新所有者。 </P
+></DD
+><DT
+><TT
+CLASS="REPLACEABLE"
+><I
+>new_schema</I
+></TT
+></DT
+><DD
+><P
+>编码转换的新模式名。</P
+></DD
+></DL
+></DIV
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN64083"
+></A
+><H2
+>例子</H2
+><P
+>要把编码转换 <TT
+CLASS="LITERAL"
+>iso_8859_1_to_utf8</TT
+> 重新命名为<TT
+CLASS="LITERAL"
+>latin1_to_unicode</TT
+> ：
+</P><PRE
+CLASS="PROGRAMLISTING"
+>ALTER CONVERSION iso_8859_1_to_utf8 RENAME TO latin1_to_unicode;</PRE
+><P></P
+><P
+>要把编码转换 <TT
+CLASS="LITERAL"
+>iso_8859_1_to_utf8</TT
+> 的所有者改变为<TT
+CLASS="LITERAL"
+>joe</TT
+>：
+</P><PRE
+CLASS="PROGRAMLISTING"
+>ALTER CONVERSION iso_8859_1_to_utf8 OWNER TO joe;</PRE
+><P></P
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN64093"
+></A
+><H2
+>兼容性</H2
+><P
+>SQL 标准里没有 <TT
+CLASS="COMMAND"
+>ALTER CONVERSION</TT
+> 语句。</P
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN64097"
+></A
+><H2
+>参见</H2
+><A
+HREF="sql-createconversion.html"
+>CREATE CONVERSION</A
+>, <A
+HREF="sql-dropconversion.html"
+>DROP CONVERSION</A
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="sql-altercollation.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="sql-alterdatabase.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>ALTER COLLATION</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="sql-commands.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>ALTER DATABASE</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

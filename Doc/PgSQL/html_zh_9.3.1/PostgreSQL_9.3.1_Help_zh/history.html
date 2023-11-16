@@ -1,0 +1,593 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>PostgreSQL简史</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REV="MADE"
+HREF="mailto:pgsql-docs@postgresql.org"><LINK
+REL="HOME"
+TITLE="PostgreSQL 9.3.1 中文文档"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="前言"
+HREF="preface.html"><LINK
+REL="PREVIOUS"
+TITLE="何为PostgreSQL？"
+HREF="intro-whatis.html"><LINK
+REL="NEXT"
+TITLE="格式约定"
+HREF="notation.html"><LINK
+REL="STYLESHEET"
+TYPE="text/css"
+HREF="stylesheet.css"><META
+HTTP-EQUIV="Content-Type"
+CONTENT="text/html; charset=gbk"><META
+NAME="creation"
+CONTENT="2013-12-03T02:30:09"></HEAD
+><BODY
+CLASS="SECT1"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="5"
+ALIGN="center"
+VALIGN="bottom"
+><A
+HREF="index.html"
+>PostgreSQL 9.3.1 中文文档</A
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+TITLE="何为PostgreSQL？"
+HREF="intro-whatis.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="preface.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="60%"
+ALIGN="center"
+VALIGN="bottom"
+>前言</TD
+><TD
+WIDTH="20%"
+ALIGN="right"
+VALIGN="top"
+><A
+TITLE="格式约定"
+HREF="notation.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="SECT1"
+><H1
+CLASS="SECT1"
+><A
+NAME="HISTORY"
+><SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>简史</A
+></H1
+><P
+>现在被称为<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>的对象-关系型数据库管理系统是从美国加州大学伯克利
+分校编写的<SPAN
+CLASS="PRODUCTNAME"
+>POSTGRES</SPAN
+>软件包发展而来的。经过二十几年的发展，<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>
+是目前世界上可以获得的最先进的开放源码数据库系统。 
+ </P
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="HISTORY-BERKELEY"
+>Berkeley 的<SPAN
+CLASS="PRODUCTNAME"
+>POSTGRES</SPAN
+>项目</A
+></H2
+><P
+> Michael Stonebraker领导的<SPAN
+CLASS="PRODUCTNAME"
+>POSTGRES</SPAN
+>项目
+是由防务高级研究项目局(<ACRONYM
+CLASS="ACRONYM"
+>DARPA</ACRONYM
+>)、陆军研究办公室(<ACRONYM
+CLASS="ACRONYM"
+>ARO</ACRONYM
+>)、国家科学基金
+(<ACRONYM
+CLASS="ACRONYM"
+>NSF</ACRONYM
+>)、ESL公司共同赞助的。<SPAN
+CLASS="PRODUCTNAME"
+>POSTGRES</SPAN
+>的实现始于1986年，该系统最初的
+概念详见<A
+HREF="biblio.html#STON86"
+><I
+><A
+HREF="http://db.cs.berkeley.edu/papers/ERL-M85-95.pdf"
+TARGET="_top"
+>    The design of <SPAN
+CLASS="PRODUCTNAME"
+>POSTGRES</SPAN
+>
+    </A
+></I
+></A
+>，最早的数据模型定义见
+<A
+HREF="biblio.html#ROWE87"
+><I
+><A
+HREF="http://db.cs.berkeley.edu/papers/ERL-M87-13.pdf"
+TARGET="_top"
+>    The <SPAN
+CLASS="PRODUCTNAME"
+>POSTGRES</SPAN
+> data model
+    </A
+></I
+></A
+>。当时的规则系统设计在<A
+HREF="biblio.html#STON87A"
+><I
+>The design of the <SPAN
+CLASS="PRODUCTNAME"
+>POSTGRES</SPAN
+> rules system</I
+></A
+>
+里描述。存储管理器的理论基础和体系结构在 <A
+HREF="biblio.html#STON87B"
+><I
+><A
+HREF="http://db.cs.berkeley.edu/papers/ERL-M87-06.pdf"
+TARGET="_top"
+>    The design of the <SPAN
+CLASS="PRODUCTNAME"
+>POSTGRES</SPAN
+> storage system
+    </A
+></I
+></A
+>里有详细描述。
+  </P
+><P
+> 从那以后，<SPAN
+CLASS="PRODUCTNAME"
+>POSTGRES</SPAN
+>经历了几次主要的
+ 版本更新。第一个<SPAN
+CLASS="QUOTE"
+>"演示性"</SPAN
+>系统在1987年便可使用了，
+ 并且在1988年的<ACRONYM
+CLASS="ACRONYM"
+>ACM-SIGMOD</ACRONYM
+>大会上展出。在1989年
+ 6月发布了版本1(在<A
+HREF="biblio.html#STON90A"
+><I
+><A
+HREF="http://db.cs.berkeley.edu/papers/ERL-M90-34.pdf"
+TARGET="_top"
+>    The implementation of <SPAN
+CLASS="PRODUCTNAME"
+>POSTGRES</SPAN
+>
+    </A
+></I
+></A
+>里有描述)给一些外部的用
+ 户使用。为了回应用户对第一个规则系统的批评
+ (<A
+HREF="biblio.html#STON89"
+><I
+><A
+HREF="http://db.cs.berkeley.edu/papers/ERL-M89-82.pdf"
+TARGET="_top"
+>    A commentary on the <SPAN
+CLASS="PRODUCTNAME"
+>POSTGRES</SPAN
+> rules system
+    </A
+></I
+></A
+> )，我们重新设计了规则系统
+ (<A
+HREF="biblio.html#STON90B"
+><I
+><A
+HREF="http://db.cs.berkeley.edu/papers/ERL-M90-36.pdf"
+TARGET="_top"
+>    On Rules, Procedures, Caching and Views in Database Systems
+    </A
+></I
+></A
+>)，并在1990年6月发布了使用新规则系统的
+ 版本2。版本3在1991年出现，增加了多存储管理器的支持，并且改进了
+ 查询执行器，重新编写了规则系统。从那以后，随后的版本直到
+ <SPAN
+CLASS="PRODUCTNAME"
+>Postgres95</SPAN
+>发布前(见下文)，工作都集中
+ 在移植性和可靠性上。
+  </P
+><P
+> <SPAN
+CLASS="PRODUCTNAME"
+>POSTGRES</SPAN
+>已经在许多研究或实际的应用中
+ 得到了应用。这些应用包括：一个财务数据分析系统、一个喷气引擎
+ 性能监控软件包、一个小行星跟踪数据库、一个医疗信息数据库和一些
+ 地理信息系统。<SPAN
+CLASS="PRODUCTNAME"
+>POSTGRES</SPAN
+>还被许多大学用
+ 于教学用途。最后，Illustra Information Technologies(后来并入
+ <A
+HREF="http://www.informix.com/"
+TARGET="_top"
+><SPAN
+CLASS="PRODUCTNAME"
+>Informix
+ </SPAN
+></A
+>，而它现在属于
+ <A
+HREF="http://www.ibm.com/"
+TARGET="_top"
+>IBM</A
+>)拿到代码并使之
+ 商业化。在1992年末<SPAN
+CLASS="PRODUCTNAME"
+>POSTGRES</SPAN
+>成为
+ <A
+HREF="http://meteora.ucsd.edu/s2k/s2k_home.html"
+TARGET="_top"
+>Sequoia 
+ 2000 scientific computing project</A
+>的首要数据管理器。
+  </P
+><P
+> 到了1993年，外部用户的数量几乎翻番。随着用户的增加，用于源代
+ 码维护的时间日益增加，以至占用了太多本应该用于数据库研究的时
+ 间，为了减少支持的负担，伯克利的<SPAN
+CLASS="PRODUCTNAME"
+>POSTGRES
+ </SPAN
+>项目在版本4.2时正式终止。
+  </P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="HISTORY-POSTGRES95"
+><SPAN
+CLASS="PRODUCTNAME"
+>Postgres95</SPAN
+></A
+></H2
+><P
+> 1994年，Andrew Yu和Jolly Chen向<SPAN
+CLASS="PRODUCTNAME"
+>POSTGRES</SPAN
+>
+ 中增加了SQL语言的解释器，并随后将<SPAN
+CLASS="PRODUCTNAME"
+>Postgres95
+ </SPAN
+>的源代码发布到互联网上供大家使用，从而成为一个开放
+ 源码的原伯克利<SPAN
+CLASS="PRODUCTNAME"
+>POSTGRES</SPAN
+>的继承者。
+  </P
+><P
+> <SPAN
+CLASS="PRODUCTNAME"
+>Postgres95</SPAN
+>所有源代码都是完全的ANSI C，
+ 而且代码量减少了25%，并且有许多内部修改以利于提高性能和代码的
+ 可维护性。<SPAN
+CLASS="PRODUCTNAME"
+>Postgres95</SPAN
+>版本1.0.x在进行
+ Wisconsin Benchmark测试时大概比<SPAN
+CLASS="PRODUCTNAME"
+>POSTGRES</SPAN
+>
+ v4.2快 30%-50%。除了修正了一些错误，下面的是一些主要改进： 
+
+   <P
+></P
+></P><UL
+><LI
+><P
+>      原来的查询语言PostQUEL被<ACRONYM
+CLASS="ACRONYM"
+>SQL</ACRONYM
+>取代(在服务器端实现)。
+  (接口库<A
+HREF="libpq.html"
+>libpq</A
+>是以PostQUEL来命名的。)
+  在<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>之前还不支持子查询(见下文)，但
+  这个功能可以在<SPAN
+CLASS="PRODUCTNAME"
+>Postgres95</SPAN
+>里面由用户定义的
+  <ACRONYM
+CLASS="ACRONYM"
+>SQL</ACRONYM
+>函数实现，重新实现了聚集，同时还增加了对
+  <TT
+CLASS="LITERAL"
+>GROUP BY</TT
+>查询子句的支持。
+     </P
+></LI
+><LI
+><P
+> 新增加了利用<ACRONYM
+CLASS="ACRONYM"
+>GNU</ACRONYM
+> <SPAN
+CLASS="APPLICATION"
+>Readline</SPAN
+>进
+ 行交互SQL查询的程序(<SPAN
+CLASS="APPLICATION"
+>psql</SPAN
+>)。这个程序很大程度上取代了
+ 老的<SPAN
+CLASS="APPLICATION"
+>monitor</SPAN
+>程序。
+ </P
+></LI
+><LI
+><P
+>      增加了新的前端库(<TT
+CLASS="FILENAME"
+>libpgtcl</TT
+>)，用以支持
+  以<ACRONYM
+CLASS="ACRONYM"
+>Tcl</ACRONYM
+>为基础的客户端。一个样本shell
+  (<TT
+CLASS="COMMAND"
+>pgtclsh</TT
+>)，提供了新的Tcl命令用于
+  <SPAN
+CLASS="APPLICATION"
+>Tcl</SPAN
+>程序和<SPAN
+CLASS="PRODUCTNAME"
+>Postgres95
+  </SPAN
+>后端之间的交互。
+     </P
+></LI
+><LI
+><P
+>     彻底重写了大对象的接口，将大对象倒转(inversion)作为存储大对象
+ 的唯一机制（去掉了倒转(inversion)文件系统）。
+     </P
+></LI
+><LI
+><P
+>     去掉了实例级的规则系统，但我们仍然可以通过重写规则来使用规则。
+     </P
+></LI
+><LI
+><P
+>      在发布的源码中增加了一个简短的常用<ACRONYM
+CLASS="ACRONYM"
+>SQL</ACRONYM
+>和
+  <SPAN
+CLASS="PRODUCTNAME"
+>Postgres95</SPAN
+>特有的SQL特性的教程。
+     </P
+></LI
+><LI
+><P
+>      用<ACRONYM
+CLASS="ACRONYM"
+>GNU</ACRONYM
+> make取代了<ACRONYM
+CLASS="ACRONYM"
+>BSD</ACRONYM
+> make用于编译。
+  <SPAN
+CLASS="PRODUCTNAME"
+>Postgres95</SPAN
+>可以使用不加补丁的
+  <SPAN
+CLASS="PRODUCTNAME"
+>GCC</SPAN
+>进行编译(修正了偶数字节数据的对齐问题)。
+     </P
+></LI
+></UL
+><P>
+  </P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN188"
+><SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+></A
+></H2
+><P
+>到了1996年，我们很明显的看出<SPAN
+CLASS="QUOTE"
+>"Postgres95"</SPAN
+>这个名字已经经不起
+时间的考验了。于是我们起了一个新名字<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>
+用于反映最初的<SPAN
+CLASS="PRODUCTNAME"
+>POSTGRES</SPAN
+>和最新的使用<ACRONYM
+CLASS="ACRONYM"
+>SQL</ACRONYM
+>的版本之间的关系。同时版本号也重新从6.0开始，将版本号放回到最
+初的由伯克利<SPAN
+CLASS="PRODUCTNAME"
+>POSTGRES</SPAN
+>项目开始的顺序中。</P
+><P
+>许多人出于习惯或者发音简单的原因，将<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>
+称为<SPAN
+CLASS="QUOTE"
+>"Postgres"</SPAN
+>（现在很少全部用大写字母），这种称法被当做绰号或者别名而广泛接受。
+ </P
+><P
+>   <SPAN
+CLASS="PRODUCTNAME"
+>Postgres95</SPAN
+>版本的开发重点放在识别和理解服务器端
+   代码中已有的问题上。<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>开发重点转到了一些
+   有争议的特性和功能上面，当然各个方面的工作同时都在进行。 
+  </P
+><P
+>     自那以来，<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>发生的变化可以在<A
+HREF="release.html"
+>Appendix E</A
+>里面找到。 
+  </P
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="intro-whatis.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="notation.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>何为PostgreSQL？</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="preface.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>格式约定</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

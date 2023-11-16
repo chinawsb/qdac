@@ -1,0 +1,526 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>CREATE FOREIGN TABLE</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REV="MADE"
+HREF="mailto:pgsql-docs@postgresql.org"><LINK
+REL="HOME"
+TITLE="PostgreSQL 9.3.1 中文文档"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="SQL Commands"
+HREF="sql-commands.html"><LINK
+REL="PREVIOUS"
+TITLE="CREATE FOREIGN DATA WRAPPER"
+HREF="sql-createforeigndatawrapper.html"><LINK
+REL="NEXT"
+TITLE="CREATE FUNCTION"
+HREF="sql-createfunction.html"><LINK
+REL="STYLESHEET"
+TYPE="text/css"
+HREF="stylesheet.css"><META
+HTTP-EQUIV="Content-Type"
+CONTENT="text/html; charset=gbk"><META
+NAME="creation"
+CONTENT="2013-12-03T02:30:09"></HEAD
+><BODY
+CLASS="REFENTRY"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="5"
+ALIGN="center"
+VALIGN="bottom"
+><A
+HREF="index.html"
+>PostgreSQL 9.3.1 中文文档</A
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+TITLE="CREATE FOREIGN DATA WRAPPER"
+HREF="sql-createforeigndatawrapper.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="sql-commands.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="60%"
+ALIGN="center"
+VALIGN="bottom"
+></TD
+><TD
+WIDTH="20%"
+ALIGN="right"
+VALIGN="top"
+><A
+TITLE="CREATE FUNCTION"
+HREF="sql-createfunction.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><H1
+><A
+NAME="SQL-CREATEFOREIGNTABLE"
+></A
+>CREATE FOREIGN TABLE</H1
+><DIV
+CLASS="REFNAMEDIV"
+><A
+NAME="AEN70169"
+></A
+><H2
+>Name</H2
+>CREATE FOREIGN TABLE&nbsp;--&nbsp;定义一个新外部表</DIV
+><DIV
+CLASS="REFSYNOPSISDIV"
+><A
+NAME="AEN70174"
+></A
+><H2
+>Synopsis</H2
+><PRE
+CLASS="SYNOPSIS"
+>CREATE FOREIGN TABLE [ IF NOT EXISTS ] <TT
+CLASS="REPLACEABLE"
+><I
+>table_name</I
+></TT
+> ( [
+    <TT
+CLASS="REPLACEABLE"
+><I
+>column_name</I
+></TT
+> <TT
+CLASS="REPLACEABLE"
+><I
+>data_type</I
+></TT
+> [ OPTIONS ( <TT
+CLASS="REPLACEABLE"
+><I
+>option</I
+></TT
+> '<TT
+CLASS="REPLACEABLE"
+><I
+>value</I
+></TT
+>' [, ... ] ) ] [ COLLATE <TT
+CLASS="REPLACEABLE"
+><I
+>collation</I
+></TT
+> ] [ <TT
+CLASS="REPLACEABLE"
+><I
+>column_constraint</I
+></TT
+> [ ... ] ]
+    [, ... ]
+] )
+  SERVER <TT
+CLASS="REPLACEABLE"
+><I
+>server_name</I
+></TT
+>
+[ OPTIONS ( <TT
+CLASS="REPLACEABLE"
+><I
+>option</I
+></TT
+> '<TT
+CLASS="REPLACEABLE"
+><I
+>value</I
+></TT
+>' [, ... ] ) ]
+<SPAN
+CLASS="phrase"
+><SPAN
+CLASS="PHRASE"
+>这里<TT
+CLASS="REPLACEABLE"
+><I
+>column_constraint</I
+></TT
+> 可以是:</SPAN
+></SPAN
+>
+
+[ CONSTRAINT <TT
+CLASS="REPLACEABLE"
+><I
+>constraint_name</I
+></TT
+> ]
+{ NOT NULL |
+  NULL |
+  DEFAULT <TT
+CLASS="REPLACEABLE"
+><I
+>default_expr</I
+></TT
+> }</PRE
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="SQL-CREATEFOREIGNTABLE-DESCRIPTION"
+></A
+><H2
+>描述</H2
+><P
+>   <TT
+CLASS="COMMAND"
+>CREATE FOREIGN TABLE</TT
+>在当前数据库中创建一个外部表，该表将由发出此命令的用户所有。 
+  </P
+><P
+>   如果给出了模式名 (for example, <TT
+CLASS="LITERAL"
+>CREATE FOREIGN TABLE
+   myschema.mytable ...</TT
+>) ，那么表是在指定模式中创建的。否则在当前模式中创建外部表。
+   外部表的名字必须与同一个模式中的其它外部表，表，序列，索引或试图的名字不同
+  </P
+><P
+>   <TT
+CLASS="COMMAND"
+>CREATE FOREIGN TABLE</TT
+>还自动创建一个数据类型，该数据类型代表对应该外部表一行的复合类型。 
+   因此，外部表不能和同模式中的现有数据类型同名。 
+  </P
+><P
+>   为了创建一个外部表，除了对外部表所有字段类型有 <TT
+CLASS="LITERAL"
+>USAGE</TT
+>权限外，
+   还必须有外部表服务器的<TT
+CLASS="LITERAL"
+>USAGE</TT
+>权限。
+  </P
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN70201"
+></A
+><H2
+>参数</H2
+><P
+></P
+><DIV
+CLASS="VARIABLELIST"
+><DL
+><DT
+><TT
+CLASS="LITERAL"
+>IF NOT EXISTS</TT
+></DT
+><DD
+><P
+>      如果已经存在相同名称的对象，在这种情况下，不会抛出错误，只会产生一个通知。
+      请注意这并不保证将要创建的对象与现有对象是否一致。
+     </P
+></DD
+><DT
+><TT
+CLASS="REPLACEABLE"
+><I
+>table_name</I
+></TT
+></DT
+><DD
+><P
+>      要创建的表的名字（可以用模式修饰）。
+     </P
+></DD
+><DT
+><TT
+CLASS="REPLACEABLE"
+><I
+>column_name</I
+></TT
+></DT
+><DD
+><P
+>      新表中要创建的字段名。
+     </P
+></DD
+><DT
+><TT
+CLASS="REPLACEABLE"
+><I
+>data_type</I
+></TT
+></DT
+><DD
+><P
+>      该字段的数据类型. 它可以包含数组说明符。有关 PostgreSQL 支持的数据类型的更多信息， 请参考<A
+HREF="datatype.html"
+>Chapter 8</A
+>。
+     </P
+></DD
+><DT
+><TT
+CLASS="LITERAL"
+>NOT NULL</TT
+></DT
+><DD
+><P
+>      该字段不允许包含null值。
+     </P
+></DD
+><DT
+><TT
+CLASS="LITERAL"
+>NULL</TT
+></DT
+><DD
+><P
+>      该字段允许包含null值。 这是缺省。
+     </P
+><P
+>      这个子句的存在只是为和那些非标准 SQL 数据库兼容。 我们不建议在新应用中使用它。
+     </P
+></DD
+><DT
+><TT
+CLASS="LITERAL"
+>DEFAULT
+    <TT
+CLASS="REPLACEABLE"
+><I
+>default_expr</I
+></TT
+></TT
+></DT
+><DD
+><P
+>      <TT
+CLASS="LITERAL"
+>DEFAULT</TT
+> 子句给它所出现的字段设定一个缺省数值。该数值可以是任何不含变量的表达式（不允许使用子查询和对本表中的其它字段的交叉引用）。缺省表达式的数据类型必须和字段类型匹配。
+     </P
+><P
+>      缺省表达式将被用于任何未指定该字段数值的插入操作。 如果字段上没有缺省值，那么缺省是 NULL。 
+     </P
+></DD
+><DT
+><TT
+CLASS="REPLACEABLE"
+><I
+>server_name</I
+></TT
+></DT
+><DD
+><P
+>      外部表使用的已存在的外部服务器名称。更多细节，参考<A
+HREF="sql-createserver.html"
+>CREATE SERVER</A
+>。
+     </P
+></DD
+><DT
+><TT
+CLASS="LITERAL"
+>OPTIONS ( <TT
+CLASS="REPLACEABLE"
+><I
+>option</I
+></TT
+> '<TT
+CLASS="REPLACEABLE"
+><I
+>value</I
+></TT
+>' [, ...] )</TT
+></DT
+><DD
+><P
+>      选项与新外部表或外部表中的字段有关。允许的选项名称和值，是由每一个外部数据封装器中来说是特别指定的。
+      也是通过外部数据封装器的验证函数来验证。重复的选项名称是不被允许的(尽管表选项和表字段选项可以有相同的名字)。
+     </P
+></DD
+></DL
+></DIV
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="SQL-CREATEFOREIGNTABLE-EXAMPLES"
+></A
+><H2
+>例子</H2
+><P
+>   创建外部表 <TT
+CLASS="STRUCTNAME"
+>films</TT
+>, 该表通过服务器
+   <TT
+CLASS="STRUCTNAME"
+>film_server</TT
+>访问：
+
+</P><PRE
+CLASS="PROGRAMLISTING"
+>CREATE FOREIGN TABLE films (
+    code        char(5) NOT NULL,
+    title       varchar(40) NOT NULL,
+    did         integer NOT NULL,
+    date_prod   date,
+    kind        varchar(10),
+    len         interval hour to minute
+)
+SERVER film_server;</PRE
+><P></P
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="SQL-CREATEFOREIGNTABLE-COMPATIBILITY"
+></A
+><H2
+>兼容性</H2
+><P
+>   <TT
+CLASS="COMMAND"
+>CREATE FOREIGN TABLE</TT
+>命令最大程度上符合了<ACRONYM
+CLASS="ACRONYM"
+>SQL</ACRONYM
+>标准；
+   然而，就像使用<A
+HREF="sql-createtable.html"
+><TT
+CLASS="COMMAND"
+>CREATE TABLE</TT
+></A
+>,<TT
+CLASS="LITERAL"
+>NULL</TT
+>约束和
+   零字段外部表以及设定默认值的功能是<SPAN
+CLASS="PRODUCTNAME"
+>PostgreSQL</SPAN
+>对SQL标准的扩展。
+  </P
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN70272"
+></A
+><H2
+>See Also</H2
+><A
+HREF="sql-alterforeigntable.html"
+>ALTER FOREIGN TABLE</A
+>, <A
+HREF="sql-dropforeigntable.html"
+>DROP FOREIGN TABLE</A
+>, <A
+HREF="sql-createtable.html"
+>CREATE TABLE</A
+>, <A
+HREF="sql-createserver.html"
+>CREATE SERVER</A
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="sql-createforeigndatawrapper.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="sql-createfunction.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>CREATE FOREIGN DATA WRAPPER</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="sql-commands.html"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>CREATE FUNCTION</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>
