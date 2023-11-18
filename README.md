@@ -2,6 +2,12 @@
 
 QDAC 是 Quick Data Access Components 的简称，包括多种功能组合支持。具体可以参考 https://blog.qdac.cc 。
 
+主库地址：http://code.qdac.cc:3000
+
+国内镜像地址：https://gitee.com/z-proj/qdac
+
+国外镜像地址：https://github.com/chinawsb/qdac
+
 # 更新说明
 
 * 修正与 Delphi/C++ Builder 12 的兼容性
