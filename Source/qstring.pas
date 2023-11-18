@@ -8176,7 +8176,7 @@ const
   HexChars: array [0 .. 15] of QCharW = ('0', '1', '2', '3', '4', '5', '6', '7',
     '8', '9', 'A', 'B', 'C', 'D', 'E', 'F');
 var
-  c: Integer;
+//  c: Integer;
   ABookmarkCount: Integer;
   ps, pe: PByte;
   pd: PQCharW;
