@@ -12677,7 +12677,6 @@ var
   var
     l, H, M, c: Integer;
   begin
-    l := 0;
     H := High(CharRanges);
     Result := -1;
     l := 0;

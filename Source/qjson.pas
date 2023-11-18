@@ -1325,23 +1325,6 @@ type
     /// <summary>将名称加入到一个TStrings 中</summary>
     function NameArray: TArray<String>;
     function ValueArray: TArray<String>;
-    procedure NameToStrings(AList: TStrings);
-    procedure ValueToStrings(AList: TStrings);
-    // 转换一个Json值为字符串
-    class function BuildJsonString(ABuilder: TQStringCatHelperW; var p: PQCharW)
-      : Boolean; overload;
-    class function BuildJsonString(S: QStringW): QStringW; overload;
-    class function BuildJsonString(ABuilder: TQStringCatHelperW; S: QStringW)
-      : Boolean; overload;
-    class procedure JsonCat(ABuilder: TQStringCatHelperW; const S: QStringW;
-      ASettings: TJsonEncodeSettings); overload;
-    class function JsonCat(const S: QStringW; ASettings: TJsonEncodeSettings)
-      : QStringW; overload;
-    class function JsonEscape(const S: QStringW;
-      ASettings: TJsonEncodeSettings = [jesDoEscape]): QStringW; overload;
-    class function JsonUnescape(const S: QStringW): QStringW;
-    class function EncodeDateTime(const AValue: TDateTime): QStringW;
-    procedure Replace(AIndex: Integer; ANewItem: TQJson); virtual;
     function CatNames(const AQuoter, ADelimiter: QCharW; AOptions: TQCatOptions)
       : QStringW;
     function CatValues(const AQuoter, ADelimiter: QCharW;
@@ -1367,6 +1350,21 @@ type
       AIsReplace: Boolean = True; AStartIndex: Integer = 0;
       ACount: Integer = MaxInt);
 
+    // 转换一个Json值为字符串
+    class function BuildJsonString(ABuilder: TQStringCatHelperW; var p: PQCharW)
+      : Boolean; overload;
+    class function BuildJsonString(S: QStringW): QStringW; overload;
+    class function BuildJsonString(ABuilder: TQStringCatHelperW; S: QStringW)
+      : Boolean; overload;
+    class procedure JsonCat(ABuilder: TQStringCatHelperW; const S: QStringW;
+      ASettings: TJsonEncodeSettings); overload;
+    class function JsonCat(const S: QStringW; ASettings: TJsonEncodeSettings)
+      : QStringW; overload;
+    class function JsonEscape(const S: QStringW;
+      ASettings: TJsonEncodeSettings = [jesDoEscape]): QStringW; overload;
+    class function JsonUnescape(const S: QStringW): QStringW;
+    class function EncodeDateTime(const AValue: TDateTime): QStringW;
+    procedure Replace(AIndex: Integer; ANewItem: TQJson); virtual;
     /// <summary>父结点</summary>
     property Parent: TQJson read FParent;
     /// <summary>结点类型</summary>
@@ -4222,7 +4220,7 @@ begin
         else if PExtended(FValue)^.SpecialType = fsNInf then
           Result := '-Infinite'
         else
-      Result := FloatToStr(PExtended(FValue)^);
+          Result := FloatToStr(PExtended(FValue)^);
       end;
     jdtBcd:
       Result := BcdToStr(PBcd(FValue)^);
@@ -4690,7 +4688,7 @@ function TQJson.InternalEncode(ABuilder: TQStringCatHelperW;
           if Length(ANode.ValueFormat) > 0 then
             ABuilder.Cat(FormatFloat(ANode.ValueFormat, ANode.AsFloat))
           else
-        ABuilder.Cat(ANode.Value);
+            ABuilder.Cat(ANode.Value);
         end;
       jdtDateTime:
         begin
@@ -5372,14 +5370,17 @@ begin
   for var I := 0 to High(Result) do
     Result[I] := Items[I].Name;
 end;
-procedure TQJson.NameToStrings(AList: TStrings);
-var 
-  I:Integer;
+
+function TQJson.NameToStrings(AList: TStrings; AOptions: TQCatOptions): Integer;
+var
+  AItems: TQStringArray;
+  AIndex: Integer;
 begin
+  Result := InternalFlatItems(AItems, 0, AOptions);
   AList.BeginUpdate;
   try
-    for I := 0 to Count - 1 do
-      AList.Add(Items[I].Name);
+    for AIndex := 0 to Result - 1 do
+      AList.Add(AItems[AIndex]);
   finally
     AList.EndUpdate;
   end;
@@ -7963,6 +7964,7 @@ begin
   for I := 0 to High(Result) do
     Result[I] := Items[I].AsString;
 end;
+
 function TQJson.ValueByName(AName, ADefVal: QStringW): QStringW;
 var
   AChild: TQJson;
@@ -8062,8 +8064,8 @@ begin
   end;
 end;
 
-procedure TQJson.ValuesFromFloats(const AValues: TFloatArray; AIsReplace: Boolean;
-  AStartIndex, ACount: Integer);
+procedure TQJson.ValuesFromFloats(const AValues: TFloatArray;
+  AIsReplace: Boolean; AStartIndex, ACount: Integer);
 begin
   DataType := jdtArray; // 必需是数组
   if AIsReplace then
@@ -8082,8 +8084,8 @@ begin
   end;
 end;
 
-procedure TQJson.ValuesFromInt64s(const AValues: TInt64Array; AIsReplace: Boolean;
-  AStartIndex, ACount: Integer);
+procedure TQJson.ValuesFromInt64s(const AValues: TInt64Array;
+  AIsReplace: Boolean; AStartIndex, ACount: Integer);
 begin
   DataType := jdtArray; // 必需是数组
   if AIsReplace then
