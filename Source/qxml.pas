@@ -233,7 +233,8 @@ type
     function Add(const AName: QStringW; AValue: Int64): Integer; overload;
     function Add(const AName: QStringW; AValue: Double): Integer; overload;
     function Add(const AName: QStringW; AValue: TGuid): Integer; overload;
-    function AddDateTime(const AName: QStringW; AValue: TDateTime): Integer; overload;
+    function AddDateTime(const AName: QStringW; AValue: TDateTime)
+      : Integer; overload;
 
     /// <summary>查找指定名称的属性</summary>
     /// <param name="AName">要查找的属性名称</param>
@@ -247,12 +248,16 @@ type
     /// <param name="AName">属性名称</param>
     /// <param name="ADefVal">如果属性不存在，返回的默认值</param>
     /// <returns>返回找到的属性的值，如果未找到，返回ADefVal参数的值</returns>
-    function ValueByName(const AName: QStringW; const ADefVal: QStringW = ''): QStringW;
-    function BoolByName(const AName: QStringW; const ADefVal: Boolean = False): Boolean;
+    function ValueByName(const AName: QStringW; const ADefVal: QStringW = '')
+      : QStringW;
+    function BoolByName(const AName: QStringW;
+      const ADefVal: Boolean = False): Boolean;
     function IntByName(const AName: QStringW; const ADefVal: Int64 = 0): Int64;
-    function FloatByName(const AName: QStringW; const ADefVal: Double = 0): Double;
+    function FloatByName(const AName: QStringW;
+      const ADefVal: Double = 0): Double;
     function GuidByName(const AName: QStringW; const ADefVal: TGuid): TGuid;
-    function DateTimeByName(const AName: QStringW; const ADefVal: TDateTime = 0): TDateTime;
+    function DateTimeByName(const AName: QStringW; const ADefVal: TDateTime = 0)
+      : TDateTime;
     /// <summary>删除指定索引的属性值</summary>
     /// <param name="AIndex">属性索引</param>
     procedure Delete(AIndex: Integer); overload;
@@ -272,11 +277,15 @@ type
     property Items[AIndex: Integer]: TQXMLAttr read GetItems; default;
     /// <summary>属性所有者结点</summary>
     property Owner: TQXMLNode read FOwner;
-    property AsString[AName: QStringW]: QStringW read GetAsString write SetAsString;
+    property AsString[AName: QStringW]: QStringW read GetAsString
+      write SetAsString;
     property AsInt[AName: QStringW]: Int64 read GetAsInt write SetAsInt;
-    property AsFloat[AName: QStringW]: Double read GetAsDouble write SetAsDouble;
-    property AsDateTime[AName: QStringW]: TDateTime read GetAsDateTime write SetAsDateTime;
-    property AsBoolean[AName: QStringW]: Boolean read GetAsBoolean write SetAsBoolean;
+    property AsFloat[AName: QStringW]: Double read GetAsDouble
+      write SetAsDouble;
+    property AsDateTime[AName: QStringW]: TDateTime read GetAsDateTime
+      write SetAsDateTime;
+    property AsBoolean[AName: QStringW]: Boolean read GetAsBoolean
+      write SetAsBoolean;
     property AsGuid[AName: QStringW]: TGuid read GetAsGuid write SetAsGuid;
   end;
 
@@ -305,8 +314,9 @@ type
   TQXMLNodeList = TList<TQXMLNode>;
 {$IFEND}
 {$IF RTLVersion>=21}
-  TQXMLRttiFilterEventA = reference to procedure(ASender: TQXMLNode; AObject: Pointer; AName: QStringW;
-    AType: PTypeInfo; var Accept: Boolean; ATag: Pointer);
+  TQXMLRttiFilterEventA = reference to procedure(ASender: TQXMLNode;
+    AObject: Pointer; AName: QStringW; AType: PTypeInfo; var Accept: Boolean;
+    ATag: Pointer);
   /// <summary>
   /// 结点过滤处理函数，以在XE6上支持匿名函数
   /// </summary>
@@ -314,12 +324,15 @@ type
   /// <param name="AItem">要过滤的对象</param>
   /// <param name="Accept">是否要处理该对象</param>
   /// <param name="ATag">用户附加的数据项</param>
-  TQXMLFilterEventA = reference to procedure(ASender, AItem: TQXMLNode; var Accept: Boolean; ATag: Pointer);
+  TQXMLFilterEventA = reference to procedure(ASender, AItem: TQXMLNode;
+    var Accept: Boolean; ATag: Pointer);
 {$IFEND >=2010}
-  TQXMLRttiFilterEvent = procedure(ASender: TQXMLNode; AObject: Pointer; AName: QStringW; AType: PTypeInfo;
-    var Accept: Boolean; ATag: Pointer) of object;
+  TQXMLRttiFilterEvent = procedure(ASender: TQXMLNode; AObject: Pointer;
+    AName: QStringW; AType: PTypeInfo; var Accept: Boolean; ATag: Pointer)
+    of object;
 
-  TQXMLFilterEvent = procedure(ASender, AItem: TQXMLNode; var Accept: Boolean; ATag: Pointer) of object;
+  TQXMLFilterEvent = procedure(ASender, AItem: TQXMLNode; var Accept: Boolean;
+    ATag: Pointer) of object;
 
   /// <summary>
   /// AddObject/AddRecord时内部过滤时使用附加的Tag类型，仅用于内部使用
@@ -383,7 +396,8 @@ type
     FData: Pointer;
     function GetCount: Integer;
     function GetItems(AIndex: Integer): TQXMLNode;
-    function XMLEncode(const S: QStringW; AConvertQuoter, AppendSpace, ADoEscape: Boolean): QStringW;
+    function XMLEncode(const S: QStringW; AConvertQuoter, AppendSpace,
+      ADoEscape: Boolean): QStringW;
     function XMLDecode(const p: PQCharW; l: Integer): QStringW; overload;
     function GetItemIndex: Integer;
     function GetText: QStringW;
@@ -393,7 +407,8 @@ type
     function GetPath: QStringW;
     function GetCapacity: Integer;
     procedure SetCapacity(const Value: Integer);
-    function InternalEncode(ABuilder: TQStringCatHelperW; ADoFormat, ADoEscape: Boolean; const AIndent: QStringW)
+    function InternalEncode(ABuilder: TQStringCatHelperW;
+      ADoFormat, ADoEscape: Boolean; const AIndent: QStringW)
       : TQStringCatHelperW;
     function GetName: QStringW;
     // procedure InternalRttiFilter(ASender: TQXMLNode; AObject: Pointer;
@@ -422,7 +437,8 @@ type
     /// <summary>添加一个结点、文本、注释或CData</summary>
     /// <param name="AName_Text">名称或内容，具体取决于AType参数</param>
     /// <returns>返回添加的结点实例</returns>
-    function Add(const AName_Text: QStringW; AType: TQXMLNodeType = xntNode): TQXMLNode; overload;
+    function Add(const AName_Text: QStringW; AType: TQXMLNodeType = xntNode)
+      : TQXMLNode; overload;
     /// <summary>添加一个结点</summary>
     /// <param name="AName">结点名称</param>
     /// <returns>返回添加的结点实例</returns>
@@ -2090,7 +2106,7 @@ var
 
   procedure CheckIsXMLRoot;
   var
-    AItem, AChild: TQXMLNode;
+    AItem: TQXMLNode;
   begin
     if (Count = 1) then
     begin
@@ -2135,7 +2151,7 @@ var
 begin
   ABuilder := TQStringCatHelperW.Create; // (16384);
   try
-    InternalEncode(ABuilder, ADoFormat, AIndent);
+    InternalEncode(ABuilder, ADoFormat, True, AIndent);
     Result := ABuilder.Value;
   finally
     FreeObject(ABuilder);
@@ -2699,7 +2715,7 @@ begin
 end;
 
 function TQXMLNode.InternalEncode(ABuilder: TQStringCatHelperW;
-  ADoFormat: Boolean; const AIndent: QStringW): TQStringCatHelperW;
+  ADoFormat, ADoEscape: Boolean; const AIndent: QStringW): TQStringCatHelperW;
 const
   TagStart: PWideChar = '<';
   TagEnd: PWideChar = '/>';
@@ -2738,7 +2754,8 @@ var
         if Attr.Unescape then
           ABuilder.Cat(Attr.Value)
         else
-          ABuilder.Cat(XMLEncode(AItem.Attrs[I].FValue, True, False, ADoEscape));
+          ABuilder.Cat(XMLEncode(AItem.Attrs[I].FValue, True, False,
+            ADoEscape));
         ABuilder.Cat(Quoter);
       end;
     end;
@@ -3504,21 +3521,21 @@ begin
     begin
       if AWriteHeader then
         ABuilder.Cat(UTF8Format, 8).Cat(SLineBreak);
-      InternalEncode(ABuilder, AFormat, ' ');
+      InternalEncode(ABuilder, AFormat, False, ' ');
       SaveTextU(AStream, qstring.UTF8Encode(ABuilder.Value), AWriteBom)
     end
     else if AEncoding = 'UTF-16' then
     begin
       if AWriteHeader then
         ABuilder.Cat(UTF16Format, 9).Cat(SLineBreak);
-      InternalEncode(ABuilder, AFormat, ' ');
+      InternalEncode(ABuilder, AFormat, False, ' ');
       SaveTextW(AStream, ABuilder.Value, AWriteBom)
     end
     else
     begin
       if AWriteHeader then
         ABuilder.Cat(AEncoding).Cat('"?>').Cat(SLineBreak);
-      InternalEncode(ABuilder, AFormat, ' ');
+      InternalEncode(ABuilder, AFormat, False, ' ');
       SaveTextA(AStream, ABuilder.Value);
     end;
   finally
@@ -3951,7 +3968,6 @@ procedure TQXMLNode.ToRtti(ADest: Pointer; AType: PTypeInfo;
     AProp: PPropInfo;
     ACount: Integer;
     J, iVal: Integer;
-    dVal: Double;
     AObj, AChildObj: TObject;
     AChild: TQXMLNode;
     Attr: TQXMLAttr;
@@ -4076,7 +4092,6 @@ procedure TQXMLNode.ToRtti(ADest: Pointer; AType: PTypeInfo;
     AContext: TRttiContext;
     ASubType: TRttiType;
     I, l, AOffset, iVal: Integer;
-    dVal: Double;
     S: QStringW;
     pd, pi: PByte;
     AChildObj: TObject;
@@ -4645,8 +4660,8 @@ begin
   SetLength(Result, pd - PQCharW(Result));
 end;
 
-function TQXMLNode.XMLEncode(const S: QStringW;
-  AConvertQuoter, AppendSpace: Boolean): QStringW;
+function TQXMLNode.XMLEncode(const S: QStringW; AConvertQuoter, AppendSpace,
+  ADoEscape: Boolean): QStringW;
 var
   ps, pd: PQCharW;
   ASpaceCount: Integer;
@@ -4737,7 +4752,7 @@ begin
           pd^ := ';';
         end
         else
-        pd^ := ps^;
+          pd^ := ps^;
         Inc(pd);
       end;
     end;

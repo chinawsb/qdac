@@ -8186,9 +8186,10 @@ begin
   ps := PByte(ABytes);
   pe := PByte(IntPtr(ps) + l);
 
-  c := 0;
   ABookmarkCount := 0;
-  { while IntPtr(ps) < IntPtr(pe) do
+  {
+   c := 0;
+   while IntPtr(ps) < IntPtr(pe) do
     begin
     if (not AEncodePercent) and (ps^ = Ord('%')) and
     (IntPtr(pe) - IntPtr(ps) > 2) and
@@ -12671,7 +12672,8 @@ function IsHumanName(S: QStringW; AllowChars: TNameCharSet; AMinLen: Integer;
   AMaxLen: Integer; AOnTest: TQCustomNameCharTest): Boolean;
 var
   p: PWideChar;
-  c, ACharCode, ATypeIndex: Integer;
+  c, ATypeIndex: Integer;
+  ACharCode:Cardinal;
   AHandled: Boolean;
   function TypeIndex: Integer;
   var
