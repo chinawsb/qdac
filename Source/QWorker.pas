@@ -1079,11 +1079,11 @@ type
   end;
 
   TQJobStatics = record
-  //<summary>总作业数量 ，等价于 Pending+Running 的值 </summary>
+    // <summary>总作业数量 ，等价于 Pending+Running 的值 </summary>
     Total: Integer;
-  //<summary>等待中的作业数量 ，包括简单作业+ 重复作业+计划任务+信号等待作业的数量，注意计划任务实际执行时会投递简单作业来完成执行，所以本项目统计的值有可能大于 EnumJobs 返回的任务总数 </summary>
+    // <summary>等待中的作业数量 ，包括简单作业+ 重复作业+计划任务+信号等待作业的数量，注意计划任务实际执行时会投递简单作业来完成执行，所以本项目统计的值有可能大于 EnumJobs 返回的任务总数 </summary>
     Pending: Integer;
-  //<summary>运行中的作业总数</summary>
+    // <summary>运行中的作业总数</summary>
     Running: Integer;
   end;
 
@@ -1230,6 +1230,7 @@ type
     FWorkerCount: Integer; // 当前工作者总数
     FBusyCount: Integer; // 当前活动工作者数
     FFiringWorkerCount: Integer; // 当前正在解雇中的工作者数量
+    FSignalJobCount: Integer; // 当前注册的信息号作业数量
     FFireTimeout: Cardinal; // 工作者解雇的基准超时（最小时间），单位毫秒
     FJobFrozenTime: Cardinal; // 作业可能死掉的基准超时，单位为秒
     FMainThreadJobs: {$IF RTLVersion>=24}Cardinal{$ELSE}Integer{$IFEND};
@@ -2491,6 +2492,7 @@ type
   private
     class var FCurrent: TDLLMainThreadSyncHelper;
     class function GetCurrent: TDLLMainThreadSyncHelper; static;
+    // procedure CreateTimer;
 
   var
     HostRegister, HostUnregister: TSyncEntryRegister;
@@ -2507,8 +2509,6 @@ type
     procedure DoMainThreadWakeup(Sender: TObject);
     procedure DLLSynchronize;
     procedure HookMainWakeup;
-    procedure CreateTimer;
-
   public
     constructor Create;
     destructor Destroy; override;
@@ -4466,8 +4466,9 @@ var
           AJob := ANext;
         end;
         if AMaxTimes = 0 then
-          Exit;
+          Break;
       end;
+      Dec(FSignalJobCount);
     finally
       FLocker.Leave;
     end;
@@ -4719,6 +4720,7 @@ var
         if AMaxTimes = 0 then
           Break;
       end;
+      Dec(FSignalJobCount);
     finally
       FLocker.Leave;
     end;
@@ -5139,7 +5141,7 @@ begin
               if Assigned(APrior) then
                 APrior.Next := ANext;
               AItem := ANext;
-              Continue;
+              continue;
             end;
           end;
       end;
@@ -6019,7 +6021,7 @@ function TQWorkers.PeekJobStatics: TQJobStatics;
   var
     ASignal: PQSignal;
     AJob: PQJob;
-    I, L: Integer;
+    I: Integer;
   begin
     Result := 0;
     I := 0;
@@ -6444,6 +6446,7 @@ begin
         AJob.Next := ASignal.First;
         ASignal.First := AJob;
         Result := AJob.Handle;
+        Inc(FSignalJobCount);
       end;
     finally
       FLocker.Leave;
@@ -6515,6 +6518,7 @@ begin
         AJob.Next := ASignal.First;
         ASignal.First := AJob;
         Result := AJob.Handle;
+        Inc(FSignalJobCount);
       end;
     finally
       FLocker.Leave;
@@ -6816,6 +6820,11 @@ begin
       if ASignal.Name = ASignalName then
       begin
         AJob := ASignal.First;
+        while Assigned(ASignal.First) do
+        begin
+          Dec(FSignalJobCount);
+          ASignal.First := ASignal.First.Next;
+        end;
         ASignal.First := nil;
         Break;
       end;
@@ -6905,7 +6914,11 @@ begin
       with FSignalJobs[ASignalId - 1]^ do
       begin
         AJob := First;
-        First := nil;
+        while Assigned(First) do
+        begin
+          Dec(FSignalJobCount);
+          First := First.Next;
+        end;
       end;
     end
     else
@@ -8232,10 +8245,7 @@ var
       PFileTime(@CurSystemTimes.KernelTime)^,
       PFileTime(@CurSystemTimes.UserTime)^) then
     begin
-      if FLastTimes.UserTime + FLastTimes.KernelTime + FLastTimes.NiceTime +
-      if FLastTimes.UserTime > 0 then
-      begin
-        FLastTimes.IdleTime > 0 then
+      if FLastTimes.IdleTime > 0 then
       begin
         Usage := (CurSystemTimes.UserTime - FLastTimes.UserTime) +
           (CurSystemTimes.KernelTime - FLastTimes.KernelTime) +
@@ -8245,8 +8255,7 @@ var
           Result := Trunc((Usage - Idle) * 100.0 / Usage);
       end;
       FLastTimes := CurSystemTimes;
-      end;
-    end;
+    end
 {$ELSE}
     Result := TThread.GetCPUUsage(FLastTimes);
 {$ENDIF}
@@ -9068,8 +9077,7 @@ begin
       WakeMainThread := DoMainThreadWakeup;
       DebugOut('DLL:WakeMainThread %x', [IntPtr(@WakeMainThread)]);
 {$ELSE}
-      DebugOut('[提示]主程序未引用 QWorker，改为使用 Timer 定时检测');
-      CreateTimer;
+      raise Exception.Create('[提示]主程序未引用 QWorker，无法同步 WakeMainThread');
 {$ENDIF}
     end;
   end
@@ -9107,30 +9115,6 @@ begin
   TDLLMainThreadSyncHelper.Current.DoMainThreadWakeup(nil);
 end;
 {$ENDIF}
-
-procedure TDLLMainThreadSyncHelper.CreateTimer;
-var
-  ATimerClass: TComponentClass;
-  AEvent: TNotifyEvent;
-begin
-  ATimerClass := TComponentClass(GetClass('TTimer'));
-  if Assigned(ATimerClass) then
-  begin
-    FTimer := ATimerClass.Create(nil);
-    // 每20ms检查一次
-    AEvent := DoMainThreadWakeup;
-    SetMethodProp(FTimer, 'OnTimer', TMethod(AEvent));
-    SetOrdProp(FTimer, 'Interval', 20);
-    SetOrdProp(FTimer, 'Enabled', 1);
-  end
-  else
-  begin
-{$IFDEF MSWINDOWS}
-    FTimer := TObject(SetTimer(0, 0, 20, @DoTimerSync));
-    DebugOut('[警告]未找到定时器类，FMX请引用 FMX.Types 单元');
-{$ENDIF}
-  end;
-end;
 
 class destructor TDLLMainThreadSyncHelper.Destroy;
 begin
