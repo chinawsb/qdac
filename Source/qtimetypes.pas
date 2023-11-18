@@ -2617,14 +2617,13 @@ const
     begin
       if (ALimit[I].Flags and PLAN_ANY_REPEAT) <> 0 then
         Exit(AMax);
-      if ALimit[I].Stop > Result then
-        Result := ALimit[I].Stop;
+      if Word(ALimit[I].Stop) > Result then
+        Result := Word(ALimit[I].Stop);
     end;
   end;
   procedure CalcStopTime;
   var
     Y, M, D, H, N, S: Word;
-    I: Integer;
   begin
     // 判断是否固定了年份
     Y := CalcMax(FLimits[tlpYear], 9999);
