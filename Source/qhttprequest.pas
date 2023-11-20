@@ -6,7 +6,6 @@ interface
   本单元用于封装 HTTP 异步访问，清使用 TQWebRequests 来管理请求。
   本单元提供三种Web访问引擎：
   TQSysHttpClient 使用新版 Delphi 自带的 THttpClient 来完成具体的请求处理
-  TQCurlHttpClient 使用 libcurl 来完成具体的请求处理，需要对应的 dll 提供支持
   TQNativeHttpClient 直接通过Socket 实现的原生 HTTP 客户端，目前暂不稳定，不推荐使用
   如果您想使用 Indy 或其它第三方组件的 HTTP/HTTPS 引擎，可以继承 TQBaseHttpClient，
   然后实现 InternalExecute 方法。
@@ -20,11 +19,7 @@ uses Classes, Sysutils, Types, SyncObjs, QString, QDigest, QJson, QXML,
   DateUtils, Math,
   QSimplePool, QWorker{$IFDEF DEBUG_LOG}, QLog{$ENDIF}{$IFDEF SYSHTTP},
   System.Net.HttpClient, System.NetConsts,
-  System.Net.UrlClient
-{$IFDEF MSWINDOWS}
-    , WinHttp, System.Net.HttpClient.Win
-{$ENDIF}
-{$ENDIF}
+  System.Net.UrlClient{$ENDIF}
 {$IFDEF UNICODE}, System.Generics.Collections{$ELSE}, Contnrs{$ENDIF};
 {$I 'qdac.inc'}
 
@@ -154,7 +149,7 @@ type
   TQHttpClientAction = (reqUnknown, reqGet, reqPost, reqHead, reqPut, reqDelete,
     reqTrace, reqOptions);
   TQDownloadProgressEvent = procedure(const Sender: TObject;
-    AContentLength: Int64; AReadCount: Int64; var Aborted: Boolean) of object;
+    AContentLength: Int64; ACount: Int64; var Aborted: Boolean) of object;
 
   IQHttpCookie = interface
     ['{13B94F0B-10CB-42C0-93D0-D33F56F485CC}']
@@ -198,8 +193,8 @@ type
 
   // hcfReady - 准备好下一次请求处理
   TQHttpClientFlag = (hcfReady, hcfAllowRedirect, hcfAllowCookie,
-    hcfOwnRequestStream, hcfOwnResponseStream, hcfVerifyPeer, hcfExecuting,
-    hcfExecuted, hcfAsyn);
+    hcfOwnRequestStream, hcfOwnResponseStream, hcfVerifyPeer,
+    hcfExecuting, hcfAsyn);
   TQHttpClientFlags = set of TQHttpClientFlag;
 
   IQHttpClient = interface
@@ -224,8 +219,11 @@ type
     procedure SetMaxRequestTimeout(const AValue: Cardinal);
     function GetAfterDone: TNotifyEvent;
     procedure SetAfterDone(const AValue: TNotifyEvent);
-    function GetOnProgress: TQDownloadProgressEvent;
-    procedure SetOnProgress(const AValue: TQDownloadProgressEvent);
+    function GetOnRecvProgress: TQDownloadProgressEvent;
+    procedure SetOnRecvProgress(const AValue: TQDownloadProgressEvent);
+    function GetOnSendProgress: TQDownloadProgressEvent;
+    procedure SetOnSendProgress(const AValue: TQDownloadProgressEvent);
+
     function GetOnRedirect: TQHttpRedirectEvent;
     procedure SetOnRedirect(const AValue: TQHttpRedirectEvent);
     function GetOnDnsLookup: TQHttpDNSLookupEvent;
@@ -234,8 +232,6 @@ type
     procedure SetOnRetry(const AValue: TQHttpRequestRetryNotify);
     function GetOnGetSSLProtocol: TQHttpGetSSLProtocolEvent;
     procedure SetOnGetSSLProtocol(const AValue: TQHttpGetSSLProtocolEvent);
-    function GetOnVerifyCertificate: TQCertificateValidEvent;
-    procedure SetOnVeriftyCertificate(const AValue: TQCertificateValidEvent);
     function GetUrl: QStringW;
     function GetFinalUrl: QStringW;
     function GetErrorCode: Integer;
@@ -249,6 +245,7 @@ type
     function Options(const AUrl: QStringW; AfterDone: TNotifyEvent): Integer;
     function Trace(const AUrl: QStringW; AfterDone: TNotifyEvent): Integer;
     function GetContentAsString: QStringW;
+    function GetLastRequestTime: Cardinal;
     procedure Cancel;
     property RequestHeaders: IQHttpHeaders read GetRequestHeaders;
     property RequestStream: TStream read GetRequestStream
@@ -271,9 +268,12 @@ type
       write SetConnectTimeout;
     property MaxRequestTimeout: Cardinal read GetMaxRequestTimeout
       write SetMaxRequestTimeout;
+    property LastRequestTime: Cardinal read GetLastRequestTime;
     property AfterDone: TNotifyEvent read GetAfterDone write SetAfterDone;
-    property OnProgress: TQDownloadProgressEvent read GetOnProgress
-      write SetOnProgress;
+    property OnRecvProgress: TQDownloadProgressEvent read GetOnRecvProgress
+      write SetOnRecvProgress;
+    property OnSendProgress: TQDownloadProgressEvent read GetOnSendProgress
+      write SetOnSendProgress;
     property OnRedirect: TQHttpRedirectEvent read GetOnRedirect
       write SetOnRedirect;
     property OnDnsLookup: TQHttpDNSLookupEvent read GetOnDnsLookup
@@ -281,8 +281,6 @@ type
     property OnRetry: TQHttpRequestRetryNotify read GetOnRetry write SetOnRetry;
     property OnGetSSLProtocol: TQHttpGetSSLProtocolEvent
       read GetOnGetSSLProtocol write SetOnGetSSLProtocol;
-    property onVerifyCertificate: TQCertificateValidEvent
-      read GetOnVerifyCertificate write SetOnVeriftyCertificate;
   end;
 
   IQCertificate = interface
@@ -305,29 +303,8 @@ type
     property KeySize: Integer read GetKeySize;
   end;
 
-  TQCertificate = class(TInterfacedObject, IQCertificate)
-  protected
-    FStartDate, FExpireDate: TDateTime;
-    FSubject, FIssuer, FProtocol, FSignature, FEncryption: String;
-    FKeySize: Integer;
-    function GetStartDate: TDateTime;
-    function GetExpireDate: TDateTime;
-    function GetSubject: QStringW;
-    function GetIssuer: QStringW;
-    function GetProtocol: QStringW;
-    function GetSignature: QStringW;
-    function GetEncryption: QStringW;
-    function GetKeySize: Integer;
-  public
-    property StartDate: TDateTime read FStartDate write FStartDate;
-    property ExpireDate: TDateTime read FExpireDate write FExpireDate;
-    property Subject: QStringW read FSubject write FSubject;
-    property Issuer: QStringW read FIssuer write FIssuer;
-    property Protocol: QStringW read FProtocol write FProtocol;
-    property Signature: QStringW read FSignature write FSignature;
-    property Encryption: QStringW read FEncryption write FEncryption;
-    property KeySize: Integer read FKeySize write FKeySize;
-  end;
+  TQCertificateVerifyEvent = procedure(Sender: TObject; var Accept: Boolean)
+    of object;
 
   IQHttpsClient = interface(IQHttpClient)
     ['{3621B9B2-20D6-4E90-897A-AE3DF61A8838}']
@@ -394,6 +371,7 @@ type
     procedure BeforePush;
     procedure AfterPush;
     function GetHttpClient: IQHttpClient;
+    function GetRequestTime: Cardinal;
     property Url: QStringW read GetUrl write SetUrl;
     property ResultUrl: QStringW read GetResultUrl;
     property Action: TQHttpClientAction read GetAction write SetAction;
@@ -439,6 +417,7 @@ type
     property OnClientBound: TQHttpRequestClientBoundEvent read GetOnClientBound
       write SetOnClientBound;
     property IsAborted: Boolean read GetIsAborted write SetIsAborted;
+    property RequestTime: Cardinal read GetRequestTime;
   end;
 
   TQHttpMemoryStream = class(TMemoryStream)
@@ -446,6 +425,8 @@ type
     constructor Create;
     destructor Destroy; override;
   end;
+
+  TQFileNameSource = (nsUnknown, nsUser, nsHead, nsUrl);
 
   TQHttpRequestItem = class(TInterfacedObject, IQHttpRequestItem)
   protected
@@ -474,6 +455,7 @@ type
     FTotalBytes: Int64;
     FStopTime: TDateTime;
     FStartTime: TDateTime;
+    FRequestTime: Cardinal;
     FRedirectTimes: Integer;
     FMaxRedirectTimes: Integer;
     FLastException: Exception;
@@ -490,8 +472,11 @@ type
     FSyncEvent: TEvent;
     procedure DoAfterDone(ASender: TObject);
     procedure DoError;
-    procedure DoProgress(const Sender: TObject; AContentLength: Int64;
+    procedure DoRecvProgress(const Sender: TObject; AContentLength: Int64;
       AReadCount: Int64; var Abort: Boolean); overload;
+    procedure DoSendProgress(const Sender: TObject; AContentLength: Int64;
+      ACount: Int64; var Abort: Boolean); overload;
+
     function DoProgress: Boolean; overload;
     procedure DoRedirect;
     procedure DoClientRedirect(ASender: TObject; ANewUrl: QStringW;
@@ -507,6 +492,7 @@ type
     function GetUserAgent: QStringW;
     procedure SetUserAgent(const Value: QStringW);
     procedure DoClientBound;
+    function GetRequestTime: Cardinal;
   private
     FMaxRequestTimeout: Cardinal;
     procedure SetHttpClient(const Value: IQHttpClient);
@@ -564,6 +550,7 @@ type
     destructor Destroy; override;
     function WaitFor(ATimeout: Cardinal): TWaitResult;
     function NeedRequestStream: TStream;
+    function DecodeFileName(var ASource: TQFileNameSource): QStringW;
     property MaxRequestTimeout: Cardinal read FMaxRequestTimeout
       write FMaxRequestTimeout;
     property Url: QStringW read FUrl write FUrl;
@@ -610,6 +597,7 @@ type
     property OnClientBound: TQHttpRequestClientBoundEvent read FOnClientBound
       write FOnClientBound;
     property IsAborted: Boolean read FAbort write FAbort;
+    property RequestTime: Cardinal read FRequestTime;
   end;
 
   TQRequestList = class
@@ -680,14 +668,14 @@ type
   TQHttpRequests = class
   private
     class var CurlInitialized: Boolean;
-    procedure SetMaxClients(const Value: Integer);
 
   protected
     FRequests: TQRequestList;
-    FHttpClients: TQSimplePool;
+    FHttpClients: TList<IQHttpClient>;
     FMaxClients, FBusyClients: Integer;
     FMaxRequestTimeout: Cardinal;
     FDefaultHeaders: IQHttpHeaders;
+    FRecvBytes, FSentBytes: Int64;
     FAfterRequestDone: TQHttpRequestNotifyEvent;
     FOnDnsLookup: TQHttpDNSLookupEvent;
     FOnClientRetry: TQHttpRequestRetryNotify;
@@ -697,15 +685,12 @@ type
     FEngine: TQHttpClientEngine;
     FDnsLookupOrder: TQDnsLookupOrder;
     FOnGetSSLProtocol: TQHttpGetSSLProtocolEvent;
-    FOnVerifyCertificate: TQCertificateValidEvent;
     FDnsTTL: Cardinal;
     procedure Start(ARequest: IQHttpRequestItem);
     procedure RequestDone(ARequest: IQHttpRequestItem);
-    procedure DoEventReqDone(ASender: TObject);
     procedure Lock; inline;
     procedure Unlock; inline;
-    procedure DoNewHttpClient(ASender: TQSimplePool; var AData: Pointer);
-    procedure DoFreeHttpClient(ASender: TQSimplePool; AData: Pointer);
+    function DoNewHttpClient: IQHttpClient;
     procedure SetEngine(const Value: TQHttpClientEngine);
     procedure CheckCurlInitialized;
     function DnsLookup(AHost: String): Cardinal;
@@ -754,8 +739,10 @@ type
       : Integer; overload; virtual;
     function Rest(const AUrl: QStringW; AContent: QStringW; AResult: TQJson;
       AHeaders: IQHttpHeaders = nil; AfterDone: TNotifyEvent = nil;
-      Action: TQHttpClientAction = reqUnknown; AHttpStatusText: PQStringW = nil)
-      : Integer; overload; virtual;
+      Action: TQHttpClientAction = reqUnknown;
+      AContentType
+      : QStringW = 'application/x-www-form-urlencoded;charset=UTF-8';
+      AHttpStatusText: PQStringW = nil): Integer; overload; virtual;
     function Rest(const AUrl: QStringW; AParams: TStrings; AResult: TQJson;
       AHeaders: IQHttpHeaders = nil; AfterDone: TNotifyEvent = nil;
       Action: TQHttpClientAction = reqUnknown; AHttpStatusText: PQStringW = nil)
@@ -764,11 +751,13 @@ type
       var AResult: QStringW; AHttpStatusText: PQStringW = nil)
       : Integer; virtual;
     function NewHeaders: IQHttpHeaders;
-    property MaxClients: Integer read FMaxClients write SetMaxClients;
+    property MaxClients: Integer read FMaxClients write FMaxClients;
     property MaxRequestTimeout: Cardinal read FMaxRequestTimeout
       write FMaxRequestTimeout;
     property DefaultHeaders: IQHttpHeaders read FDefaultHeaders;
     property DnsTTL: Cardinal read FDnsTTL write FDnsTTL;
+    property RecvBytes: Int64 read FRecvBytes;
+    property SentBytes: Int64 read FSentBytes;
     property AfterRequestDone: TQHttpRequestNotifyEvent read FAfterRequestDone
       write FAfterRequestDone;
     property OnDnsLookup: TQHttpDNSLookupEvent read FOnDnsLookup
@@ -780,8 +769,6 @@ type
       write FOnClientRetry;
     property OnGetSSLProtocol: TQHttpGetSSLProtocolEvent read FOnGetSSLProtocol
       write FOnGetSSLProtocol;
-    property onVerifyCertificate: TQCertificateValidEvent
-      read FOnVerifyCertificate write FOnVerifyCertificate;
   end;
 
   TQHttpFileDownloadEvent = procedure(ASender: TObject; AHeaders: IQHttpHeaders;
@@ -789,14 +776,17 @@ type
 
   TQHttpFileRequestItem = class(TQHttpRequestItem)
   protected
+    FFileSize: Int64;
     FFileName: QStringW;
     FPath: QStringW;
     FBeforeDownload: TQHttpFileDownloadEvent;
-    FResumeBroken: Boolean;
-    FFileSize: Int64;
+    FFileNameSource: TQFileNameSource;
     FHeadReady: Boolean;
+    FResumeBroken: Boolean;
     function GetFilePath: QStringW;
     procedure DoHeadReady(ASender: TObject);
+  private
+    procedure SetFileName(const Value: QStringW);
   protected
     procedure BeforePush; override;
     function GetCanStart: Boolean; override;
@@ -804,7 +794,7 @@ type
     procedure DoError(ASender: TObject; AError: Exception);
   public
     property Path: QStringW read FPath write FPath;
-    property FileName: QStringW read FFileName write FFileName;
+    property FileName: QStringW read FFileName write SetFileName;
     property FilePath: QStringW read GetFilePath;
     property ResumeBroken: Boolean read FResumeBroken write FResumeBroken;
     property BeforeDownload: TQHttpFileDownloadEvent read FBeforeDownload
@@ -848,7 +838,9 @@ function HttpParamValue(const AUrl: QStringW; const AParamName: QStringW;
 
 implementation
 
-uses zlib, libcurl{$IFDEF NATIVE_SSL_ENABLED}, qdac_ssl, qdac_ssl_ics{$ENDIF}
+uses zlib, ZLibConst, System.Net.HttpClient.Curl {$IFDEF NATIVE_SSL_ENABLED},
+  qdac_ssl,
+  qdac_ssl_ics{$ENDIF}
 {$IFDEF MSWINDOWS} , windows, messages, winsock{$ENDIF}
 {$IFDEF POSIX}, System.Net.Socket, Posix.Base, Posix.Stdio, Posix.Pthread,
   Posix.UniStd, IOUtils, Posix.NetDB, Posix.SysSocket, Posix.Fcntl,
@@ -870,6 +862,9 @@ const
   NullQuoter: WideChar = #0;
   SCookie = 'Cookie';
   SCookieSet = 'Set-Cookie';
+  PathDelimiter: QStringW =
+{$IFDEF MSWINDOWS}'\'{$ELSE}'/'{$ENDIF};
+
   DefaultUserAgent = 'Mozilla/5.0 (' +
 {$IFDEF MSWINDOWS}'Windows NT 10.0; WOW64' + {$ENDIF}
 {$IFDEF ANDROID}'Android 5.0' + {$ENDIF}
@@ -935,22 +930,45 @@ type
     procedure Unlock;
   end;
 
+  TQCertificate = class(TInterfacedObject, IQCertificate)
+  protected
+    FStartDate, FExpireDate: TDateTime;
+    FSubject, FIssuer, FProtocol, FSignature, FEncryption: String;
+    FKeySize: Integer;
+    function GetStartDate: TDateTime;
+    function GetExpireDate: TDateTime;
+    function GetSubject: QStringW;
+    function GetIssuer: QStringW;
+    function GetProtocol: QStringW;
+    function GetSignature: QStringW;
+    function GetEncryption: QStringW;
+    function GetKeySize: Integer;
+  public
+    property StartDate: TDateTime read FStartDate write FStartDate;
+    property ExpireDate: TDateTime read FExpireDate write FExpireDate;
+    property Subject: QStringW read FSubject write FSubject;
+    property Issuer: QStringW read FIssuer write FIssuer;
+    property Protocol: QStringW read FProtocol write FProtocol;
+    property Signature: QStringW read FSignature write FSignature;
+    property Encryption: QStringW read FEncryption write FEncryption;
+    property KeySize: Integer read FKeySize write FKeySize;
+  end;
+
   TQBaseHttpClient = class(TInterfacedObject, IQHttpClient, IQHttpsClient)
   private
-
+    FOnVerifyCertificate: TQCertificateValidEvent;
   protected
     FCookieManager: IQHttpCookies;
     FRequestStream, FResponseStream: TStream;
     FRequestHeaders, FResponseHeaders: IQHttpHeaders;
     FPeerCertificate: IQCertificate;
-    FJob: PQJob;
     FAfterDone: TNotifyEvent;
-    FOnProgress: TQDownloadProgressEvent;
+    FOnRecvProgress: TQDownloadProgressEvent;
+    FOnSendProgress: TQDownloadProgressEvent;
     FOnRedirect: TQHttpRedirectEvent;
     FOnDnsLookup: TQHttpDNSLookupEvent;
     FOnRetry: TQHttpRequestRetryNotify;
     FOnGetSSLProtocol: TQHttpGetSSLProtocolEvent;
-    FOnVerifyCertificate: TQCertificateValidEvent;
     FRedirectTimes, FMaxRedirects, FErrorCode: Integer;
     FConnectTimeout: Cardinal;
     FMaxRequestTimeout: Cardinal;
@@ -984,8 +1002,10 @@ type
     procedure SetMaxRequestTimeout(const AValue: Cardinal);
     function GetAfterDone: TNotifyEvent;
     procedure SetAfterDone(const AValue: TNotifyEvent);
-    function GetOnProgress: TQDownloadProgressEvent;
-    procedure SetOnProgress(const AValue: TQDownloadProgressEvent);
+    function GetOnRecvProgress: TQDownloadProgressEvent;
+    procedure SetOnRecvProgress(const AValue: TQDownloadProgressEvent);
+    function GetOnSendProgress: TQDownloadProgressEvent;
+    procedure SetOnSendProgress(const AValue: TQDownloadProgressEvent);
     function GetOnRedirect: TQHttpRedirectEvent;
     procedure SetOnRedirect(const AValue: TQHttpRedirectEvent);
     function GetVerifyPeer: Boolean;
@@ -1001,8 +1021,10 @@ type
     function DecodeStatus(const S: QStringW; var AText: QStringW)
       : Integer; overload;
     procedure DecodeStatus; overload; virtual;
-    procedure DoProgress(const Sender: TObject; AContentLength: Int64;
+    procedure DoRecvProgress(const Sender: TObject; AContentLength: Int64;
       AReadCount: Int64; var Aborted: Boolean);
+    procedure DoSendProgress(const Sender: TObject; AContentLength: Int64;
+      AWriteCount: Int64; var AAbort: Boolean);
     function GetErrorCode: Integer;
     function GetErrorMessage: QStringW;
     function DoError(E: Exception): Boolean; virtual;
@@ -1019,6 +1041,7 @@ type
     function GetOnVerifyCertificate: TQCertificateValidEvent;
     procedure SetOnVeriftyCertificate(const AValue: TQCertificateValidEvent);
     function ValidCertificate(ACert: IQCertificate): Boolean;
+    function GetLastRequestTime: Cardinal;
   public
     constructor Create; overload;
     destructor Destroy; override;
@@ -1051,6 +1074,8 @@ type
     constructor Create(ACert: TCertificate); overload;
   end;
 
+  THttpClientClass = class of THttpClient;
+
   TQSysHttpClient = class(TQBaseHttpClient)
   protected
     FClient: THttpClient;
@@ -1066,7 +1091,7 @@ type
       const ARequest: TURLRequest; const Certificate: TCertificate;
       var Accepted: Boolean);
   public
-    constructor Create;
+    constructor Create(AClient: THttpClient);
     destructor Destroy; override;
   end;
 
@@ -1078,29 +1103,6 @@ type
     FSSL: IQSSLItem;
 {$ENDIF}
     procedure InternalExecute; override;
-  public
-    constructor Create;
-    destructor Destroy; override;
-  end;
-
-
-  TQCurlHttpClient = class(TQBaseHttpClient)
-  protected
-    FHandle: THandle;
-    procedure InternalExecute; override;
-    function DoError(E: Exception): Boolean; override;
-    function CheckCurlCode(ACode: TCurlCode;
-      ARaiseException: Boolean = true): Boolean;
-    class function DoCurlProgress(clientp: Pointer;
-      dltotal, dlnow, ultotal, ulnow: Double): Integer; cdecl; static;
-    class function DoCurlWriteToStream(buffer: PAnsiChar; Size, nItems: Integer;
-      outstream: Pointer): Integer; cdecl; static;
-    class function DoCurlReadFromStream(buffer: PAnsiChar; Size, nitem: Integer;
-      instream: Pointer): Integer; cdecl; static;
-    class function DoCurlSeekInStream(instream: Pointer; offset: Int64;
-      origin: Integer): Integer; cdecl; static;
-    class function DoCurlResponseHeader(ABuffer: PByte; Size, nItems: Integer;
-      userData: Pointer): Integer; cdecl; static;
   public
     constructor Create;
     destructor Destroy; override;
@@ -1201,15 +1203,89 @@ begin
   Result := v4addr <> 0;
 end;
 
+type
+  TOpenCurlHttpClient = class(TCurlHTTPClient);
+
 function NewHttpClient(AType: TQHttpClientEngine): IQHttpClient;
 begin
   case AType of
     hceSystem:
-      Result := TQSysHttpClient.Create;
+      Result := TQSysHttpClient.Create(THttpClient.Create);
     hceCurl:
-      Result := TQCurlHttpClient.Create;
+      Result := TQSysHttpClient.Create
+        (TOpenCurlHttpClient.CreateInstance as THttpClient);
     hceNative:
       Result := TQNativeHttpClient.Create;
+  end;
+end;
+
+function IsGZipEncoding(AStream: TStream): Boolean;
+var
+  APos: Int64;
+  ABuf: array [0 .. 9] of Byte;
+begin
+  APos := AStream.Position;
+  if AStream.Size - APos >= 10 then
+  begin
+    AStream.ReadBuffer(ABuf[0], 10);
+    AStream.Position := APos;
+    Result := (ABuf[0] = $1F) and (ABuf[1] = $8B) and (ABuf[2] = $08);
+  end
+  else
+    Result := false;
+end;
+
+function DecodeGZipStream(ASourceStream, ATargetStream: TStream): Boolean;
+var
+  zstream: Z_Stream;
+  ARemainSize: Cardinal;
+  ATotalSize: Integer;
+  buffer: TBytes;
+  AInternalSource: TStream;
+  APos: Int64;
+const
+  BUFFER_SIZE = 65536;
+begin
+  FillChar(zstream, sizeof(Z_Stream), 0);
+  if inflateinit2(zstream, 47) <> Z_OK then
+    Exit(false);
+  Result := true;
+  AInternalSource := TMemoryStream.Create;
+  try
+    if ASourceStream = ATargetStream then
+    begin
+      APos := ASourceStream.Position;
+      AInternalSource.CopyFrom(ASourceStream, ASourceStream.Size - APos);
+      ATargetStream.Position := APos;
+      ATargetStream.Size := APos;
+    end
+    else
+      AInternalSource.CopyFrom(ASourceStream, ASourceStream.Size - APos);
+    zstream.avail_in := AInternalSource.Size;
+    zstream.next_in := TMemoryStream(AInternalSource).Memory;
+    SetLength(buffer, BUFFER_SIZE);
+    repeat
+      zstream.avail_out := BUFFER_SIZE;
+      zstream.next_out := @buffer[0];
+      case inflate(zstream, Z_NO_FLUSH) of
+        Z_STREAM_END:
+          begin
+            ATargetStream.WriteBuffer(buffer[0],
+              BUFFER_SIZE - zstream.avail_out);
+            inflateend(zstream);
+            Exit(true);
+          end;
+        Z_OK:
+          ATargetStream.WriteBuffer(buffer[0], BUFFER_SIZE - zstream.avail_out)
+      else
+        begin
+          inflateend(zstream);
+          Exit(false);
+        end;
+      end;
+    until zstream.avail_out = BUFFER_SIZE;
+  finally
+    FreeAndNil(AInternalSource);
   end;
 end;
 
@@ -1249,7 +1325,7 @@ end;
 function DecodeContentCharset(ARespHeaders: IQHttpHeaders; AStream: TStream)
   : QStringW;
 var
-  AValue: QStringW;
+  AContentType, AValue: QStringW;
   APair: QStringW;
 const
   ValueDelimiter: PWideChar = ';';
@@ -1269,6 +1345,7 @@ const
   end;
   function DecodeContentType(AValue: QStringW): QStringW;
   begin
+    AContentType := AValue;
     Result := '';
     repeat
       APair := DecodeTokenW(AValue, ValueDelimiter, NullQuoter, false, true);
@@ -1279,6 +1356,7 @@ const
       end;
     until Length(AValue) = 0;
   end;
+
   function CharsetFromHtml: QStringW;
   var
     ABuf: array [0 .. 8191] of Byte; // 从前8K里解析，如果不存在，则认为不存在
@@ -1361,20 +1439,39 @@ const
     ABuf: array [0 .. 8191] of Byte;
     AReaded: Integer;
     ABom: Boolean;
+  const
+    XMLEncoding: Utf8String = 'encoding="UTF-8"';
   begin
     AStream.Position := 0;
     AReaded := AStream.read(ABuf[0], 8192);
-    case DetectTextEncoding(@ABuf[0], AReaded, ABom) of
-      teUTF8:
-        Result := 'utf-8';
-      teUnicode16LE:
-        Result := 'utf-16';
-      teUnicode16BE:
+    if StartWithW(PChar(AContentType), 'text/xml', true) or
+      StartWithW(PChar(AContentType), 'application/xml', true) then
+    begin
+      // XML 则检查 XML的头部有没有相关的格式，查找 encoding="UTF-8" 这样的值
+      // 假设是UTF8编码（绝大多数情况是的）
+      ABuf[AReaded - 1] := 0;
+      if StrIStrA(PQCharA(@ABuf[0]), PQCharA(XMLEncoding)) <> nil then
+        Result := 'utf-8'
+      else if ABuf[0] = 0 then
         Result := 'utf-16be'
-    else // Unknown,treat as ascii
-      Result := 'iso-8859-1';
+      else if ABuf[1] = 0 then
+        Result := 'utf-16'
+      else
+        Result := 'iso-8859-1';
+    end
+    else
+    begin
+      case DetectTextEncoding(@ABuf[0], AReaded, ABom) of
+        teUTF8:
+          Result := 'utf-8';
+        teUnicode16LE:
+          Result := 'utf-16';
+        teUnicode16BE:
+          Result := 'utf-16be'
+      else // Unknown,treat as ascii
+        Result := 'iso-8859-1';
+      end;
     end;
-
   end;
   function CharsetFromStream: QStringW;
   begin
@@ -2162,6 +2259,40 @@ begin
   Result := TQHttpMemoryStream.Create;
 end;
 
+function TQHttpRequestItem.DecodeFileName(var ASource: TQFileNameSource)
+  : QStringW;
+var
+  Value: QStringW;
+const
+  ItemDelimiter: PWideChar = ';';
+  NullChar: WideChar = #0;
+begin
+  // 查找Content-disposition中的文件名约定
+  Value := ResponseHeaders['content-disposition'];
+  while Length(Value) > 0 do
+  begin
+    Result := Trim(DecodeTokenW(Value, ItemDelimiter, NullChar, false, true));
+    if LowerCase(NameOfW(Result, '=')) = 'filename' then
+    begin
+      ASource := TQFileNameSource.nsHead;
+      Result := DequotedStrW(ValueOfW(Result, '='), '"');
+      break;
+    end
+    else
+      Result := '';
+  end;
+  // 如果没有，以URL文档名为名
+  if Length(Result) = 0 then
+  begin
+    Result := StrBetweenTimes(ResultUrl, '/', false, 0, -1);
+    Result := StrBeforeW(Result, '?', false, false);
+    // 如果仍没有，以URL为路径为名
+    if Length(Result) = 0 then
+      Result := DeleteCharW(ResultUrl, ',:/\#@');
+    ASource := TQFileNameSource.nsUrl;
+  end;
+end;
+
 destructor TQHttpRequestItem.Destroy;
 begin
 {$IFDEF DEBUG_LOG}
@@ -2171,11 +2302,7 @@ begin
   if Assigned(FResponseStream) and FResponseStreamOwner then
     FreeAndNil(FResponseStream);
   if Assigned(FRequestStream) and FRequestStreamOwner then
-  begin
-    // DebugOut('Free request stream %x', [IntPtr(FRequestStream)]);
     FreeAndNil(FRequestStream);
-
-  end;
   if Assigned(FSyncEvent) then
     FreeAndNil(FSyncEvent);
   inherited;
@@ -2183,13 +2310,14 @@ end;
 
 procedure TQHttpRequestItem.DoAfterDone(ASender: TObject);
 begin
-  FStopTime := Now;
+  FRequestTime := HttpClient.LastRequestTime;
+  FStopTime := IncMilliSecond(FStartTime, FRequestTime);
   if Assigned(HttpClient) then
   begin
     FResponseHeaders.Assign(HttpClient.ResponseHeaders);
     if HttpClient.ErrorCode <> 0 then
     begin
-      FStatusCode := 1000 + HttpClient.ErrorCode;
+      FStatusCode := 10000000 + HttpClient.ErrorCode;
       FStatusText := HttpClient.ErrorMessage;
     end
     else
@@ -2199,7 +2327,7 @@ begin
     end;
     FResultUrl := HttpClient.FinalUrl;
   end;
-  if not FAbort then
+  if (not FAbort) or (FStatusCode = 304) then
     DoProgress;
   if MainThreadNotify then
     TThread.Synchronize(nil, DoMainThreadAfterDone)
@@ -2234,17 +2362,28 @@ end;
 procedure TQHttpRequestItem.DoMainThreadAfterDone;
 var
   AHelper: IInterface;
-begin
-  AHelper := Self;
-  try
-    if Assigned(FAfterDone) then
-      FAfterDone(Self);
-  finally
+  procedure Cleanup;
+  begin
+    if Assigned(FSyncEvent) then
+    begin
+      FSyncEvent.SetEvent;
+    end;
     if Assigned(FQueue) then
       FQueue.RequestDone(Self);
-    if Assigned(FSyncEvent) and (not Assigned(FAfterDone)) then
-      FSyncEvent.SetEvent;
   end;
+
+begin
+  AHelper := Self;
+  if Assigned(FAfterDone) then
+  begin
+    try
+      FAfterDone(Self);
+    finally
+      Cleanup;
+    end;
+  end
+  else
+    Cleanup;
   AHelper := nil;
 end;
 
@@ -2280,16 +2419,30 @@ begin
     FBeforeUrlRedirect(Self, FAllowRedirect);
 end;
 
-procedure TQHttpRequestItem.DoProgress(const Sender: TObject;
+procedure TQHttpRequestItem.DoSendProgress(const Sender: TObject;
+  AContentLength, ACount: Int64; var Abort: Boolean);
+begin
+  if Assigned(FQueue) then
+    AtomicIncrement(FQueue.FSentBytes, ACount - FSentBytes);
+  FSentBytes := ACount;
+  FLastIOTick :=
+{$IFDEF UNICODE}TThread.{$ENDIF}GetTickCount;
+end;
+
+procedure TQHttpRequestItem.DoRecvProgress(const Sender: TObject;
   AContentLength, AReadCount: Int64; var Abort: Boolean);
 begin
+  if Assigned(FQueue) then
+    //
+    AtomicIncrement(FQueue.FRecvBytes, AReadCount - FRecvBytes);
   FRecvBytes := AReadCount;
   FTotalBytes := AContentLength;
-  FLastIOTick := GetTickCount;
+  FLastIOTick :=
 {$IFDEF UNICODE}TThread.{$ENDIF}GetTickCount;
   if Assigned(FOnRecvData) then
   begin
-    if FLastIOTick - FLastProgressTick > FProgressInterval then
+    if (FLastIOTick > FLastProgressTick) and
+      (FLastIOTick - FLastProgressTick > FProgressInterval) then
     begin
       FLastProgressTick := FLastIOTick;
       Abort := DoProgress;
@@ -2314,10 +2467,9 @@ end;
 
 function TQHttpRequestItem.GetCanStart: Boolean;
 begin
-  if not IsAppTerminated then
-    Result := not Assigned(FHttpClient)
-  else
-    Result := false;
+  Result := not Assigned(FHttpClient);
+  // if not Result then
+  // DebugBreak;
 end;
 
 function TQHttpRequestItem.GetConnectionTimeout: Cardinal;
@@ -2403,6 +2555,11 @@ begin
   Result := FRequestStream;
 end;
 
+function TQHttpRequestItem.GetRequestTime: Cardinal;
+begin
+  Result := FRequestTime;
+end;
+
 function TQHttpRequestItem.GetResponseCharset: QStringW;
 begin
   DecodeContentCharset(ResponseHeaders, ResponseStream);
@@ -2486,7 +2643,7 @@ begin
     FMaxRequestTimeout := 60;
   FAction := reqGet;
   if AIsSyncMode then
-    FSyncEvent := TEvent.Create(nil, false, false, '', false);
+    FSyncEvent := TEvent.Create(nil, true, false, '', false);
 {$IFDEF DEBUG_LOG}
   DebugOut('Request %x created', [IntPtr(Self)]);
   // PostLog(llDebug, 'Request %x created', [IntPtr(Self)]);
@@ -2558,8 +2715,6 @@ end;
 procedure TQHttpRequestItem.SetMaxRedirectTimes(const AValue: Integer);
 begin
   FMaxRedirectTimes := AValue;
-  if AValue > 0 then
-    FAllowRedirect := true;
 end;
 
 procedure TQHttpRequestItem.SetOnClientBound
@@ -2641,7 +2796,8 @@ begin
   FStatusText := '';
   FResponse := nil;
   AClient := AHttpClient;
-  AClient.OnProgress := DoProgress;
+  AClient.OnRecvProgress := DoRecvProgress;
+  AClient.OnSendProgress := DoSendProgress;
   AClient.ConnectTimeout := FConnectionTimeout;
   AClient.RequestHeaders.Assign(RequestHeaders);
   AClient.RequestHeaders.Values['User-Agent'] := UserAgent;
@@ -2650,8 +2806,6 @@ begin
   AClient.RequestStream := RequestStream;
   AClient.MaxRequestTimeout := MaxRequestTimeout;
   AClient.MaxRedirects := FMaxRedirectTimes;
-  AtomicIncrement(FQueue.FBusyClients);
-  // AClient.OnVerifyCertificate:=
   case Action of
     reqGet:
       AClient.Get(Url, DoAfterDone);
@@ -2673,53 +2827,40 @@ end;
 function TQHttpRequestItem.WaitFor(ATimeout: Cardinal): TWaitResult;
 var
   ATick: Cardinal;
-  AClient: IQHttpClient;
 begin
   if Assigned(FSyncEvent) then
   begin
-    Result := wrIOCompletion;
-    ATick := {$IFNDEF MSWINDOWS}TThread.{$ENDIF}GetTickCount;
-    while IsZero(FStartTime) do
+    if FStatusCode = 0 then
     begin
-      if IsAppTerminated then
-      begin
-        Result := wrAbandoned;
-        Exit;
-      end;
-      MsgSleep(10);
-      if {$IFNDEF MSWINDOWS}TThread.{$ENDIF}GetTickCount - ATick >= ATimeout
-      then
-      begin
-        Result := wrTimeout;
-        break;
-      end;
-    end;
-    if not IsZero(FStartTime) then
-    begin
+      Result := wrIOCompletion;
+      ATick :=
+{$IFNDEF MSWINDOWS}TThread.{$ENDIF}GetTickCount;
       repeat
-        Result := MsgWaitForEvent(FSyncEvent, ATimeout, true);
+        Result := MsgWaitForEvent(FSyncEvent, ATimeout);
         if Result = wrTimeout then
         begin
-          if (GetTickCount - FLastIOTick) < ATimeout then
+          if IsZero(FStartTime) then
+            continue;
+          if ({$IFNDEF MSWINDOWS}TThread.{$ENDIF}GetTickCount - FLastIOTick) < ATimeout
+          then
             Result := wrIOCompletion;
-        end
-        else if Result = wrAbandoned then
-          break;
+        end;
+
       until Result <> wrIOCompletion;
-    end;
+    end
+    else
+      Result := wrSignaled;
   end
   else
     Result := wrError;
   if Result <> wrSignaled then
   begin
-    AClient := HttpClient;
-    if Assigned(AClient) then
-      AClient.Cancel;
     case Result of
       wrTimeout:
         FStatusCode := 12002;
       wrAbandoned:
-        FStatusCode := 1223; // ERROR_PROCESS_ABORTED
+        FStatusCode := 1067;
+      // ERROR_PROCESS_ABORTED
       wrError:
         FStatusCode := 10014; // WSAEFAULT
     end;
@@ -2742,7 +2883,7 @@ begin
   C := 0;
   Lock;
   try
-    for I := 0 to FRequests.Count - 1 do
+    for I := FRequests.Count - 1 downto 0 do
     begin
       AReq := FRequests[I];
       if Assigned(AReq.HttpClient) then
@@ -2764,7 +2905,7 @@ begin
   ATick := {$IFDEF UNICODE}TThread.{$ENDIF}GetTickCount;
   while (FBusyClients > 0) and ({$IFDEF UNICODE}TThread.{$ENDIF}GetTickCount -
     ATick < 5000) do
-    MsgWaitForEvent(AEvent, 10);
+    MsgWaitForEvent(AEvent, 0);
   FreeAndNil(AEvent);
   Lock;
   try
@@ -2804,9 +2945,8 @@ begin
   FCookieManager := TQHttpCookies.Create;
   FMaxClients := 1; // 默认只有一个工作
   FMaxRequestTimeout := 60;
-  FHttpClients := TQSimplePool.Create(FMaxClients, SizeOf(Pointer));
-  FHttpClients.OnNewItem := DoNewHttpClient;
-  FHttpClients.OnFree := DoFreeHttpClient;
+  FHttpClients := TList<IQHttpClient>.Create;
+  FHttpClients.Capacity := FMaxClients;
   FDefaultHeaders := TQHttpHeaders.Create;
   FDefaultHeaders.Values['User-Agent'] := DefaultUserAgent;
 end;
@@ -2933,32 +3073,11 @@ begin
     FOnClientRetry(Self, AClient, ATryTimes, AContinue);
 end;
 
-procedure TQHttpRequests.DoEventReqDone(ASender: TObject);
-var
-  AReq: TQHttpRequestItem;
+function TQHttpRequests.DoNewHttpClient: IQHttpClient;
 begin
-  AReq := ASender as TQHttpRequestItem;
-  if Assigned(AReq.FSyncEvent) then
-    AReq.FSyncEvent.SetEvent;
-end;
-
-procedure TQHttpRequests.DoFreeHttpClient(ASender: TQSimplePool;
-  AData: Pointer);
-begin
-  IQHttpClient(AData) := nil;
-end;
-
-procedure TQHttpRequests.DoNewHttpClient(ASender: TQSimplePool;
-  var AData: Pointer);
-var
-  AClient: IQHttpClient;
-begin
-  AData := nil;
-  AClient := NewHttpClient(FEngine);
-  IQHttpClient(AData) := AClient;
-  AClient.OnDnsLookup := DoClientDnsLookup;
-  AClient.OnGetSSLProtocol := OnGetSSLProtocol;
-  AClient.onVerifyCertificate := onVerifyCertificate;
+  Result := NewHttpClient(FEngine);
+  Result.OnDnsLookup := DoClientDnsLookup;
+  Result.OnGetSSLProtocol := OnGetSSLProtocol;
 end;
 
 function TQHttpRequests.Get(const AUrl: QStringW; var AResult: QStringW;
@@ -2971,7 +3090,6 @@ begin
   AReq.Action := reqGet;
   if Assigned(AHeaders) then
     AReq.RequestHeaders.Replace(AHeaders);
-  AReq.AfterDone := DoEventReqDone;
   Push(AReq);
   AReq.WaitFor(MaxRequestTimeout * 1000);
   AResult := AReq.ContentAsString;
@@ -2990,7 +3108,6 @@ begin
   AReq.Url := AUrl;
   AReq.Action := reqGet;
   AReq.ResponseStream := AReplyStream;
-  AReq.AfterDone := DoEventReqDone;
   AReq.OnRecvData := AOnProgress;
   if Assigned(AHeaders) then
     AReq.RequestHeaders.Replace(AHeaders);
@@ -3021,7 +3138,6 @@ begin
   AReq.Action := reqPost;
   if Assigned(AHeaders) then
     AReq.RequestHeaders.Replace(AHeaders);
-  AReq.AfterDone := DoEventReqDone;
   Push(AReq);
   AReq.WaitFor(MaxRequestTimeout * 1000);
   AResult := AReq.ContentAsString;
@@ -3039,7 +3155,6 @@ begin
   AReq.Url := AUrl;
   AReq.Action := reqPost;
   AReq.ResponseStream := AReplyStream;
-  AReq.AfterDone := DoEventReqDone;
   if Assigned(AHeaders) then
     AReq.RequestHeaders.Replace(AHeaders);
   Push(AReq);
@@ -3058,12 +3173,7 @@ var
   AParams: QStringW;
 begin
   AReq := TQHttpRequestItem.Create(Self, not Assigned(AfterDone));
-  if not Assigned(AfterDone) then
-    AReq.AfterDone := DoEventReqDone
-  else
-  begin
-    AReq.AfterDone := AfterDone;
-  end;
+  AReq.AfterDone := AfterDone;
   AReq.Url := AUrl;
   AReq.Action := reqPost;
   if Assigned(AFormParams) and (AFormParams.Count > 0) then
@@ -3104,7 +3214,6 @@ var
   AParams: QStringW;
 begin
   AReq := TQHttpRequestItem.Create(Self, true);
-  AReq.AfterDone := DoEventReqDone;
   AReq.Url := AUrl;
   AReq.Action := reqPost;
   if Assigned(AFormParams) and (AFormParams.Count > 0) then
@@ -3139,12 +3248,7 @@ var
   AReq: IQHttpRequestItem;
 begin
   AReq := TQHttpRequestItem.Create(Self, not Assigned(AfterDone));
-  if not Assigned(AfterDone) then
-    AReq.AfterDone := DoEventReqDone
-  else
-  begin
-    AReq.AfterDone := AfterDone;
-  end;
+  AReq.AfterDone := AfterDone;
   AReq.Url := AUrl;
   AReq.Action := reqPost;
   if Assigned(AContent) and (AContent.Count > 0) then
@@ -3178,7 +3282,6 @@ var
   AReq: IQHttpRequestItem;
 begin
   AReq := TQHttpRequestItem.Create(Self, true);
-  AReq.AfterDone := DoEventReqDone;
   AReq.Url := AUrl;
   AReq.Action := reqPost;
   if Length(AContent) > 0 then
@@ -3207,12 +3310,7 @@ var
   AReq: IQHttpRequestItem;
 begin
   AReq := TQHttpRequestItem.Create(Self, not Assigned(AfterDone));
-  if not Assigned(AfterDone) then
-    AReq.AfterDone := DoEventReqDone
-  else
-  begin
-    AReq.AfterDone := AfterDone;
-  end;
+  AReq.AfterDone := AfterDone;
   AReq.Url := AUrl;
   AReq.Action := reqPost;
   if Assigned(AContent) then
@@ -3267,18 +3365,16 @@ begin
   begin
     with ARequest as TQHttpRequestItem do
     begin
-      AClient := HttpClient;
-      if Assigned(AClient) then
-      begin
+      if Assigned(HttpClient) then
         HttpClient.Reset;
-        AtomicDecrement(FBusyClients);
-      end;
       FIsDone := true;
       Lock;
       try
+        AClient := HttpClient;
         FRequests.Remove(ARequest);
         if Assigned(AClient) then
         begin
+          Dec(FBusyClients);
           // DebugOut('%s done,%d client busy', [ATemp.Url, FBusyClients]);
           for I := 0 to FRequests.Count - 1 do
           begin
@@ -3286,46 +3382,48 @@ begin
             if not Assigned(ATemp.HttpClient) then
             begin
               if ATemp.StartWith(AClient) then
+              begin
+                Inc(FBusyClients);
+                // DebugOut('%s client bound,%d client busy', [ATemp.Url, FBusyClients]);
                 Exit;
+              end;
             end;
           end;
           // 没有需要处理的请求了，则将自己标记为空闲
-          FHttpClients.Push(AClient);
-        end
-        // else
-        // DebugOut('Request not process by client');
+          if FHttpClients.Count < FMaxClients then
+            FHttpClients.Add(AClient)
+          else
+            AClient := nil;
+        end;
       finally
         Unlock;
         if Assigned(AfterRequestDone) then
           AfterRequestDone(Self, ARequest);
       end;
     end;
-  end
-  // else
-  // DebugOut('!!!!Request done with no request object!!!');
+  end;
 end;
 
 // AReq 引用计数不对，需要处理
 function TQHttpRequests.Rest(const AUrl: QStringW; AContent: QStringW;
   AResult: TQJson; AHeaders: IQHttpHeaders; AfterDone: TNotifyEvent;
-  Action: TQHttpClientAction; AHttpStatusText: PQStringW): Integer;
+  Action: TQHttpClientAction; AContentType: QStringW;
+  AHttpStatusText: PQStringW): Integer;
 var
   AReq: IQHttpRequestItem;
 begin
 
   AReq := TQHttpRequestItem.Create(Self, not Assigned(AfterDone));
-  if not Assigned(AfterDone) then
-    AReq.AfterDone := DoEventReqDone
-  else
-  begin
-    AReq.AfterDone := AfterDone;
-  end;
+  AReq.AfterDone := AfterDone;
   AReq.Url := AUrl;
   if Length(AContent) > 0 then
   begin
     AReq.Action := reqPost;
-    AReq.RequestHeaders.Values['Content-Type'] :=
-      'application/x-www-form-urlencoded;charset=UTF-8';
+    if Length(AContentType) = 0 then
+      AReq.RequestHeaders.Values['Content-Type'] :=
+        'application/x-www-form-urlencoded;charset=UTF-8'
+    else
+      AReq.RequestHeaders.Values['Content-Type'] := AContentType;
     SaveTextU(AReq.NeedRequestStream, AContent, false);
     AReq.RequestStream.Position := 0;
   end
@@ -3359,12 +3457,7 @@ var
   AReq: IQHttpRequestItem;
 begin
   AReq := TQHttpRequestItem.Create(Self, not Assigned(AfterDone));
-  if not Assigned(AfterDone) then
-    AReq.AfterDone := DoEventReqDone
-  else
-  begin
-    AReq.AfterDone := AfterDone;
-  end;
+  AReq.AfterDone := AfterDone;
   AReq.Url := AUrl;
   if Assigned(ASource) then
   begin
@@ -3416,13 +3509,12 @@ begin
   end;
   SetLength(AContent, Length(AContent) - 1);
   Result := Rest(AUrl, AContent, AResult, AHeaders, AfterDone, Action,
-    AHttpStatusText);
+    'application/x-www-form-urlencoded;charset=UTF-8', AHttpStatusText);
 end;
 
 procedure TQHttpRequests.CheckCurlInitialized;
 begin
-  if not CurlInitialized then
-    curl_global_init(CURL_GLOBAL_ALL);
+
 end;
 
 procedure TQHttpRequests.SetEngine(const Value: TQHttpClientEngine);
@@ -3442,18 +3534,6 @@ begin
   end;
 end;
 
-procedure TQHttpRequests.SetMaxClients(const Value: Integer);
-begin
-  if FMaxClients <> Value then
-  begin
-    if Value > 1 then
-      FMaxClients := Value
-    else
-      FMaxClients := 1;
-    FHttpClients.Size := FMaxClients;
-  end;
-end;
-
 function TQHttpRequests.Soap(const AUrl, Action, ARequestBody: QStringW;
   var AResult: QStringW; AHttpStatusText: PQStringW): Integer;
 var
@@ -3464,7 +3544,6 @@ begin
   AXML := nil;
   AReq := TQHttpRequestItem.Create(Self, true);
   try
-    AReq.AfterDone := DoEventReqDone;
     AReq.Url := AUrl;
     AReq.Action := reqGet;
     Push(AReq);
@@ -3516,16 +3595,66 @@ end;
 procedure TQHttpRequests.Start(ARequest: IQHttpRequestItem);
 var
   AClient: IQHttpClient;
+  ARequestUrl: QStringW;
+  AFound: Boolean;
+  function DecodeUrlRoot(AUrl: QStringW): String;
+  var
+    p, ps: PQCharW;
+  begin
+    p := PQCharW(AUrl);
+    ps := p;
+    QString.SkipUntilW(p, ':');
+    Inc(p);
+    if p^ = '/' then
+    begin
+      Inc(p);
+      if p^ = '/' then
+        Inc(p)
+      else
+        Exit(AUrl);
+      SkipUntilW(p, '/');
+      Result := StrDupX(ps, p - ps);
+    end
+    else
+      Exit(AUrl);
+  end;
+
 begin
+  ARequestUrl := DecodeUrlRoot(ARequest.Url);
   Lock;
   try
     if (FBusyClients < FMaxClients) or (FBusyClients = 0) then
     begin
       if ARequest.CanStart then
       begin
-        AClient := IQHttpClient(FHttpClients.Pop);
+        AClient := nil;
+        AFound := false;
+        for var I := FHttpClients.Count - 1 downto 0 do
+        begin
+          AClient := FHttpClients[I];
+          // 优先同一协议及地址的空闲连接
+          if AClient.Url.StartsWith(ARequestUrl) then
+          begin
+            AFound := true;
+            FHttpClients.Delete(I);
+            break;
+          end;
+        end;
+        if not AFound then
+          begin
+          if FHttpClients.Count<FMaxClients then
+            AClient:=nil
+          else
+            FHttpClients.Delete(0);
+          end;
+        if not Assigned(AClient) then
+          AClient := DoNewHttpClient;
         AClient.CookieManager := FCookieManager;
-        (ARequest as TQHttpRequestItem).StartWith(AClient);
+        if (ARequest as TQHttpRequestItem).StartWith(AClient) then
+        begin
+          Inc(FBusyClients);
+          // DebugOut('%s client bound,%d client busy', [ARequest.Url, FBusyClients]);
+        end;
       end;
     end
   finally
@@ -3542,22 +3671,40 @@ end;
 
 function TQHttpFileRequestItem.CreateInternalStream: TStream;
 var
-  AFileName: QStringW;
+  ATryTimes: Integer;
 begin
-  AFileName := FilePath;
-  if ResumeBroken then
-  begin
-    if FileExists(AFileName) then
-    begin
-      Result := TFileStream.Create(AFileName, fmOpenReadWrite or
-        fmShareDenyWrite);
-      Result.Seek(0, soFromEnd);
-    end
-    else
-      Result := TFileStream.Create(AFileName, fmCreate);
-  end
-  else
-    Result := TFileStream.Create(AFileName, fmCreate);
+  FFileName := FilePath;
+  Result := nil;
+  ATryTimes := 0;
+  if CompareText(FFileName, ExtractFileName(ParamStr(0))) = 0 then
+    FFileName := FFileName + '.~' + RandomString(5, [rctNum, rctAlpha]);
+  repeat
+    try
+      if ResumeBroken then
+      begin
+        if FileExists(FFileName) then
+        begin
+          Result := TFileStream.Create(FFileName, fmOpenReadWrite or
+            fmShareDenyWrite);
+          Result.Seek(0, soFromEnd);
+        end
+        else
+          Result := TFileStream.Create(FFileName, fmCreate);
+      end
+      else
+        Result := TFileStream.Create(FFileName, fmCreate);
+      break;
+    except
+      on E: Exception do
+      begin
+        Inc(ATryTimes);
+        if ATryTimes < 3 then
+          FFileName := FFileName + '.~' + RandomString(5, [rctNum, rctAlpha])
+        else
+          raise;
+      end;
+    end;
+  until Assigned(Result);
 end;
 
 procedure TQHttpFileRequestItem.DoError(ASender: TObject; AError: Exception);
@@ -3570,34 +3717,8 @@ procedure TQHttpFileRequestItem.DoHeadReady(ASender: TObject);
 var
   AHead: TQHttpRequestItem;
   AFileSize: Int64;
+  ACacheFileName: String;
   AContinue: Boolean;
-  function DecodeFileName: QStringW;
-  var
-    Value: QStringW;
-  const
-    ItemDelimiter: PWideChar = ';';
-    NullChar: WideChar = #0;
-  begin
-    // 查找Content-disposition中的文件名约定
-    Value := AHead.ResponseHeaders['content-disposition'];
-    while Length(Value) > 0 do
-    begin
-      Result := Trim(DecodeTokenW(Value, ItemDelimiter, NullChar, false, true));
-      if LowerCase(NameOfW(Result, '=')) = 'filename' then
-        Result := DequotedStrW(ValueOfW(Result, '='), '"')
-      else
-        Result := '';
-    end;
-    // 如果没有，以URL文档名为名
-    if Length(Result) = 0 then
-    begin
-      Result := StrBetweenTimes(AHead.ResultUrl, '/', false, 0, -1);
-      Result := StrBeforeW(Result, '?', false, false);
-      // 如果仍没有，以URL为路径为名
-      if Length(Result) = 0 then
-        Result := DeleteCharW(AHead.ResultUrl, ',:/\#@');
-    end;
-  end;
 
   procedure CheckHTST;
   var
@@ -3622,29 +3743,42 @@ begin
   begin
     CheckHTST;
     AContinue := true;
+    FStartTime := AHead.FStartTime;
     FFileSize := StrToInt64Def(AHead.ResponseHeaders['content-length'], 0);
     if Length(FileName) = 0 then
     begin
-      if Length(FileName) = 0 then
-        FileName := DecodeFileName;
+      FFileName := AHead.DecodeFileName(FFileNameSource);
       if AHead.ResponseHeaders['accept-ranges'] <> 'bytes' then
         // 如果服务器不支持断点续传，就设置ResumeBroke为False，以避免启用断点续传
         ResumeBroken := false
     end;
-    AFileSize := SizeOfFile(FilePath);
-    if AFileSize > 0 then
+    ACacheFileName := FFileName;
+    if FPath <> '' then
     begin
-      if AFileSize > FFileSize then
-        ResumeBroken := false
-      else if AFileSize = FFileSize then
+      if not EndWithW(FPath, PathDelimiter, false) then
+        ACacheFileName := FPath + PathDelimiter + ACacheFileName
+      else
+        ACacheFileName := FPath + ACacheFileName;
+    end;
+    if Length(ACacheFileName) > 0 then
+    begin
+      AFileSize := SizeOfFile(ACacheFileName);
+      if AFileSize > 0 then
       begin
-        AContinue := false;
-        FStatusCode := 304;
-        FStatusText := 'Not Modified';
-        ResumeBroken := false;
+        if AFileSize > FFileSize then
+          ResumeBroken := false
+        else if AFileSize = FFileSize then
+        begin
+          AContinue := false;
+          FStatusCode := 304;
+          FStatusText := 'Not Modified';
+          FTotalBytes := AFileSize;
+          FRecvBytes := AFileSize;
+          ResumeBroken := false;
+        end;
+        if ResumeBroken then
+          RequestHeaders['Range'] := 'bytes=' + IntToStr(AFileSize) + '-';
       end;
-      if ResumeBroken then
-        RequestHeaders['Range'] := 'bytes=' + IntToStr(AFileSize) + '-';
     end;
     if AContinue and Assigned(BeforeDownload) then
     begin
@@ -3693,16 +3827,24 @@ begin
 end;
 
 function TQHttpFileRequestItem.GetFilePath: QStringW;
-const
-  PathDelimiter: QStringW =
-{$IFDEF MSWINDOWS}'\'{$ELSE}'/'{$ENDIF};
 begin
   if Length(FPath) > 0 then
   begin
     if not EndWithW(FPath, PathDelimiter, false) then
       FPath := FPath + PathDelimiter;
   end;
+  if Length(FFileName) = 0 then
+    FFileName := DecodeFileName(FFileNameSource);
   Result := FPath + FFileName;
+end;
+
+procedure TQHttpFileRequestItem.SetFileName(const Value: QStringW);
+begin
+  if FFileName <> Value then
+  begin
+    FFileName := Value;
+
+  end;
 end;
 
 { TQRequestList }
@@ -3809,14 +3951,16 @@ begin
       FExpires := IncSecond(Now, StrToIntDef(AVal, 0))
     else if SameText(AName, 'Expires') then // Do not translate
       FExpires := DateTimeFromString(AVal)
-    else if SameText(AName, 'Path') then // Do not translate
+    else if SameText(AName, 'Path') then
+    // Do not translate
     begin
       if EndWithW(AValue, '/', false) then
         FPath := AVal
       else
         FPath := AVal + '/';
     end
-    else if SameText(AName, 'Domain') then // Do not translate
+    else if SameText(AName, 'Domain') then
+    // Do not translate
     begin
       if StartWithW(PQCharW(AVal), '.', false) then
         FDomain := AVal
@@ -3825,7 +3969,8 @@ begin
     end
     else if SameText(AName, 'HttpOnly') then // Do not translate
       FIsHttpOnly := true
-    else if SameText(AName, 'Secure') then // Do not translate
+    else if SameText(AName, 'Secure') then
+      // Do not translate
       FIsSecure := true;
   end;
 end;
@@ -4220,14 +4365,13 @@ end;
 
 procedure TQBaseHttpClient.Cancel;
 begin
-  FErrorCode := 1223;
-  FErrorMessage := '用户取消操作。';
   if hcfAsyn in FFlags then
-    Workers.Clear(DoAsynCall, INVALID_JOB_DATA);
-  while hcfExecuting in FFlags do
-    Sleep(50);
-  if not(hcfExecuted in FFlags) then
+  begin
+    Workers.Clear(Self, -1, false);
+    FErrorCode := 1223;
+    FErrorMessage := '用户取消操作。';
     DoAfterDone(nil);
+  end;
 end;
 
 constructor TQBaseHttpClient.Create;
@@ -4297,12 +4441,8 @@ end;
 procedure TQBaseHttpClient.DoAfterDone(AJob: PQJob);
 var
   I: Integer;
-  AEvent: TNotifyEvent;
 begin
   try
-    // DebugOut('Do after done');
-    AEvent := FAfterDone;
-    FAfterDone := nil;
     if (hcfAllowCookie in FFlags) and Assigned(FCookieManager) and
       (GetStatusCode = 200) and (FResponseHeaders.Count > 0) then
     begin
@@ -4313,10 +4453,8 @@ begin
             FResponseHeaders.ValueFromIndex[I];
       end;
     end;
-    if Assigned(AEvent) then
-      AEvent(Self)
-      // else
-      // DebugOut('Error:After done not set');
+    if Assigned(FAfterDone) then
+      FAfterDone(Self);
   finally
     FFlags := [hcfAllowRedirect, hcfAllowCookie, hcfReady];
   end;
@@ -4324,21 +4462,11 @@ end;
 
 procedure TQBaseHttpClient.DoAsynCall(AJob: PQJob);
 begin
-  FJob := AJob;
-  try
-    FRetryTimes := 0;
-    DoExecute;
-    if Assigned(Workers) then
-    begin
-      // DebugOut('Fire after done');
-      Workers.Post(DoAfterDone, Pointer(Self as IQHttpClient), true,
-        jdfFreeAsInterface);
-    end
-    else
-      DoAfterDone(nil);
-  finally
-    FJob := nil;
-  end;
+  FRetryTimes := 0;
+  DoExecute;
+  if Assigned(Workers) then
+    Workers.Post(DoAfterDone, Pointer(Self as IQHttpClient), true,
+      jdfFreeAsInterface);
 end;
 
 function TQBaseHttpClient.DoError(E: Exception): Boolean;
@@ -4359,17 +4487,21 @@ var
 begin
   FErrorMessage := '';
   FErrorCode := 0;
-  FFlags := FFlags + [hcfExecuting];
-  FStartTime := {$IFDEF UNICODE}TThread.{$ENDIF}GetTickCount;
+  FStartTime :=
+{$IFDEF UNICODE}TThread.{$ENDIF}GetTickCount;
   try
     repeat
       if Assigned(FRequestStream) then
         FRequestStream.Position := 0;
       ReplaceHostIfNeeded;
-      if Assigned(FJob) and (FJob.IsTerminated) then
-        break;
       InternalExecute;
     until not DoRedirect;
+    FStopTime := {$IFDEF UNICODE}TThread.{$ENDIF}GetTickCount;
+    if Assigned(FResponseStream) and IsGZipEncoding(FResponseStream) then
+    begin
+      DecodeGZipStream(FResponseStream, FResponseStream);
+      FResponseStream.Position := 0;
+    end;
   except
     on E: Exception do
     begin
@@ -4381,20 +4513,19 @@ begin
           FOnRetry(nil, Self, FRetryTimes, AContinue);
         if AContinue then
           DoExecute;
-      end;
+      end
+      else
+        FStopTime := {$IFDEF UNICODE}TThread.{$ENDIF}GetTickCount;
     end;
   end;
-  FStopTime := {$IFDEF UNICODE}TThread.{$ENDIF}GetTickCount;
-  FFlags := FFlags - [hcfAsyn, hcfExecuting] + [hcfExecuted];
+  FFlags := FFlags - [hcfAsyn, hcfExecuting];
 end;
 
-procedure TQBaseHttpClient.DoProgress(const Sender: TObject;
+procedure TQBaseHttpClient.DoRecvProgress(const Sender: TObject;
   AContentLength, AReadCount: Int64; var Aborted: Boolean);
 begin
-  if IsAppTerminated then
-    Aborted := true
-  else if Assigned(FOnProgress) then
-    FOnProgress(Self, AContentLength, AReadCount, Aborted);
+  if Assigned(FOnRecvProgress) then
+    FOnRecvProgress(Self, AContentLength, AReadCount, Aborted);
 end;
 
 function TQBaseHttpClient.DoRedirect: Boolean;
@@ -4407,8 +4538,6 @@ var
   end;
 
 begin
-  if FErrorCode = 1223 then // 用户取消操作
-    Exit(false);
   DecodeStatus;
   Result := (hcfAllowRedirect in FFlags) and IsRedirect(FStatusCode) and
     (FRedirectTimes < FMaxRedirects);
@@ -4425,6 +4554,13 @@ begin
   end;
 end;
 
+procedure TQBaseHttpClient.DoSendProgress(const Sender: TObject;
+  AContentLength, AWriteCount: Int64; var AAbort: Boolean);
+begin
+  if Assigned(FOnSendProgress) then
+    FOnSendProgress(Self, AContentLength, AWriteCount, AAbort);
+end;
+
 function TQBaseHttpClient.ExecuteRequest: Integer;
 begin
   if not(hcfReady in FFlags) then
@@ -4436,7 +4572,7 @@ begin
     FErrorCode := 0;
     FRedirectTimes := 0;
     FRetryTimes := 0;
-    FFlags := FFlags - [hcfReady];
+    FFlags := FFlags + [hcfExecuting] - [hcfReady];
     if Assigned(FAfterDone) then
     begin
       FFlags := FFlags + [hcfAsyn];
@@ -4502,6 +4638,14 @@ begin
   Result := FFlags;
 end;
 
+function TQBaseHttpClient.GetLastRequestTime: Cardinal;
+begin
+  if FStopTime > FStartTime then
+    Result := FStopTime - FStartTime
+  else
+    Result := 0;
+end;
+
 function TQBaseHttpClient.GetMaxRedirects: Integer;
 begin
   Result := FMaxRedirects;
@@ -4517,9 +4661,9 @@ begin
   Result := FOnGetSSLProtocol;
 end;
 
-function TQBaseHttpClient.GetOnProgress: TQDownloadProgressEvent;
+function TQBaseHttpClient.GetOnRecvProgress: TQDownloadProgressEvent;
 begin
-  Result := FOnProgress;
+  Result := FOnRecvProgress;
 end;
 
 function TQBaseHttpClient.GetOnRedirect: TQHttpRedirectEvent;
@@ -4530,6 +4674,11 @@ end;
 function TQBaseHttpClient.GetOnRetry: TQHttpRequestRetryNotify;
 begin
   Result := FOnRetry;
+end;
+
+function TQBaseHttpClient.GetOnSendProgress: TQDownloadProgressEvent;
+begin
+  Result := FOnSendProgress;
 end;
 
 function TQBaseHttpClient.GetOnVerifyCertificate: TQCertificateValidEvent;
@@ -4650,38 +4799,33 @@ var
   Addr: Cardinal;
   AddrText: QStringW;
 begin
-  if not StartWithW(PQCharW(FFinalUrl), 'https://', true) then
+  if Assigned(FOnDnsLookup) then
   begin
-    if Assigned(FOnDnsLookup) then
-    begin
-      AUrl := TQUrl.Create(FFinalUrl);
-      try
-        if TryAsAddr(AUrl.Host, Addr) then
-          FReplacedUrl := FFinalUrl
+    AUrl := TQUrl.Create(FFinalUrl);
+    try
+      if TryAsAddr(AUrl.Host, Addr) then
+        FReplacedUrl := FFinalUrl
+      else
+      begin
+        AddrText := '';
+        FOnDnsLookup(Self, AUrl.Host, AddrText);
+        AddrText := NameOfW(AddrText, ',');
+        if (not TryAsAddr(AddrText, Addr)) or (Addr = 0) then // 取首个地址
+          raise Exception.Create(SDnsLookupFailed)
         else
         begin
-          AddrText := '';
-          FOnDnsLookup(Self, AUrl.Host, AddrText);
-          AddrText := NameOfW(AddrText, ',');
-          if (not TryAsAddr(AddrText, Addr)) or (Addr = 0) then // 取首个地址
-            raise Exception.Create(SDnsLookupFailed)
+          if AUrl.SchemePort <> AUrl.Port then
+            FRequestHeaders.Values['Host'] := AUrl.Host + ':' +
+              IntToStr(AUrl.Port)
           else
-          begin
-            if AUrl.SchemePort <> AUrl.Port then
-              FRequestHeaders.Values['Host'] := AUrl.Host + ':' +
-                IntToStr(AUrl.Port)
-            else
-              FRequestHeaders.Values['Host'] := AUrl.Host;
-            AUrl.Host := AddrText;
-            FReplacedUrl := AUrl.Url;
-          end;
+            FRequestHeaders.Values['Host'] := AUrl.Host;
+          AUrl.Host := AddrText;
+          FReplacedUrl := AUrl.Url;
         end;
-      finally
-        FreeAndNil(AUrl);
       end;
-    end
-    else
-      FReplacedUrl := FFinalUrl;
+    finally
+      FreeAndNil(AUrl);
+    end;
   end
   else
     FReplacedUrl := FFinalUrl;
@@ -4730,9 +4874,10 @@ begin
   FOnGetSSLProtocol := AValue;
 end;
 
-procedure TQBaseHttpClient.SetOnProgress(const AValue: TQDownloadProgressEvent);
+procedure TQBaseHttpClient.SetOnRecvProgress(const AValue
+  : TQDownloadProgressEvent);
 begin
-  FOnProgress := AValue;
+  FOnRecvProgress := AValue;
 end;
 
 procedure TQBaseHttpClient.SetOnRedirect(const AValue: TQHttpRedirectEvent);
@@ -4743,6 +4888,12 @@ end;
 procedure TQBaseHttpClient.SetOnRetry(const AValue: TQHttpRequestRetryNotify);
 begin
   FOnRetry := AValue;
+end;
+
+procedure TQBaseHttpClient.SetOnSendProgress(const AValue
+  : TQDownloadProgressEvent);
+begin
+  FOnSendProgress := AValue;
 end;
 
 procedure TQBaseHttpClient.SetOnVeriftyCertificate(const AValue
@@ -4815,52 +4966,15 @@ begin
 end;
 
 { TQSysHttpClient }
-{$IFDEF MSWINDOWS}
-
-type
-  WINHTTP_EXTEND_HEADER = record
-    Name, Value: PWideChar;
-  end;
-
-  PWINHTTP_EXTENDED_HEADER = ^WINHTTP_EXTEND_HEADER;
-
-  TFakeWinHTTPResponse = class(THTTPResponse)
-  private
-    // 虚拟的TWinHttpResponse对象，以便访问FWRequest的值，注意和System.Net.HttpClient.Win中的布局操持一致
-    FWRequest: HINTERNET;
-  end;
-{$ENDIF}
 
 procedure TQSysHttpClient.ConvertHeaders(ASource: TNetHeaders;
   ATarget: IQHttpHeaders);
 var
   I: Integer;
-  function CheckValueEncoding(const AValue: QStringW): QStringW;
-  var
-    p: PQCharW;
-  begin
-    p := PQCharW(AValue);
-    while p^ <> #0 do
-    begin
-      if Ord(p^) > 127 then
-      begin
-        break;
-      end;
-      Inc(p);
-    end;
-    if p^ = #0 then
-      Result := AValue
-    else
-      Result := QString.Utf8Decode(PQCharA(QString.AnsiEncode(AValue)), -1);
-  end;
-
 begin
-  // Windows 默认的接口没有正确处理Header中包含 UTF8中文字符的问题，这里加个检查处理
   ATarget.Clear;
   for I := 0 to High(ASource) do
-  begin
-    ATarget.Values[ASource[I].Name] := CheckValueEncoding(ASource[I].Value);
-  end;
+    ATarget.Values[ASource[I].Name] := ASource[I].Value;
 end;
 
 function TQSysHttpClient.ConvertHeaders(ASource: IQHttpHeaders): TNetHeaders;
@@ -4875,13 +4989,17 @@ begin
   end;
 end;
 
-constructor TQSysHttpClient.Create;
+constructor TQSysHttpClient.Create(AClient: THttpClient);
 begin
   inherited Create;
-  FClient := THttpClient.Create;
+  FClient := AClient;
+  FClient.ProtocolVersion := THttpProtocolVersion.HTTP_2_0; // 优先
   FClient.HandleRedirects := false;
-  FClient.OnReceiveData := DoProgress;
+  FClient.OnReceiveData := DoRecvProgress;
+  FClient.OnSendData := DoSendProgress;
   FClient.OnValidateServerCertificate := DoValidateCertificate;
+  FClient.AutomaticDecompression := [THTTPCompressionMethod.Any];
+  FClient.AcceptEncoding := 'gzip, deflate';
   FActiveHttpsProtocol := 0;
 end;
 
@@ -4944,36 +5062,33 @@ function TQSysHttpClient.DoError(E: Exception): Boolean;
   end;
 
 begin
-  if FErrorCode = 0 then
-  begin
-    Result := inherited;
+  Result := inherited;
 {$IFDEF MSWINDOWS}
-    if (FErrorCode = -1) and (E is ENetException) then
+  if (FErrorCode = -1) and (E is ENetException) then
     // 这不是一个理想的检测方式，但目前没有更好的办法
-      DecodeNetError(E.Message);
-    if not Result then
-    begin
-      // wininet
-      case FErrorCode of
-        12030, 12031, 12152:
-          // ERROR_INTERNET_CONNECTION_ABORTED,ERROR_INTERNET_CONNECTION_RESET,ERROR_HTTP_INVALID_SERVER_RESPONSE
+    DecodeNetError(E.Message);
+  if not Result then
+  begin
+    // wininet
+    case FErrorCode of
+      12030, 12031, 12152:
+        // ERROR_INTERNET_CONNECTION_ABORTED,ERROR_INTERNET_CONNECTION_RESET,ERROR_HTTP_INVALID_SERVER_RESPONSE
+        Result := true;
+      12175:
+        // ERROR_WINHTTP_SECURE_FAILURE，如果 HTTPS 握手失败，尝试更低级的协议
+        begin
+          Inc(FActiveHttpsProtocol);
+          Result := FActiveHttpsProtocol <= Ord(High(THTTPSecureProtocol));
+        end;
+      12002:
+        // 接收超时
+        begin
+          DebugOut('接收返回结果超时，用时：%d ms', [GetTickCount - FStartTime]);
           Result := true;
-        12175: // ERROR_WINHTTP_SECURE_FAILURE，如果 HTTPS 握手失败，尝试更低级的协议
-          begin
-            Inc(FActiveHttpsProtocol);
-            Result := FActiveHttpsProtocol <= Ord(High(THTTPSecureProtocol));
-          end;
-        12002: // 接收超时
-          begin
-            // DebugOut('接收返回结果超时，用时：%d ms', [GetTickCount - FStartTime]);
-            Result := true;
-          end;
-      end;
+        end;
     end;
+  end;
 {$ENDIF}
-  end
-  else if FErrorCode = 1223 then
-    Result := false;
 end;
 
 procedure TQSysHttpClient.DoValidateCertificate(const Sender: TObject;
@@ -4988,13 +5103,12 @@ var
   ACookie: String;
   I: Integer;
   AProtocol: THTTPSecureProtocol;
-  ARequestStream: TStream;
 const
-  // 优先 TLS 1.2
-  HttpProtocols: array [0 .. 4] of THTTPSecureProtocol =
-    (THTTPSecureProtocol.TLS12, THTTPSecureProtocol.TLS11,
-    THTTPSecureProtocol.TLS1, THTTPSecureProtocol.SSL3,
-    THTTPSecureProtocol.SSL2);
+  // 优先 TLS 1.3
+  HttpProtocols: array [0 .. 5] of THTTPSecureProtocol =
+    (THTTPSecureProtocol.TLS12, THTTPSecureProtocol.TLS13,
+    THTTPSecureProtocol.TLS11, THTTPSecureProtocol.TLS1,
+    THTTPSecureProtocol.SSL3, THTTPSecureProtocol.SSL2);
   function GetHost: QStringW;
   var
     ps, p: PQCharW;
@@ -5013,7 +5127,7 @@ begin
   begin
     if FRetryTimes = 0 then
     begin
-      AProtocol := THTTPSecureProtocol.TLS12;
+      AProtocol := HttpProtocols[0];
       FActiveHttpsProtocol := 0;
       if Assigned(FOnGetSSLProtocol) then
       begin
@@ -5052,19 +5166,8 @@ begin
       FResponse := FClient.Get(FReplacedUrl, NeedResponseStream(true),
         ConvertHeaders(FRequestHeaders));
     reqPost:
-      begin
-        if Assigned(FRequestStream) then
-        begin
-          // DebugOut'RequestStream=%x', [IntPtr(FRequestStream)]);
-          FResponse := FClient.Post(FReplacedUrl, FRequestStream,
-            NeedResponseStream, ConvertHeaders(FRequestHeaders))
-        end
-        else
-        begin
-          // DebugOut('ErrorCode=%d', [FErrorCode]);
-          Exit;
-        end;
-      end;
+      FResponse := FClient.Post(FReplacedUrl, FRequestStream,
+        NeedResponseStream, ConvertHeaders(FRequestHeaders));
     reqHead:
       FResponse := FClient.Head(FReplacedUrl, ConvertHeaders(FRequestHeaders));
     reqPut:
@@ -5083,226 +5186,6 @@ begin
   ConvertHeaders(FResponse.Headers, FResponseHeaders);
   if Assigned(FRequestStream) then
     TMonitor.Exit(FRequestStream);
-end;
-
-{ TQCurlHttpClient }
-
-function TQCurlHttpClient.CheckCurlCode(ACode: TCurlCode;
-  ARaiseException: Boolean): Boolean;
-var
-  E: EInOutError;
-begin
-  Result := (ACode = CURLE_OK);
-  if (not Result) and ARaiseException then
-  begin
-    FStatusCode := 599;
-    FStatusText := curl_easy_strerror(ACode);
-    E := EInOutError.Create(FStatusText);
-    E.ErrorCode := Ord(ACode);
-    raise E;
-  end;
-end;
-
-constructor TQCurlHttpClient.Create;
-begin
-  inherited;
-end;
-
-destructor TQCurlHttpClient.Destroy;
-begin
-  inherited;
-end;
-
-class function TQCurlHttpClient.DoCurlProgress(clientp: Pointer;
-  dltotal, dlnow, ultotal, ulnow: Double): Integer;
-var
-  ADoAbort: Boolean;
-begin
-  ADoAbort := false;
-  TQCurlHttpClient(clientp).DoProgress(clientp, Trunc(dltotal), Trunc(dlnow),
-    ADoAbort);
-  if ADoAbort then
-    Result := Ord(CURLE_ABORTED_BY_CALLBACK)
-  else
-    Result := Ord(CURLE_OK);
-end;
-
-class function TQCurlHttpClient.DoCurlReadFromStream(buffer: PAnsiChar;
-  Size, nitem: Integer; instream: Pointer): Integer;
-begin
-  Result := TStream(instream).read(buffer^, Size * nitem);
-end;
-
-class function TQCurlHttpClient.DoCurlResponseHeader(ABuffer: PByte;
-  Size, nItems: Integer; userData: Pointer): Integer;
-var
-  AClient: TQCurlHttpClient;
-  AText: QStringW;
-begin
-  AClient := userData;
-  AText := Utf8Decode(PQCharA(ABuffer), -1);
-  AClient.FResponseHeaders.Values[Trim(NameOfW(AText, ':'))] :=
-    Trim(ValueOfW(AText, ':'));
-  Result := nItems * Size;
-end;
-
-class function TQCurlHttpClient.DoCurlSeekInStream(instream: Pointer;
-  offset: Int64; origin: Integer): Integer;
-begin
-  TStream(instream).Seek(offset, origin);
-  Result := CURL_SEEKFUNC_OK;
-end;
-
-class function TQCurlHttpClient.DoCurlWriteToStream(buffer: PAnsiChar;
-  Size, nItems: Integer; outstream: Pointer): Integer;
-begin
-  Result := TStream(outstream).Write(buffer^, Size * nItems);
-end;
-
-function TQCurlHttpClient.DoError(E: Exception): Boolean;
-begin
-  Result := inherited;
-  if not Result then
-  begin
-    Result := (TCurlCode(FErrorCode) = CURLE_COULDNT_CONNECT) or
-      (TCurlCode(FErrorCode) = CURLE_HTTP_RETURNED_ERROR) or
-      (TCurlCode(FErrorCode) = CURLE_NO_CONNECTION_AVAILABLE);
-  end;
-end;
-
-procedure TQCurlHttpClient.InternalExecute;
-var
-  S: QStringA;
-  ACookie: QStringW;
-  AHeaders: PCurlSList;
-  I: LongInt;
-  AIsHttps: Boolean;
-const
-  sDelete: array [0 .. 6] of Byte = (Ord('D'), Ord('E'), Ord('L'), Ord('E'),
-    Ord('T'), Ord('E'), 0);
-  sTrace: array [0 .. 5] of Byte = (Ord('T'), Ord('R'), Ord('A'), Ord('C'),
-    Ord('E'), 0);
-  sOptions: array [0 .. 7] of Byte = (Ord('O'), Ord('P'), Ord('T'), Ord('I'),
-    Ord('O'), Ord('N'), Ord('S'), 0);
-begin
-  FHandle := curl_easy_init;
-  try
-    Assert(FHandle <> 0);
-    FResponseHeaders.Clear;
-    FStatusCode := 0;
-    FStatusText := '';
-
-    CheckCurlCode(curl_easy_setopt(FHandle, CURLOPT_PROGRESSFUNCTION,
-      @DoCurlProgress));
-    CheckCurlCode(curl_easy_setopt(FHandle, CURLOPT_PROGRESSDATA, Self));
-    CheckCurlCode(curl_easy_setopt(FHandle, CURLOPT_WRITEFUNCTION,
-      @DoCurlWriteToStream));
-    if Assigned(FRequestStream) then
-    begin
-      FRequestStream.Position := 0;
-      CheckCurlCode(curl_easy_setopt(FHandle, CURLOPT_READDATA,
-        FRequestStream));
-      CheckCurlCode(curl_easy_setopt(FHandle, CURLOPT_READFUNCTION,
-        @DoCurlReadFromStream));
-    end;
-    CheckCurlCode(curl_easy_setopt(FHandle, CURLOPT_SEEKFUNCTION,
-      @DoCurlSeekInStream));
-    CheckCurlCode(curl_easy_setopt(FHandle, CURLOPT_HEADERFUNCTION,
-      @DoCurlResponseHeader));
-    CheckCurlCode(curl_easy_setopt(FHandle, CURLOPT_HEADERDATA, Pointer(Self)));
-    // 程序自己处理跳转，不用底层处理
-    I := 0;
-    CheckCurlCode(curl_easy_setopt(FHandle, CURLOPT_FOLLOWLOCATION, I));
-    NeedResponseStream;
-    FResponseStream.Size := 0;
-    S := QString.Utf8Encode(FReplacedUrl);
-    CheckCurlCode(curl_easy_setopt(FHandle, CURLOPT_URL, PQCharA(S)));
-    CheckCurlCode(curl_easy_setopt(FHandle, CURLOPT_WRITEDATA,
-      FResponseStream));
-    AIsHttps := StartWithW(PQCharW(FFinalUrl), 'https://', true);
-    if AIsHttps then
-    begin
-      if hcfVerifyPeer in FFlags then
-        I := 1
-      else
-        I := 0;
-      CheckCurlCode(curl_easy_setopt(FHandle, CURLOPT_SSL_VERIFYPEER, I));
-      CheckCurlCode(curl_easy_setopt(FHandle, CURLOPT_SSL_VERIFYHOST, I));
-      CheckCurlCode(curl_easy_setopt(FHandle, CURLOPT_CERTINFO, 1));
-    end;
-    if Assigned(FCookieManager) then
-    begin
-      S := QString.Utf8Encode(FCookieManager.UrlCookie[FFinalUrl]);
-      if Length(S) > 0 then
-        CheckCurlCode(curl_easy_setopt(FHandle, CURLOPT_COOKIE, PQCharA(S)));
-    end;
-    AHeaders := nil;
-    if Assigned(FRequestStream) then
-      FRequestHeaders.Values['Content-Length'] := IntToStr(FRequestStream.Size)
-    else
-      FRequestHeaders.Values['Content-Length'] := '0';
-    if Assigned(FCookieManager) then
-    begin
-      ACookie := FCookieManager.UrlCookie[FFinalUrl];
-      if Length(ACookie) > 0 then
-        FRequestHeaders.Values[SCookie] := ACookie
-      else
-        FRequestHeaders.Values[SCookie] := '';
-    end;
-    for I := 0 to FRequestHeaders.Count - 1 do
-    begin
-      S := QString.Utf8Encode(FRequestHeaders.Lines[I]);
-      AHeaders := curl_slist_append(AHeaders, Pointer(PQCharA(S)));
-    end;
-    // 禁止 POST 时，CURL 发请 Expect： 100-continue
-    S := 'Expect:';
-    AHeaders := curl_slist_append(AHeaders, Pointer(PQCharA(S)));
-    CheckCurlCode(curl_easy_setopt(FHandle, CURLOPT_HTTPHEADER, AHeaders));
-    I := 1;
-    case FAction of
-      reqGet:
-        CheckCurlCode(curl_easy_setopt(FHandle, CURLOPT_HTTPGET, I));
-      reqPost:
-        CheckCurlCode(curl_easy_setopt(FHandle, CURLOPT_POST, I));
-      reqHead:
-        CheckCurlCode(curl_easy_setopt(FHandle, CURLOPT_NOBODY, I));
-      reqPut:
-        CheckCurlCode(curl_easy_setopt(FHandle, CURLOPT_PUT, I));
-      reqDelete:
-        CheckCurlCode(curl_easy_setopt(FHandle, CURLOPT_CUSTOMREQUEST,
-          @sDelete[0]));
-      reqTrace:
-        CheckCurlCode(curl_easy_setopt(FHandle, CURLOPT_CUSTOMREQUEST,
-          @sTrace[0]));
-      reqOptions:
-        CheckCurlCode(curl_easy_setopt(FHandle, CURLOPT_CUSTOMREQUEST,
-          @sOptions[0]));
-    end;
-    CheckCurlCode(curl_easy_perform(FHandle));
-//    if AIsHttps then
-//    begin
-//      if not ValidCertificate(TQCurlCertificate.Create(FHandle)) then
-//      begin
-//        FStatusCode := 403;
-//        FStatusText := 'Server Certificate not accepted.';
-//        Exit;
-//      end;
-//    end;
-    if FResponseHeaders.Count > 0 then
-    begin
-      FStatusCode := DecodeStatus(FResponseHeaders.Lines[0], FStatusText);
-    end
-    else
-    begin
-      FStatusCode := 0;
-      FStatusText := '';
-    end;
-  finally
-    if Assigned(AHeaders) then
-      curl_slist_free_all(AHeaders);
-    curl_easy_cleanup(FHandle);
-    FHandle := 0;
-  end;
 end;
 
 { TQNativeHttpClient }
@@ -5343,7 +5226,7 @@ var
     mode := 1;
     if ioctlsocket(FHandle, FIONBIO, mode) <> NO_ERROR then
       RaiseLastOSError;
-    connect(FHandle, SockAddr(Addr), SizeOf(Addr));
+    connect(FHandle, SockAddr(Addr), sizeof(Addr));
     FD_ZERO(fdWrite);
     FD_ZERO(fdError);
     FD_SET(FHandle, fdWrite);
@@ -5461,12 +5344,12 @@ var
 {$IF RTLVERSION=18}
   function InflateInit(var strm: TZStreamRec): Integer;
   begin
-    Result := inflateInit_(strm, ZLIB_VERSION, SizeOf(TZStreamRec));
+    Result := inflateInit_(strm, ZLIB_VERSION, sizeof(TZStreamRec));
   end;
-  function inflateInit2(var strm: TZStreamRec; windowBits: Integer): Integer;
+  function inflateinit2(var strm: TZStreamRec; windowBits: Integer): Integer;
   begin
     Result := inflateInit2_(strm, windowBits, ZLIB_VERSION,
-      SizeOf(TZStreamRec));
+      sizeof(TZStreamRec));
   end;
 {$IFEND}
   procedure FlushChunk(ABlock: PByte; ASize: Integer);
@@ -5486,7 +5369,7 @@ var
       AStrm.avail_in := 0;
       AStrm.next_in := nil;
       if AIsGZip then
-        ARetVal := inflateInit2(AStrm, 47)
+        ARetVal := inflateinit2(AStrm, 47)
       else
         ARetVal := InflateInit(AStrm);
       if ARetVal <> Z_OK then
@@ -5504,13 +5387,13 @@ var
           FResponseStream.WriteBuffer(ABuf[0], AHave);
           if ARetVal = Z_STREAM_END then
           begin
-            inflateEnd(AStrm);
+            inflateend(AStrm);
             break;
           end;
         end
         else
         begin
-          inflateEnd(AStrm);
+          inflateend(AStrm);
           raise Exception.CreateFmt(SZlibError, [AStrm.msg]);
         end;
       until AStrm.avail_out <> 0;
@@ -5741,7 +5624,8 @@ var
   T: Cardinal;
   AItem, APrior: PQDnsEntryItem;
 begin
-  T := {$IFDEF UNICODE}TThread.{$ENDIF}GetTickCount;
+  T :=
+{$IFDEF UNICODE}TThread.{$ENDIF}GetTickCount;
   AItem := FFirst;
   APrior := nil;
   while Assigned(AItem) do
@@ -5788,7 +5672,8 @@ var
   AEntry: PQDnsEntryItem;
 begin
   p := PQCharW(AValue);
-  ATick := {$IFDEF UNICODE}TThread.{$ENDIF}GetTickCount;
+  ATick :=
+{$IFDEF UNICODE}TThread.{$ENDIF}GetTickCount;
   // IPv6暂时不支持
   while p^ <> #0 do
   begin
@@ -5876,7 +5761,6 @@ begin
   KeySize := ACert.KeySize;
 end;
 
-
 initialization
 
 StartSocket;
@@ -5889,8 +5773,6 @@ TQHttpRequests.CurlInitialized := false;
 
 finalization
 
-if TQHttpRequests.CurlInitialized then
-  curl_global_cleanup;
 CleanSocket;
 {$IF RTLVersion=18}
 if ZLibHandle <> 0 then
