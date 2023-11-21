@@ -335,6 +335,11 @@ type
   TIntArray = array of Integer;
   TQStringArray = array of QStringW;
 {$IFEND >=2010}
+
+{$IF RTLVersion<27}
+  PShortString = ^ShortString;
+{$IFEND <10.3}
+
   // {$IF RTLVersion<=18}
   // DWORD_PTR = DWORD;
   // ULONGLONG = Int64;
