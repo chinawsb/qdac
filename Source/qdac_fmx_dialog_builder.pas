@@ -884,7 +884,7 @@ var
   ACtrl: IControl;
   Align: IAlignableObject;
   AMonitorRect: TRectF;
-  function GetMonitorRect: TRect;
+  function GetMonitorRect: TRectF;
   var
     ASvc: IFMXMultiDisplayService;
   begin
@@ -1183,7 +1183,7 @@ end;
 procedure TDialogBuilder.SetBounds(const R: TRect);
 var
   ASvc: IFMXWindowService;
-  CR: TRect;
+  CR: TRectF;
 const
   MinWidth: Integer = 200;
 begin
@@ -1197,12 +1197,12 @@ begin
     CR.Width := CR.Width - 10;
     ASvc.SetClientSize(FDialog, PointF(CR.Width, CR.Height));
     CR.Left := Screen.WorkAreaLeft +
-      (Screen.WorkAreaWidth - FDialog.Width) div 2;
+      (Screen.WorkAreaWidth - FDialog.Width) / 2;
     CR.Width := FDialog.Width;
     CR.Top := Screen.WorkAreaTop +
-      (Screen.WorkAreaHeight - FDialog.Height) div 2;
+      (Screen.WorkAreaHeight - FDialog.Height) / 2;
     CR.Height := FDialog.Height;
-    FDialog.SetBounds(CR.Left, CR.Top, CR.Width, CR.Height);
+    FDialog.SetBoundsF(CR.Left, CR.Top, CR.Width, CR.Height);
   end;
 end;
 
