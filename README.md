@@ -1,84 +1,85 @@
 ## QDAC3
 
-主库地址：http://code.qdac.cc:3000
+Main repository address: http://code.qdac.cc:3000
 
-国内镜像地址：https://gitee.com/z-proj/qdac
+mirror address in China: https://gitee.com/z-proj/qdac
 
-国外镜像地址：https://github.com/chinawsb/qdac
+mirror address in Github: https://github.com/chinawsb/qdac
 
-QDAC 是由吉林省左右软件开发有限公司为大家提供的一套 Delphi/C++ Builder 跨平台开源组件库，名称取自英文 Quick Data Access Components 的首字母。它支持 Delphi/C++ Builder 2007 以上的版本的开发环境，目标是为大家提供一套高效稳定的跨平台快速数据访问组件，替代系统实现的低效组件。
+QDAC(Quick Data Access Components) is an open-source component library for Delphi/C++ Builder developed by Zuoyou Software Development Co., Ltd. It supports Rad Studio Delphi/C++ Builder 2007 and above, The goal is to provide an efficient and stable cross-platform rapid data access component to replace the low-performance components implemented by the system.
 
-既然是快速数据访问组件，QDAC 对速度会比较重视，但出于跨平台的考虑，QDAC 是用纯 Pascal 源码编写，在 Windows 平台可能部分使用汇编代码，所以性能上，大部分情况下不会比使用纯汇编优化的版本强，但也远远高于一般的实现。同时，QDAC 也很重视稳定性，希望大家多多参与测试，保证在速度优化的同时，稳定性上不会存在问题。
+As a rapid data access component, QDAC places great emphasis on speed, but due to cross-platform considerations, QDAC is written in pure Pascal source code, which may use assembly code on Windows platforms. Therefore, in most cases, its performance is not superior to versions optimized using pure assembly, but it is far superior to ordinary implementations. At the same time, QDAC also places great emphasis on stability, so we hope that you can participate in testing and ensure that there are no stability issues while optimizing for speed.
 
-QDAC 项目目前包含以下组件（QDB 因为某些原因不再更新）：
+Currently, the QDAC project includes the following components (QDB will no longer be updated):
 
 ## QWorker
 
-QWorker 是一个基于作业视角的跨平台并行编程框架，提供丰富的功能和接口。进一步了解可以浏览 QWorker 专题 。
+QWorker is an job-based perspective parallel programming framework that provides a wealth of functions and interfaces. For more information, Please visit the QDAC website and read the QWorker topic.
 
 ## QJson
 
-QJson 是一套快速方便，兼容性好的 JSON 格式跨平台管理单元，提供丰富功能的接口支持。与 SuperObject 等方案相比，速度更胜一筹。进一步了解可以浏览 QJson 专题 的内容。
+QJson is a fast cross-platform unit for JSON paser that provides  a wealth of functions and interfaces. Compared with SuperObject and other solutions, it is even faster. For more information, Please visit the QDAC website and read the QJson topic.
 
 ## QXML
 
-QXML 是一套快速方便，兼容性好的 XML 格式跨平台管理单元，提供丰富功能的接口支持。与 NativeXML 等方案相比，速度更胜一筹。更详细的信息，可以参考源码中相关注释说明。
+QXML is a fast cross-platform unit for XML paser that provides  a wealth of functions and interfaces. Compared with NativeXML and other solutions, it is even faster. For more information, please refer to the relevant comments in the source code.
 
 ## QMsgPack
 
-QMsgPack 是一套快速方便，兼容性好的 Message Pack 协议跨平台管理单元，提供丰富功能的接口支持，并完整支持 Message Pack 协议的扩展数据类型。速度依然很快，而且是目前 Delphi 下最完整的 Message Pack 协议实现。进一步了解可以浏览 QMsgPack 专题 的内容。
+QMsgPack is a cross-platform and fast Message Pack protocol that provides  a wealth of functions and interfaces.  and fully supports the extended data types of the Message Pack protocol. It is still the fastest implementation of the Message Pack protocol in Delphi. For more information, Please visit the QDAC website and read the QMsgPack topic.
 
 ## QLog
 
-QLog 是一套跨平台的异步日志记录单元，支持Linux 标准的 SyslogD 协议。通过采用异步方式，将对程序速度的影响降低到最低。具备日志自动分卷压缩功能。
+QLog is a cross-platform asynchronous pacal log unit that supports the Linux standard SyslogD. By adopting an asynchronous approach, the impact on the program speed is minimized. It also has the function of automatically compressing and splitting log files.
 
 ## QMacros
 
-QMacros 是一套跨平台的模板替换库，与原始的 StringReplace 函数相比，要替换的内容越多，性能优势越明显。具体相关内容可以查看 QMacros 专题 。
+QMacros is a cross-platform template substitution library that outperforms the original StringReplace function as the amount of content to be replaced increases. For more information, Please visit the QDAC website and read the QMacros topic.
 
 ## QAES
 
-QAES 是一套跨平台的 Delphi 原生 AES 加密实现，封装的接口更加简单易用。更详细的信息，可以参考源码中相关注释说明。
+QAES is an AES encryption implementation that provides simple and easy-to-use interfaces. For more information, please refer to the relevant comments in the source code.
 
 ## QDigest
 
-QDigest 是一套跨平台的 Delphi 原生 MD5 和 SHA 哈希摘要实现，同时也封装了简单易用的各种接口。更详细的信息，可以参考源码中相关注释说明。
+QDigest is a MD5 and SHA hash digest implementation that also includes simple and easy-to-use interfaces. For more information, please refer to the relevant comments in the source code.
 
 ## QMemStatics
 
-QMemStatics 是一套 Windows 下的内存分配分析工具，用于统计内存中不同尺寸的内存块分配情况，方便用户在设计服务程序时，合理的规划设计对象池的类型及大小。
+QMemStatics is a Windows-based memory allocation analysis tool used to analyze the allocation of different-sized memory blocks in memory,  facilitate the rational planning and design of object pool types and sizes when designing service programs.
 
 ## QRBTree
 
-QRBTree 包含了红黑树和哈希桶的 Delphi 实现，这两类数据结构的信息，请自行百度。本项目中许多单元如 QWorker 都引用了 QRBTree 单元。
+QRBTree includes implementations of both red-black trees and hash buckets, two data structures whose information is easily searchable online. Many units such as QWorker in this project are based on QRBTree units. 
 
 ## QSimplePool
 
-QSimplePool 提供一个简单的池实现，可以用于内存池和对象池。
+QSimplePool provides a simple pool implementation that can be used for memory pools and object pools.
 
 ## QPlugins
 
-QPlugins  是一套全新设计的插件框架，基于一切皆服务的理念设计，全面解藕软件设计过程。
+QPlugins is a new plugin framework that was designed based on the philosophy of "everything as a service" to achieve comprehensive decoupling of software design processes.
 
 ## QDB
 
-QDB 用于提供一套开源的跨平台数据库直接访问解决方式，计划支持 SQLite、 PostgreSQL、MSSQL、Oracle、MySQL 等常见数据库在跨平台直接访问。同时提供的 TQDataSet 会提供丰富复制、克隆、过滤、分组、导入、导出等接口的支持。
+QDB provides an open-source cross-platform database direct access solution that plans to support common databases such as SQLite, PostgreSQL, MSSQL, Oracle, and MySQL. Additionally, the TQDataSet will provide support for a wealth of functions such as copy, clone, filter, group, import, export, etc. 
 
 ## QConsoleLooper
-QConsoleLooper 用来实现控制台循环效果，内置 Linux systemd 服务安装及运行时支持
+QConsoleLooper is used to achieve a console loop effect with built-in Linux systemd service installation and runtime support.
 
-# 更新说明
+# What's New
 
-* 修正与 Delphi/C++ Builder 12 的兼容性
+    * Fixed compatibility issues with Delphi/C++ Builder 12.
 ## QWorker
 
-* 修正 FSignalJobCount 的计数错误问题
-* 修正了计划任务年份处理的缺陷
+    * Fixed the counting issue with FSignalJobCount.
+    * Fixed a bug in the processing of year for scheduled tasks.
 ## QJson
-* 增加多个辅助函数:NameArray/ValueArray/CatNames/CateValues/NameToStrings/ValueToStrings/ValuesFromStrings/ValuesFromIntegers/ValuesFromInt64s/ValueFromFloats
-* JsonCat 参数变更
+    * Add functions: NameArray, ValueArray, CatNames, CateValues, NameToStrings, ValueToStrings, ValuesFromStrings, ValuesFromIntegers, ValuesFromInt64s, ValueFromFloats.
+    * Change JsonCat parameter.
 ## QDigest
-* 修正编译警告
+    * Fixed a warning for compiler.
 ## QConsoleLooper
-* Linux 增加 SIGQUIT/SIGNINT/SIGUSR1 信号
-* 支持 systemd 服务安装及重载配置文件
+
+    * Added SIGQUIT, SIGNINT, SIGUSR1 signals for Linux.
+    * Supports systemd service installation and configuration reload.
