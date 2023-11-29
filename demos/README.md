@@ -4,14 +4,14 @@ This is the demos root directory.
 
 Tree structure:
 
-delphi
++ delphi
   + rtl
   + vcl
   + fmx
-cpp
++ cpp
   + rtl
   + vcl
   + fmx
-free-pascal
++ free-pascal
   + rtl
   + lcl  
