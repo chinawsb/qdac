@@ -776,14 +776,13 @@ end;
 
 function TQIPV4Validator.Accept(const AValue: UnicodeString): Boolean;
 var
-  len,i,ipSegCount,segStart: Integer;
-  ipByte,curCode: SmallInt;
+  len,i,ipSegCount: Integer;
+  ipByte: SmallInt;
 begin
   len := Length(AValue);
   if (len < 7) or (len > 15) then
     exit(false);
   ipSegCount := 0;
-  segStart := 1;
   ipByte := 0;
   for i := 1 to len do
   begin
