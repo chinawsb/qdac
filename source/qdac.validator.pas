@@ -29,22 +29,22 @@ type
 
   TQLengthValidator<TValueType> = class(TQValidator<TValueType>)
   private
-    FMinSize,FMaxSize:NativeInt;  
+    FMinSize,FMaxSize: UInt64;
   protected
   public
-    constructor Create(const AMinSize,AMaxSize:NativeInt;const AErrorMsg: UnicodeString); overload;
+    constructor Create(const AMinSize,AMaxSize:UInt64;const AErrorMsg: UnicodeString); overload;
     function Accept(const AValue: TValueType): Boolean; overload; override;
     procedure Check(const AValue: TValueType); overload; override;
     function Require(const AValue: TValueType; const ADefaultValue: TValueType)
       : TValueType; overload; override;
-    property MinSize:NativeInt read FMinSize;
-    property MaxSize:NativeInt read FMaxSize;
+    property MinSize:UInt64 read FMinSize;
+    property MaxSize:UInt64 read FMaxSize;
     //class methods
-    class function LengthOf<TValueType>(const AValue:TValueType):NativeInt;static;
-    class function Accept<TValueType>(const AValue:TValueType;const AMinSize,AMaxSize:NativeInt):Boolean; overload; static;
-    class procedure Check<TValueType>(const AValue:TValueType;const AMinSize,AMaxSize:NativeInt;
+    class function LengthOf<TValueType>(const AValue:TValueType):UInt64;static;
+    class function Accept<TValueType>(const AValue:TValueType;const AMinSize,AMaxSize:UInt64):Boolean; overload; static;
+    class procedure Check<TValueType>(const AValue:TValueType;const AMinSize,AMaxSize:UInt64;
       const AErrorMsg: UnicodeString); overload; static;
-    class function Require<TValueType>(const AValue:TValueType;const AMinSize,AMaxSize:NativeInt;
+    class function Require<TValueType>(const AValue:TValueType;const AMinSize,AMaxSize:UInt64;
       const ADefaultValue:TValueType):TValueType; overload; static;
 
   end;
@@ -282,9 +282,9 @@ begin
 end;
 
 class function TQLengthValidator<TValueType>.Accept<TValueType>(
-  const AValue: TValueType; const AMinSize, AMaxSize: NativeInt): Boolean;
+  const AValue: TValueType; const AMinSize, AMaxSize: UInt64): Boolean;
 var
-  ALen:NativeInt;
+  ALen:UInt64;
 begin
   Assert((AMaxSize>=AMinSize) and (AMinSize>=0),SAssertSizeError);
   if AMaxSize>0 then
@@ -302,7 +302,7 @@ begin
 end;
 
 class procedure TQLengthValidator<TValueType>.Check<TValueType>(
-  const AValue: TValueType; const AMinSize, AMaxSize: NativeInt;
+  const AValue: TValueType; const AMinSize, AMaxSize: UInt64;
   const AErrorMsg: UnicodeString);
 begin
   if not Accept<TValueType>(AValue,AMinSize,AMaxSize) then
@@ -313,7 +313,7 @@ begin
       ]));
 end;
 
-constructor TQLengthValidator<TValueType>.Create(const AMinSize, AMaxSize: NativeInt; const AErrorMsg: UnicodeString);
+constructor TQLengthValidator<TValueType>.Create(const AMinSize, AMaxSize: UInt64; const AErrorMsg: UnicodeString);
 begin
   Assert((AMaxSize>=AMinSize) and (AMinSize>=0),SAssertSizeError);
   inherited Create(AErrorMsg);
@@ -321,7 +321,7 @@ begin
   FMaxSize:=AMaxSize;
 end;
 
-class function TQLengthValidator<TValueType>.LengthOf<TValueType>(const AValue: TValueType): NativeInt;
+class function TQLengthValidator<TValueType>.LengthOf<TValueType>(const AValue: TValueType): UInt64;
 begin
   //只有字符串、动态数组类型支持长度判断
   case GetTypeData(TypeInfo(TValueType)).BaseType^.Kind of
@@ -345,7 +345,7 @@ begin
 end;
 
 class function TQLengthValidator<TValueType>.Require<TValueType>(const AValue: TValueType;
-  const AMinSize, AMaxSize: NativeInt;const ADefaultValue:TValueType):TValueType;
+  const AMinSize, AMaxSize: UInt64;const ADefaultValue:TValueType):TValueType;
 begin
   if Accept<TValueType>(AValue,AMinSize,AMaxSize) then
     Result:=AValue
@@ -635,17 +635,17 @@ begin
       ));
     FTypeValidators.Add(TypeInfo(Smallint),
       TQTypeValidator<Smallint>.Create([
-       TQLengthValidator<Smallint>.Create(-32768,32767,SDefaultRangeError)
+       TQRangeValidator<Smallint>.Create(-32768,32767,SDefaultRangeError,nil)
        ]
       ));
     FTypeValidators.Add(TypeInfo(Integer),
       TQTypeValidator<Integer>.Create([
-       TQLengthValidator<Integer>.Create(-2147483648,2147483647,SDefaultLengthError)
+       TQRangeValidator<Integer>.Create(-2147483648,2147483647,SDefaultLengthError,nil)
        ]
       ));
     FTypeValidators.Add(TypeInfo(Int64),
       TQTypeValidator<Int64>.Create([
-       TQLengthValidator<Int64>.Create(-9223372036854775808,9223372036854775807,SDefaultLengthError)
+       TQRangeValidator<Int64>.Create(-9223372036854775808,9223372036854775807,SDefaultLengthError,nil)
        ]
       ));
     FTypeValidators.Add(TypeInfo(Byte),
@@ -658,14 +658,14 @@ begin
        TQLengthValidator<Word>.Create(0,65535,SDefaultRangeError)
        ]
       ));
-    FTypeValidators.Add(TypeInfo(Integer),
-      TQTypeValidator<Integer>.Create([
-       TQLengthValidator<Integer>.Create(0, 4294967295, SDefaultLengthError)
+    FTypeValidators.Add(TypeInfo(UINT32),
+      TQTypeValidator<UINT32>.Create([
+       TQLengthValidator<UINT32>.Create(0, 4294967295, SDefaultLengthError)
        ]
       ));
-    FTypeValidators.Add(TypeInfo(Int64),
-      TQTypeValidator<Int64>.Create([
-       TQLengthValidator<Int64>.Create(0, 18446744073709551615,SDefaultLengthError)
+    FTypeValidators.Add(TypeInfo(UInt64),
+      TQTypeValidator<UInt64>.Create([
+       TQLengthValidator<UInt64>.Create(0, 18446744073709551615,SDefaultLengthError)
        ]
       ));
   end;
@@ -775,8 +775,37 @@ end;
 { TQIPV4Validator }
 
 function TQIPV4Validator.Accept(const AValue: UnicodeString): Boolean;
+var
+  len,i,ipSegCount,segStart: Integer;
+  ipByte,curCode: SmallInt;
 begin
-
+  len := Length(AValue);
+  if (len < 7) or (len > 15) then
+    exit(false);
+  ipSegCount := 0;
+  segStart := 1;
+  ipByte := 0;
+  for i := 1 to len do
+  begin
+     if ipSegCount > 3 then
+       exit(false);
+     case AValue[i] of
+     '0'..'9':
+       begin
+         ipByte := ipByte*10+ Ord(AValue[i]) - 48;
+         if ipByte > 255 then
+           Exit(False);
+       end;
+     '.':
+       begin
+         inc(ipSegCount);
+         ipByte := 0;
+       end;
+     else
+       Exit(False);
+     end;
+  end;
+  Result := (ipSegCount = 3) and (ipByte < 255);
 end;
 
 class function TQIPV4Validator.GetValueTypeName: UnicodeString;

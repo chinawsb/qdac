@@ -8,6 +8,7 @@ uses
 
 type
   TForm4 = class(TForm)
+    procedure FormCreate(Sender: TObject);
   private
     { Private declarations }
   public
@@ -20,5 +21,14 @@ var
 implementation
 
 {$R *.dfm}
+
+procedure TForm4.FormCreate(Sender: TObject);
+var
+  ipv4: TQIPV4Validator;
+begin
+  ipv4 := TQIPV4Validator.create;
+  if ipv4.Accept('123.04.05.1') then
+    ShowMessage('gasdf');
+end;
 
 end.
