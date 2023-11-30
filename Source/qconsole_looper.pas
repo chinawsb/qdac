@@ -2,7 +2,7 @@ unit qconsole_looper;
 
 interface
 
-uses classes, sysutils, syncobjs, qstring{$IFDEF POSIX}, Posix.UniStd,
+uses classes, sysutils, syncobjs, qstring{$IFDEF POSIX}, Posix.UniStd,Posix.StdLib,
   Posix.Signal{$ELSE},Windows{$ENDIF};
 
 type
