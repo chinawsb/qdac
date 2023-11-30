@@ -10,6 +10,8 @@ resourcestring
   SValueTypeError = '[Value] 不是一个有效的[ValueType]值';
   SChineseMobile = '中国大陆手机号码';
   SChineseId = '中国大陆居民身份证号';
+  SIPV4 = 'IPV4';
+  SIPV6 = 'IPV6';
 implementation
 
 end.

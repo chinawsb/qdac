@@ -105,6 +105,14 @@ type
     function Accept(const AValue: UnicodeString): Boolean; override;
   end;
 
+  //IPV4地址验证规则
+  TQIPV4Validator=class(TQTextValidator)
+  protected
+    class function GetValueTypeName: UnicodeString;override;
+  public
+    function Accept(const AValue: UnicodeString): Boolean; override;
+  end;
+
   TQChineseMobileValidator=class(TQTextValidator)
   protected
     class function GetValueTypeName: UnicodeString;override;
@@ -123,6 +131,7 @@ type
     function TryDecode(const AUrl:UnicodeString;var ASchema,AUserName,APassword,AHost,ADocPath:UnicodeString;
       var AParams:TArray<UnicodeString>; APort:Word):Boolean;
   end;
+
   
   //基于类型的规则验证实现，对特定类型的子规则都在其名下定义
   TQTypeValidator<TValueType>=class
@@ -761,6 +770,18 @@ end;
 class function TQChineseMobileValidator.GetValueTypeName: UnicodeString;
 begin
   Result:=SChineseMobile;
+end;
+
+{ TQIPV4Validator }
+
+function TQIPV4Validator.Accept(const AValue: UnicodeString): Boolean;
+begin
+
+end;
+
+class function TQIPV4Validator.GetValueTypeName: UnicodeString;
+begin
+  Result := SIPV4;
 end;
 
 initialization
