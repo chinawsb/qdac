@@ -1,4 +1,4 @@
-unit qdac.validator;
+ï»¿unit qdac.validator;
 
 interface
 uses System.Classes,System.SysUtils,System.TypInfo,System.Generics.Defaults,System.Generics.Collections,
@@ -8,12 +8,12 @@ type
   EValidateException=class(Exception)
 
   end;
-  // ÑéÖ¤Æ÷µÄ»ùÀà£¬ÉùÃ÷»ù´¡µÄ½Ó¿ÚºÍ·½·¨
+  // éªŒè¯å™¨çš„åŸºç±»ï¼Œå£°æ˜åŸºç¡€çš„æ¥å£å’Œæ–¹æ³•
   TQValidator < TValueType >= class 
   private 
     FErrorMessage: UnicodeString;
   protected
-    //ÑéÖ¤Æ÷ÀàĞÍ±êÖ¾·û£¬×ÓÀàÓ¦¸ÃÖØ¸Ã±¾·½·¨
+    //éªŒè¯å™¨ç±»å‹æ ‡å¿—ç¬¦ï¼Œå­ç±»åº”è¯¥é‡è¯¥æœ¬æ–¹æ³•
     class function GetTypeName: UnicodeString;virtual;
     class function FormatError(const AErrorMsg:UnicodeString;const AParams:TArray<TPair<UnicodeString, UnicodeString>>)
       :UnicodeString;static;
@@ -49,7 +49,7 @@ type
 
   end;
 
-  //±ß½ç´¦Àí¹æÔò£¬Ä¬ÈÏÏàµÈ
+  //è¾¹ç•Œå¤„ç†è§„åˆ™ï¼Œé»˜è®¤ç›¸ç­‰
   TQRangeBound=(GreatThanMin,LessThanMax);
   
   TQRangeBounds=set of TQRangeBound;
@@ -81,7 +81,7 @@ type
     
   end;
   
-  //»ùÓÚÎÄ±¾µÄÑéÖ¤¹æÔò
+  //åŸºäºæ–‡æœ¬çš„éªŒè¯è§„åˆ™
   TQTextValidator=class(TQValidator<UnicodeString>)
   protected
     class function GetValueTypeName: UnicodeString;virtual;
@@ -124,7 +124,7 @@ type
       var AParams:TArray<UnicodeString>; APort:Word):Boolean;
   end;
   
-  //»ùÓÚÀàĞÍµÄ¹æÔòÑéÖ¤ÊµÏÖ£¬¶ÔÌØ¶¨ÀàĞÍµÄ×Ó¹æÔò¶¼ÔÚÆäÃûÏÂ¶¨Òå
+  //åŸºäºç±»å‹çš„è§„åˆ™éªŒè¯å®ç°ï¼Œå¯¹ç‰¹å®šç±»å‹çš„å­è§„åˆ™éƒ½åœ¨å…¶åä¸‹å®šä¹‰
   TQTypeValidator<TValueType>=class
   public
     type
@@ -136,9 +136,9 @@ type
   public
     constructor Create(const AValidators:TArray<TQValidator<TValueType>>);
     destructor Destroy;override;
-    /// <summary> ×¢²áÒ»¸ö¹æÔòÑéÖ¤Æ÷ </summary>
-    /// <param name="AName"> ¹æÔòÃû³Æ£¬×Ö·û´®ÀàĞÍ£¬Í¬Ãû¹æÔòºó×¢²áÌæ»»ÏÈ×¢²á </param>
-    /// <param name="AValidator"> ¶ÔÓ¦¹æÔòµÄÑéÖ¤Æ÷ </param>
+    /// <summary> æ³¨å†Œä¸€ä¸ªè§„åˆ™éªŒè¯å™¨ </summary>
+    /// <param name="AName"> è§„åˆ™åç§°ï¼Œå­—ç¬¦ä¸²ç±»å‹ï¼ŒåŒåè§„åˆ™åæ³¨å†Œæ›¿æ¢å…ˆæ³¨å†Œ </param>
+    /// <param name="AValidator"> å¯¹åº”è§„åˆ™çš„éªŒè¯å™¨ </param>
     procedure Register(const AName: UnicodeString;AValidator:TQValidatorType);
   end;
   
@@ -196,14 +196,14 @@ var
   AName:String;
   AFound:Boolean;
 begin
-  //ÕâÀïÖ»Ö§³Ö¼òµ¥Ìæ»»£¬Ê¹ÓÃ \[ ¿ÉÒÔ±ÜÃâ [xxx] ±»½âÎöÎª²ÎÊıÃû
+  //è¿™é‡Œåªæ”¯æŒç®€å•æ›¿æ¢ï¼Œä½¿ç”¨ \[ å¯ä»¥é¿å… [xxx] è¢«è§£æä¸ºå‚æ•°å
   ps := PWideChar(AErrorMsg);
   ABuilder := TStringBuilder.Create;
   try
     p := ps;
     while p^ <> #0 do
     begin
-      if p^ = '\' then //×ªÒå [£¬ÆäËüºöÂÔ
+      if p^ = '\' then //è½¬ä¹‰ [ï¼Œå…¶å®ƒå¿½ç•¥
       begin
         ABuilder.Append(ps,0,p-ps);
         Inc(p);
@@ -256,7 +256,7 @@ end;
 
 class function TQValidator<TValueType>.GetTypeName: UnicodeString;
 begin
-  //Ä¬ÈÏÑéÖ¤Æ÷ÀàĞÍÃû³Æ¹æÔò£¬È¥µôÇ°ÃæµÄ TQ ºÍºóÃæµÄ Validator ºóĞ¡Ğ´£¬Èç TQLengthValidator<UnicodeString> ½âÎöÎª length
+  //é»˜è®¤éªŒè¯å™¨ç±»å‹åç§°è§„åˆ™ï¼Œå»æ‰å‰é¢çš„ TQ å’Œåé¢çš„ Validator åå°å†™ï¼Œå¦‚ TQLengthValidator<UnicodeString> è§£æä¸º length
   Result:=ClassName.Split(['<','>'],TSTringSplitOptions.ExcludeEmpty)[0];
   if Result.StartsWith('TQ') and Result.EndsWith('Validator') then
     Result:=Result.Substring(2,Length(Result)-11).ToLower
@@ -314,7 +314,7 @@ end;
 
 class function TQLengthValidator<TValueType>.LengthOf<TValueType>(const AValue: TValueType): NativeInt;
 begin
-  //Ö»ÓĞ×Ö·û´®¡¢¶¯Ì¬Êı×éÀàĞÍÖ§³Ö³¤¶ÈÅĞ¶Ï
+  //åªæœ‰å­—ç¬¦ä¸²ã€åŠ¨æ€æ•°ç»„ç±»å‹æ”¯æŒé•¿åº¦åˆ¤æ–­
   case GetTypeData(TypeInfo(TValueType)).BaseType^.Kind of
     tkUnicodeString:
       Result := Length(PUnicodeString(@AValue)^);
@@ -591,11 +591,11 @@ begin
     Result := ADefaultValue;
 end;
 
-/// <summary>×¢²áÄ¬ÈÏµÄÑéÖ¤Æ÷</summary>
+/// <summary>æ³¨å†Œé»˜è®¤çš„éªŒè¯å™¨</summary>
 
 procedure RegisterDefaultValidators;
 begin
-  //×Ö·û´®£¬Ä¬ÈÏ¿ÉÒÔÖ´ĞĞ³¤¶ÈĞ£Ñé
+  //å­—ç¬¦ä¸²ï¼Œé»˜è®¤å¯ä»¥æ‰§è¡Œé•¿åº¦æ ¡éªŒ
   with TQValidators.FCurrent do
   begin
     FTypeValidators.Add(TypeInfo(UnicodeString),
@@ -618,7 +618,7 @@ begin
        TQLengthValidator<ShortString>.Create(0, 0, SDefaultLengthError)
        ]
       ));
-    //ÊıÖµÀàĞÍ
+    //æ•°å€¼ç±»å‹
     FTypeValidators.Add(TypeInfo(Shortint),
       TQTypeValidator<Shortint>.Create([
        TQRangeValidator<Shortint>.Create(-128, 127, SDefaultRangeError,nil)
@@ -724,21 +724,21 @@ end;
 
 function TQEmailValidator.Accept(const AValue: UnicodeString): Boolean;
 begin
-  //Todo:ÑéÖ¤ÓÊ¼şµØÖ·
+  //Todo:éªŒè¯é‚®ä»¶åœ°å€
 end;
 
 { TQChinesseMobile }
 
 function TQChineseMobileValidator.Accept(const AValue: UnicodeString): Boolean;
 begin
-  //Todo:ÑéÖ¤ÊÖ»úºÅ
+  //Todo:éªŒè¯æ‰‹æœºå·
 end;
 
 { TQBase64Validator }
 
 function TQBase64Validator.Accept(const AValue: UnicodeString): Boolean;
 begin
-  //Todo:ÑéÖ¤ Base64 ±àÂë
+  //Todo:éªŒè¯ Base64 ç¼–ç 
 end;
 
 { TQUrlValidator }
@@ -755,7 +755,7 @@ end;
 function TQUrlValidator.TryDecode(const AUrl: UnicodeString; var ASchema, AUserName, APassword, AHost,
   ADocPath: UnicodeString; var AParams: TArray<UnicodeString>; APort: Word): Boolean;
 begin
-  //Todo: ÑéÖ¤URL
+  //Todo: éªŒè¯URL
 end;
 
 class function TQChineseMobileValidator.GetValueTypeName: UnicodeString;

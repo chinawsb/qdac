@@ -1,15 +1,15 @@
-unit qdac.resource;
+ï»¿unit qdac.resource;
 
 interface
 
 resourcestring
-  SDefaultRangeError = '[Value] ²»ÔÚ [MinValue] ºÍ [MaxValue] Ö®¼ä£¬È¡ÖµÎŞĞ§.';
-  SDefaultLengthError = '³¤¶È [Size] ²»ÔÚ [MinSize] ºÍ [MaxSize] Ö®¼ä£¬È¡ÖµÎŞĞ§.';
-  SLengthOnlySupportStringAndArray = '³¤¶ÈÑéÖ¤Ö»Ö§³Ö×Ö·û´®ºÍÊı×éÀàĞÍ';
-  SAssertSizeError = 'AMaxSize ±ØĞè >= AMinSize ²¢±í AMinSize must >= 0';
-  SValueTypeError = '[Value] ²»ÊÇÒ»¸öÓĞĞ§µÄ[ValueType]Öµ';
-  SChineseMobile = 'ÖĞ¹ú´óÂ½ÊÖ»úºÅÂë';
-  SChineseId = 'ÖĞ¹ú´óÂ½¾ÓÃñÉí·İÖ¤ºÅ';
+  SDefaultRangeError = '[Value] ä¸åœ¨ [MinValue] å’Œ [MaxValue] ä¹‹é—´ï¼Œå–å€¼æ— æ•ˆ.';
+  SDefaultLengthError = 'é•¿åº¦ [Size] ä¸åœ¨ [MinSize] å’Œ [MaxSize] ä¹‹é—´ï¼Œå–å€¼æ— æ•ˆ.';
+  SLengthOnlySupportStringAndArray = 'é•¿åº¦éªŒè¯åªæ”¯æŒå­—ç¬¦ä¸²å’Œæ•°ç»„ç±»å‹';
+  SAssertSizeError = 'AMaxSize å¿…éœ€ >= AMinSize å¹¶è¡¨ AMinSize must >= 0';
+  SValueTypeError = '[Value] ä¸æ˜¯ä¸€ä¸ªæœ‰æ•ˆçš„[ValueType]å€¼';
+  SChineseMobile = 'ä¸­å›½å¤§é™†æ‰‹æœºå·ç ';
+  SChineseId = 'ä¸­å›½å¤§é™†å±…æ°‘èº«ä»½è¯å·';
 implementation
 
 end.
