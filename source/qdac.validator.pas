@@ -5,9 +5,8 @@ interface
 ///!!!! Dont format this unit because Delphi formator not support generics!!!!
 ///!!!! 不要格式化这个单元的代码，Delphi自带的格式化会将带泛型的类搞乱!!!!
 
-uses System.Classes, System.SysUtils, System.TypInfo, System.Generics.Defaults,
-  System.Generics.Collections,
-  System.RegularExpressionsCore, System.Rtti;
+uses System.Classes, System.SysUtils,System.Character, System.TypInfo, System.Generics.Defaults,
+  System.Generics.Collections,System.RegularExpressionsCore, System.Rtti,qdac.common;
 
 type
   EValidateException = class(Exception)
@@ -16,7 +15,7 @@ type
 
   TQStringPair=TPair<UnicodeString,UnicodeString>;
   // 验证器的基类，声明基础的接口和方法
-  TQValidator < TValueType >= class
+  TQValidator < TQValueType >= class
   private
     FErrorMessage: UnicodeString;
   protected
@@ -25,29 +24,29 @@ type
     class function FormatError(const AErrorMsg: UnicodeString;const AParams: TArray <TQStringPair>): UnicodeString; static;
   public
     constructor Create(const AErrorMsg: UnicodeString); overload;
-    function Accept(const AValue: TValueType): Boolean; virtual; abstract;
-    procedure Check(const AValue: TValueType); virtual; abstract;
-    function Require(const AValue: TValueType; const ADefaultValue: TValueType): TValueType; virtual;abstract;
+    function Accept(const AValue: TQValueType): Boolean; virtual; abstract;
+    procedure Check(const AValue: TQValueType); virtual; abstract;
+    function Require(const AValue: TQValueType; const ADefaultValue: TQValueType): TQValueType; virtual;abstract;
     property ErrorMessage: UnicodeString read FErrorMessage write FErrorMessage;
   end;
 
-  TQLengthValidator<TValueType> = class(TQValidator<TValueType>)
+  TQLengthValidator<TQValueType> = class(TQValidator<TQValueType>)
   private
-    FMinSize, FMaxSize: NativeInt;
+    FMinSize, FMaxSize: SizeInt;
   public
-    constructor Create(const AMinSize, AMaxSize: NativeInt;const AErrorMsg: UnicodeString); overload;
-    function Accept(const AValue: TValueType): Boolean; overload; override;
-    procedure Check(const AValue: TValueType); overload; override;
-    function Require(const AValue: TValueType; const ADefaultValue: TValueType): TValueType; overload; override;
-    property MinSize: NativeInt read FMinSize;
-    property MaxSize: NativeInt read FMaxSize;
+    constructor Create(const AMinSize, AMaxSize: SizeInt;const AErrorMsg: UnicodeString); overload;
+    function Accept(const AValue: TQValueType): Boolean; overload; override;
+    procedure Check(const AValue: TQValueType); overload; override;
+    function Require(const AValue: TQValueType; const ADefaultValue: TQValueType): TQValueType; overload; override;
+    property MinSize: SizeInt read FMinSize;
+    property MaxSize: SizeInt read FMaxSize;
   // class methods
-    class function LengthOf<TValueType>(const AValue: TValueType): NativeInt;static;
-    class function Accept<TValueType>(const AValue: TValueType;const AMinSize, AMaxSize: NativeInt): Boolean; overload; static;
-    class procedure Check<TValueType>(const AValue: TValueType;const AMinSize, AMaxSize: NativeInt;
+    class function LengthOf(const AValue: TQValueType): SizeInt;static;
+    class function AcceptEx(const AValue: TQValueType;const AMinSize, AMaxSize: SizeInt): Boolean; overload; static;
+    class procedure CheckEx(const AValue: TQValueType;const AMinSize, AMaxSize: SizeInt;
       const AErrorMsg: UnicodeString);overload;static;
-    class function Require<TValueType>(const AValue: TValueType; const AMinSize, AMaxSize: NativeInt;
-      const ADefaultValue: TValueType): TValueType;overload;static;
+    class function RequireEx(const AValue: TQValueType; const AMinSize, AMaxSize: SizeInt;
+      const ADefaultValue: TQValueType): TQValueType;overload;static;
   end;
 
   // 边界处理规则，默认相等
@@ -55,37 +54,37 @@ type
 
   TQRangeBounds = set of TQRangeBound;
 
-  TQRangeValidator<TValueType> = class(TQValidator<TValueType>)
+  TQRangeValidator<TQValueType> = class(TQValidator<TQValueType>)
   private
     FBounds: TQRangeBounds;
-    FComparer: IComparer<TValueType>;
-    FMinValue, FMaxValue: TValueType;
+    FComparer: IComparer<TQValueType>;
+    FMinValue, FMaxValue: TQValueType;
   protected
     class function GetTypeName: UnicodeString; override;
   public
-    constructor Create(const AMinValue, AMaxValue: TValueType;const AErrorMsg: UnicodeString; 
-      AComparer: IComparer<TValueType>); overload;
-    function Accept(const AValue: TValueType): Boolean;overload;override;
-    procedure Check(const AValue: TValueType); overload; override;
-    function Require(const AValue: TValueType; const ADefaultValue: TValueType): TValueType; overload; override;
-    property MinValue: TValueType read FMinValue;
-    property MaxValue: TValueType read FMaxValue;
+    constructor Create(const AMinValue, AMaxValue: TQValueType;const AErrorMsg: UnicodeString;
+      AComparer: IComparer<TQValueType>); overload;
+    function Accept(const AValue: TQValueType): Boolean;overload;override;
+    procedure Check(const AValue: TQValueType); overload; override;
+    function Require(const AValue: TQValueType; const ADefaultValue: TQValueType): TQValueType; overload; override;
+    property MinValue: TQValueType read FMinValue;
+    property MaxValue: TQValueType read FMaxValue;
     property Bounds: TQRangeBounds read FBounds write FBounds;
   // class methods
-    class function Accept<TValueType>(const AValue: TValueType; const AMinValue, AMaxValue: TValueType; 
-      ABounds: TQRangeBounds = []; const AComparer: IComparer < TValueType >= nil): Boolean; overload; static;
-    class procedure Check<TValueType>(const AValue: TValueType; const AMinValue, AMaxValue: TValueType; 
-      const AErrorMsg: UnicodeString; ABounds: TQRangeBounds = []; 
-      const AComparer: IComparer < TValueType >= nil); overload; static;
-    class function Require<TValueType>(const AValue: TValueType; const AMinValue, AMaxValue: TValueType; 
-      const ADefaultValue: TValueType; ABounds: TQRangeBounds = []; 
-      const AComparer: IComparer < TValueType >= nil): TValueType; overload; static;
+    class function AcceptEx(const AValue: TQValueType; const AMinValue, AMaxValue: TQValueType;
+      ABounds: TQRangeBounds = []; const AComparer: IComparer < TQValueType >= nil): Boolean; overload; static;
+    class procedure CheckEx(const AValue: TQValueType; const AMinValue, AMaxValue: TQValueType;
+      const AErrorMsg: UnicodeString; ABounds: TQRangeBounds = [];
+      const AComparer: IComparer < TQValueType >= nil); overload; static;
+    class function RequireEx(const AValue: TQValueType; const AMinValue, AMaxValue: TQValueType;
+      const ADefaultValue: TQValueType; ABounds: TQRangeBounds = [];
+      const AComparer: IComparer < TQValueType >= nil): TQValueType; overload; static;
   end;
 
   // 基于文本的验证规则
   TQTextValidator = class(TQValidator<UnicodeString>)
   protected 
-    class function GetValueTypeName: UnicodeString;virtual;
+    class function GeTQValueTypeName: UnicodeString;virtual;
   public
     function Accept(const AValue: UnicodeString): Boolean;override;
     procedure Check(const AValue: UnicodeString);override;
@@ -94,10 +93,10 @@ type
 
   TQChineseIdValidator = class(TQTextValidator)
   protected class
-    function GetValueTypeName: UnicodeString;override;
+    function GeTQValueTypeName: UnicodeString;override;
   public
     function Accept(const AValue: UnicodeString): Boolean;override;
-    function TryDecode(const AIdNo: UnicodeString; var ACityCode: String;
+    function TryDecode(AIdNo: UnicodeString; var ACityCode: String;
       var ABirthday: TDateTime; var AIsFemale: Boolean): Boolean;
   end;
 
@@ -119,7 +118,7 @@ type
 
   TQChineseMobileValidator = class(TQTextValidator)
   protected 
-    class function GetValueTypeName: UnicodeString;override;
+    class function GeTQValueTypeName: UnicodeString;override;
   public
     function Accept(const AValue: UnicodeString): Boolean;override;
   end;
@@ -132,23 +131,11 @@ type
   //IPV4地址验证规则
   TQIPV4Validator=class(TQTextValidator)
   protected
-    class function GetValueTypeName: UnicodeString;override;
+    class function GeTQValueTypeName: UnicodeString;override;
   public
     function Accept(const AValue: UnicodeString): Boolean; override;
   end;
 
-  TQChineseMobileValidator=class(TQTextValidator)
-  protected
-    class function GetValueTypeName: UnicodeString;override;
-  public
-    function Accept(const AValue: UnicodeString): Boolean; override;
-  end;
-
-  TQBase64Validator=class(TQTextValidator)
-  public
-    function Accept(const AValue: UnicodeString): Boolean; override;
->>>>>>> 857c209d3a525675131930f6079d6729096cc757
-  end;
 
   TQUrlValidator = class(TQTextValidator)
   public
@@ -160,15 +147,15 @@ type
 
 
   //基于类型的规则验证实现，对特定类型的子规则都在其名下定义
-  TQTypeValidator<TValueType>=class
+  TQTypeValidator<TQValueType>=class
   public
     type
-      TQValidatorType=TQValidator<TValueType>;
+      TQValidatorType=TQValidator<TQValueType>;
   private
     FTypeInfo: PTypeInfo;
     FItems: TDictionary<string, TQValidatorType>;
   public
-    constructor Create(const AValidators: TArray < TQValidator < TValueType >> );overload;
+    constructor Create(const AValidators: TArray < TQValidator < TQValueType >> );overload;
     destructor Destroy;override;
   /// <summary> 注册一个规则验证器 </summary>
   /// <param name="AName"> 规则名称，字符串类型，同名规则后注册替换先注册 </param>
@@ -198,11 +185,11 @@ type
     destructor Destroy; override;
     class constructor Create;
     class destructor Destroy;
-    class procedure Register<TValueType>(ATypeValidator: TQTypeValidator<TValueType>);
+    class procedure Register<TQValueType>(ATypeValidator: TQTypeValidator<TQValueType>);
     // Known validators
-    class function Length<TValueType>: TQLengthValidator<TValueType>;
-    class function Range<TValueType>: TQRangeValidator<TValueType>;
-    class function Custom<TValueType>(const AName: UnicodeString): TQValidator<TValueType>;
+    class function Length<TQValueType>: TQLengthValidator<TQValueType>;
+    class function Range<TQValueType>: TQRangeValidator<TQValueType>;
+    class function Custom<TQValueType>(const AName: UnicodeString): TQValidator<TQValueType>;
     class property Email: TQTextValidator read GetEmail write FEmail;
     class property ChineseMobile: TQTextValidator read GetChineseMobile write FChineseMobile;
     class property ChineseId: TQChineseIdValidator read GetChineseId write FChineseId;
@@ -215,15 +202,15 @@ implementation
 
 uses qdac.resource;
 
-{ TQValidator<TValueType> }
+{ TQValidator<TQValueType> }
 
-constructor TQValidator<TValueType>.Create(const AErrorMsg: UnicodeString);
+constructor TQValidator<TQValueType>.Create(const AErrorMsg: UnicodeString);
 begin
   inherited Create;
   FErrorMessage := AErrorMsg;
 end;
 
-class function TQValidator<TValueType>.FormatError(const AErrorMsg
+class function TQValidator<TQValueType>.FormatError(const AErrorMsg
   : UnicodeString; const AParams: TArray < TPair < UnicodeString,
   UnicodeString >> ): UnicodeString;
 var
@@ -267,7 +254,7 @@ begin
             if CompareText(AName, AParams[I].Key) = 0 then
             begin
               ABuilder.Append(AParams[I].Value);
-              AFound := true;
+              AFound := True;
               break;
             end;
           end;
@@ -290,7 +277,7 @@ begin
   end;
 end;
 
-class function TQValidator<TValueType>.GetTypeName: UnicodeString;
+class function TQValidator<TQValueType>.GetTypeName: UnicodeString;
 begin
   // 默认验证器类型名称规则，去掉前面的 TQ 和后面的 Validator 后小写，如 TQLengthValidator<UnicodeString> 解析为 length
   Result := ClassName.Split(['<', '>'], TSTringSplitOptions.ExcludeEmpty)[0];
@@ -300,59 +287,59 @@ begin
     Result := Result.Substring(1, Length(Result) - 1).ToLower;
 end;
 
-{ TQLengthValidator<TValueType> }
+{ TQLengthValidator<TQValueType> }
 
-function TQLengthValidator<TValueType>.Accept(const AValue: TValueType)
+function TQLengthValidator<TQValueType>.Accept(const AValue: TQValueType)
   : Boolean;
 begin
-  Result := Accept<TValueType>(AValue, FMinSize, FMaxSize);
+  Result := AcceptEx(AValue, FMinSize, FMaxSize);
 end;
 
-class function TQLengthValidator<TValueType>.Accept<TValueType>(
-  const AValue: TValueType; const AMinSize, AMaxSize: UInt64): Boolean;
+class function TQLengthValidator<TQValueType>.AcceptEx(
+  const AValue: TQValueType; const AMinSize, AMaxSize: SizeInt): Boolean;
 var
   ALen:UInt64;
 begin
-  Assert((AMaxSize >= AMinSize) and (AMinSize >= 0), SAssertSizeError);
+  Assert(AMaxSize >= AMinSize, SAssertSizeError);
   if AMaxSize > 0 then
   begin
-    ALen := LengthOf<TValueType>(AValue);
+    ALen := LengthOf(AValue);
     Result := (ALen >= AMinSize) and (ALen <= AMaxSize);
   end
   else
-    Result := true;
+    Result := True;
 end;
 
-procedure TQLengthValidator<TValueType>.Check(const AValue: TValueType);
+procedure TQLengthValidator<TQValueType>.Check(const AValue: TQValueType);
 begin
-  Check<TValueType>(AValue, FMinSize, FMaxSize, FErrorMessage);
+  CheckEx(AValue, FMinSize, FMaxSize, FErrorMessage);
 end;
 
-class procedure TQLengthValidator<TValueType>.Check<TValueType>(
-  const AValue: TValueType; const AMinSize, AMaxSize: UInt64;
+class procedure TQLengthValidator<TQValueType>.CheckEx(
+  const AValue: TQValueType; const AMinSize, AMaxSize: SizeInt;
   const AErrorMsg: UnicodeString);
 begin
-  if not Accept<TValueType>(AValue, AMinSize, AMaxSize) then
+  if not AcceptEx(AValue, AMinSize, AMaxSize) then
     raise EValidateException.Create(FormatError(AErrorMsg,
       [TPair<UnicodeString, UnicodeString>.Create('Size',
-      LengthOf<TValueType>(AValue).ToString),
+      LengthOf(AValue).ToString),
       TPair<UnicodeString, UnicodeString>.Create('MinSize', AMinSize.ToString),
       TPair<UnicodeString, UnicodeString>.Create('MaxSize',
       AMaxSize.ToString)]));
 end;
 
-constructor TQLengthValidator<TValueType>.Create(const AMinSize, AMaxSize: UInt64; const AErrorMsg: UnicodeString);
+constructor TQLengthValidator<TQValueType>.Create(const AMinSize, AMaxSize: SizeInt; const AErrorMsg: UnicodeString);
 begin
-  Assert((AMaxSize >= AMinSize) and (AMinSize >= 0), SAssertSizeError);
+  Assert(AMaxSize >= AMinSize, SAssertSizeError);
   inherited Create(AErrorMsg);
   FMinSize := AMinSize;
   FMaxSize := AMaxSize;
 end;
 
-class function TQLengthValidator<TValueType>.LengthOf<TValueType>(const AValue: TValueType): UInt64;
+class function TQLengthValidator<TQValueType>.LengthOf(const AValue: TQValueType): SizeInt;
 begin
   // 只有字符串、动态数组类型支持长度判断
-  case GetTypeData(TypeInfo(TValueType)).BaseType^.Kind of
+  case GetTypeData(TypeInfo(TQValueType)).BaseType^.Kind of
     tkUnicodeString:
       Result := Length(PUnicodeString(@AValue)^);
     tkAnsiString:
@@ -366,16 +353,16 @@ begin
   end;
 end;
 
-function TQLengthValidator<TValueType>.Require(const AValue,
-  ADefaultValue: TValueType): TValueType;
+function TQLengthValidator<TQValueType>.Require(const AValue,
+  ADefaultValue: TQValueType): TQValueType;
 begin
-  Result := Require<TValueType>(AValue, FMinSize, FMaxSize, ADefaultValue);
+  Result := RequireEx(AValue, FMinSize, FMaxSize, ADefaultValue);
 end;
 
-class function TQLengthValidator<TValueType>.Require<TValueType>(const AValue: TValueType;
-  const AMinSize, AMaxSize: UInt64;const ADefaultValue:TValueType):TValueType;
+class function TQLengthValidator<TQValueType>.RequireEx(const AValue: TQValueType;
+  const AMinSize, AMaxSize: SizeInt;const ADefaultValue:TQValueType):TQValueType;
 begin
-  if Accept<TValueType>(AValue, AMinSize, AMaxSize) then
+  if AcceptEx(AValue, AMinSize, AMaxSize) then
     Result := AValue
   else
     Result := ADefaultValue;
@@ -399,18 +386,18 @@ begin
   FCurrent := TQValidators.Create;
 end;
 
-class function TQValidators.Custom<TValueType>(const AName: UnicodeString)
-  : TQValidator<TValueType>;
+class function TQValidators.Custom<TQValueType>(const AName: UnicodeString)
+  : TQValidator<TQValueType>;
 var
-  AValidators: TQTypeValidator<TValueType>;
+  AValidators: TQTypeValidator<TQValueType>;
 begin
   Result := nil;
   TMonitor.Enter(FCurrent.FTypeValidators);
   try
-    if FCurrent.FTypeValidators.TryGetValue(TypeInfo(TValueType),
+    if FCurrent.FTypeValidators.TryGetValue(TypeInfo(TQValueType),
       TObject(AValidators)) then
     begin
-      AValidators.FItems.TryGetValue(AName, TQValidator<TValueType>(Result));
+      AValidators.FItems.TryGetValue(AName, TQValidator<TQValueType>(Result));
     end;
   finally
     TMonitor.Exit(FCurrent.FTypeValidators);
@@ -437,11 +424,6 @@ end;
 
 class function TQValidators.GetBase64: TQTextValidator;
 begin
-  if not Assigned(FBase64) then
-  begin
-    var
-    ATemp := TQBase64Validator.Create(SValueTypeError);
-  end;
   Result := FBase64;
 end;
 
@@ -470,34 +452,34 @@ begin
   Result := FUrl;
 end;
 
-class function TQValidators.Length<TValueType>: TQLengthValidator<TValueType>;
+class function TQValidators.Length<TQValueType>: TQLengthValidator<TQValueType>;
 type
-  TLengthValidator = TQLengthValidator<TValueType>;
+  TLengthValidator = TQLengthValidator<TQValueType>;
 begin
-  Result := Custom<TValueType>(TLengthValidator.GetTypeName)
+  Result := Custom<TQValueType>(TLengthValidator.GetTypeName)
     as TLengthValidator;
 end;
 
-class function TQValidators.Range<TValueType>: TQRangeValidator<TValueType>;
+class function TQValidators.Range<TQValueType>: TQRangeValidator<TQValueType>;
 type
-  TRangeValidator = TQRangeValidator<TValueType>;
+  TRangeValidator = TQRangeValidator<TQValueType>;
 begin
-  Result := Custom<TValueType>(TRangeValidator.GetTypeName) as TRangeValidator;
+  Result := Custom<TQValueType>(TRangeValidator.GetTypeName) as TRangeValidator;
 end;
 
-class procedure TQValidators.Register<TValueType>(ATypeValidator
-  : TQTypeValidator<TValueType>);
+class procedure TQValidators.Register<TQValueType>(ATypeValidator
+  : TQTypeValidator<TQValueType>);
 var
-  AExists: TQTypeValidator<TValueType>;
+  AExists: TQTypeValidator<TQValueType>;
 begin
   TMonitor.Enter(FCurrent.FTypeValidators);
   try
-    if not FCurrent.FTypeValidators.TryGetValue(TypeInfo(TValueType),
+    if not FCurrent.FTypeValidators.TryGetValue(TypeInfo(TQValueType),
       TObject(AExists)) then
       AExists := nil;
     if AExists <> ATypeValidator then
     begin
-      FCurrent.FTypeValidators.AddOrSetValue(TypeInfo(TValueType),
+      FCurrent.FTypeValidators.AddOrSetValue(TypeInfo(TQValueType),
         ATypeValidator);
       if Assigned(AExists) then
         FreeAndNil(AExists);
@@ -507,21 +489,21 @@ begin
   end;
 end;
 
-{ TQTypeValidator<TValueType> }
+{ TQTypeValidator<TQValueType> }
 
-constructor TQTypeValidator<TValueType>.Create(const AValidators: TArray <
-  TQValidator < TValueType >> );
+constructor TQTypeValidator<TQValueType>.Create(const AValidators: TArray <
+  TQValidator < TQValueType >> );
 var
   I: Integer;
 begin
   inherited Create;
-  FTypeInfo := TypeInfo(TValueType);
-  FItems := TDictionary < String, TQValidator < TValueType >>.Create;
+  FTypeInfo := TypeInfo(TQValueType);
+  FItems := TDictionary < String, TQValidator < TQValueType >>.Create;
   for I := 0 to High(AValidators) do
     FItems.AddOrSetValue(AValidators[I].GetTypeName, AValidators[I]);
 end;
 
-destructor TQTypeValidator<TValueType>.Destroy;
+destructor TQTypeValidator<TQValueType>.Destroy;
 var
   AItems: TArray<TQValidatorType>;
   I: Integer;
@@ -535,7 +517,7 @@ begin
   inherited;
 end;
 
-procedure TQTypeValidator<TValueType>.Register(const AName: UnicodeString;
+procedure TQTypeValidator<TQValueType>.Register(const AName: UnicodeString;
   AValidator: TQValidatorType);
 var
   AExists: TQValidatorType;
@@ -553,16 +535,16 @@ begin
   end;
 end;
 
-{ TQRangeValidator<TValueType> }
+{ TQRangeValidator<TQValueType> }
 
-function TQRangeValidator<TValueType>.Accept(const AValue: TValueType): Boolean;
+function TQRangeValidator<TQValueType>.Accept(const AValue: TQValueType): Boolean;
 begin
-  Result := Accept<TValueType>(AValue, FMinValue, FMaxValue, FBounds);
+  Result := AcceptEx(AValue, FMinValue, FMaxValue, FBounds);
 end;
 
-class function TQRangeValidator<TValueType>.Accept<TValueType>(const AValue,
-  AMinValue, AMaxValue: TValueType; ABounds: TQRangeBounds;
-  const AComparer: IComparer<TValueType>): Boolean;
+class function TQRangeValidator<TQValueType>.AcceptEx(const AValue,
+  AMinValue, AMaxValue: TQValueType; ABounds: TQRangeBounds;
+  const AComparer: IComparer<TQValueType>): Boolean;
 var
   AMinResult, AMaxResult: Integer;
 begin
@@ -573,7 +555,7 @@ begin
   end
   else
   begin
-    with TComparer<TValueType>.Default do
+    with TComparer<TQValueType>.Default do
     begin
       AMinResult := Compare(AValue, AMinValue);
       AMaxResult := Compare(AValue, AMaxValue);
@@ -585,31 +567,31 @@ begin
     in ABounds))));
 end;
 
-procedure TQRangeValidator<TValueType>.Check(const AValue: TValueType);
+procedure TQRangeValidator<TQValueType>.Check(const AValue: TQValueType);
 begin
-  Check<TValueType>(AValue, FMinValue, FMaxValue, FErrorMessage, FBounds);
+  CheckEx(AValue, FMinValue, FMaxValue, FErrorMessage, FBounds);
 end;
 
-class procedure TQRangeValidator<TValueType>.Check<TValueType>(const AValue,
-  AMinValue, AMaxValue: TValueType; const AErrorMsg: UnicodeString;
-  ABounds: TQRangeBounds; const AComparer: IComparer<TValueType>);
+class procedure TQRangeValidator<TQValueType>.CheckEx(const AValue,
+  AMinValue, AMaxValue: TQValueType; const AErrorMsg: UnicodeString;
+  ABounds: TQRangeBounds; const AComparer: IComparer<TQValueType>);
 begin
-  if not Accept<TValueType>(AValue, AMinValue, AMaxValue, ABounds, AComparer)
+  if not AcceptEx(AValue, AMinValue, AMaxValue, ABounds, AComparer)
   then
   begin
     raise EValidateException.Create(FormatError(AErrorMsg,
       [TPair<UnicodeString, UnicodeString>.Create('Value',
-      TValue.From<TValueType>(AValue).ToString),
+      TValue.From<TQValueType>(AValue).ToString),
       TPair<UnicodeString, UnicodeString>.Create('MinValue',
-      TValue.From<TValueType>(AMinValue).ToString),
+      TValue.From<TQValueType>(AMinValue).ToString),
       TPair<UnicodeString, UnicodeString>.Create('MaxValue',
-      TValue.From<TValueType>(AMaxValue).ToString)]));
+      TValue.From<TQValueType>(AMaxValue).ToString)]));
   end;
 end;
 
-constructor TQRangeValidator<TValueType>.Create(const AMinValue,
-  AMaxValue: TValueType; const AErrorMsg: UnicodeString;
-  AComparer: IComparer<TValueType>);
+constructor TQRangeValidator<TQValueType>.Create(const AMinValue,
+  AMaxValue: TQValueType; const AErrorMsg: UnicodeString;
+  AComparer: IComparer<TQValueType>);
 begin
   inherited Create(AErrorMsg);
   FMinValue := AMinValue;
@@ -617,26 +599,26 @@ begin
   if Assigned(AComparer) then
     FComparer := AComparer
   else
-    FComparer := TComparer<TValueType>.Default;
+    FComparer := TComparer<TQValueType>.Default;
 end;
 
-class function TQRangeValidator<TValueType>.GetTypeName: UnicodeString;
+class function TQRangeValidator<TQValueType>.GetTypeName: UnicodeString;
 begin
   Result := 'range'; // Dont localize
 end;
 
-function TQRangeValidator<TValueType>.Require(const AValue,
-  ADefaultValue: TValueType): TValueType;
+function TQRangeValidator<TQValueType>.Require(const AValue,
+  ADefaultValue: TQValueType): TQValueType;
 begin
-  Result := Require<TValueType>(AValue, FMinValue, FMaxValue,
+  Result := RequireEx(AValue, FMinValue, FMaxValue,
     ADefaultValue, FBounds);
 end;
 
-class function TQRangeValidator<TValueType>.Require<TValueType>(const AValue,
-  AMinValue, AMaxValue, ADefaultValue: TValueType; ABounds: TQRangeBounds;
-  const AComparer: IComparer<TValueType>): TValueType;
+class function TQRangeValidator<TQValueType>.RequireEx(const AValue,
+  AMinValue, AMaxValue, ADefaultValue: TQValueType; ABounds: TQRangeBounds;
+  const AComparer: IComparer<TQValueType>): TQValueType;
 begin
-  if Accept<TValueType>(AValue, AMinValue, AMaxValue, ABounds, AComparer) then
+  if AcceptEx(AValue, AMinValue, AMaxValue, ABounds, AComparer) then
     Result := AValue
   else
     Result := ADefaultValue;
@@ -663,8 +645,9 @@ begin
       ([TQLengthValidator<ShortString>.Create(0, 0, SDefaultLengthError)]));
     // 数值类型
     FTypeValidators.Add(TypeInfo(Shortint),
-      TQTypeValidator<Shortint>.Create([TQRangeValidator<Shortint>.Create(-128,
-      127, SDefaultRangeError, nil)]));
+      TQTypeValidator<Shortint>.Create([//
+        TQRangeValidator<Shortint>.Create(-128,127, SDefaultRangeError, nil)]
+      ));
     FTypeValidators.Add(TypeInfo(Smallint),
       TQTypeValidator<Smallint>.Create([
        TQRangeValidator<Smallint>.Create(-32768,32767,SDefaultRangeError,nil)
@@ -672,12 +655,12 @@ begin
       ));
     FTypeValidators.Add(TypeInfo(Integer),
       TQTypeValidator<Integer>.Create([
-       TQRangeValidator<Integer>.Create(-2147483648,2147483647,SDefaultLengthError,nil)
+       TQRangeValidator<Integer>.Create(-2147483648,2147483647,SDefaultRangeError,nil)
        ]
       ));
     FTypeValidators.Add(TypeInfo(Int64),
       TQTypeValidator<Int64>.Create([
-       TQRangeValidator<Int64>.Create(-9223372036854775808,9223372036854775807,SDefaultLengthError,nil)
+       TQRangeValidator<Int64>.Create(-9223372036854775808, 9223372036854775807, SDefaultRangeError, nil)
        ]
       ));
     FTypeValidators.Add(TypeInfo(Byte),
@@ -685,17 +668,17 @@ begin
       SDefaultRangeError, nil)]));
     FTypeValidators.Add(TypeInfo(Word),
       TQTypeValidator<Word>.Create([
-       TQLengthValidator<Word>.Create(0,65535,SDefaultRangeError)
+       TQRangeValidator<Word>.Create(0, 65535, SDefaultRangeError,nil)
        ]
       ));
     FTypeValidators.Add(TypeInfo(UINT32),
       TQTypeValidator<UInt32>.Create([
-       TQLengthValidator<UINT32>.Create(0, 4294967295, SDefaultLengthError)
+       TQRangeValidator<UINT32>.Create(0, 4294967295, SDefaultRangeError,nil)
        ]
       ));
     FTypeValidators.Add(TypeInfo(UInt64),
       TQTypeValidator<UInt64>.Create([
-       TQLengthValidator<UInt64>.Create(0, 18446744073709551615,SDefaultLengthError)
+       TQRangeValidator<UInt64>.Create(0, 18446744073709551615, SDefaultRangeError, nil)
        ]
       ));
   end;
@@ -712,24 +695,71 @@ begin
   Result := TryDecode(AValue, ACityCode, ABirthday, AIsFemale);
 end;
 
-class function TQChineseIdValidator.GetValueTypeName: UnicodeString;
+class function TQChineseIdValidator.GeTQValueTypeName: UnicodeString;
 begin
   Result := SChineseId;
 end;
 
-function TQChineseIdValidator.TryDecode(const AIdNo: UnicodeString;
+function TQChineseIdValidator.TryDecode(AIdNo: UnicodeString;
   var ACityCode: UnicodeString; var ABirthday: TDateTime;
   var AIsFemale: Boolean): Boolean;
+var
+  ALen: Integer;
+  AYear, AMonth, ADay: Word;
+const
+  Weight: array [1 .. 17] of Integer = (7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10,
+    5, 8, 4, 2);
+  Checksums: array [0 .. 10] of WideChar = ('1', '0', 'X', '9', '8', '7', '6',
+    '5', '4', '3', '2');
+
+  function CheckChineseId18: WideChar;
+  var
+    ASum, AIdx: Integer;
+  begin
+    ASum := 0;
+    for AIdx := 1 to 17 do
+    begin
+      ASum := ASum + (Ord(AIdNo.Chars[AIdx]) - Ord('0')) * Weight[AIdx];
+    end;
+    Result := Checksums[ASum mod 11];
+  end;
 begin
-  // Todo:
-  Result := false;
+  ALen := Length(AIdNo);
+  Result := False;
+  if ALen in [15, 18] then
+  // 长度检查
+  begin
+    if ALen = 15 then
+    begin
+      AIdNo := AIdNo.Substring(0, 6) + '19' + AIdNo.Substring(Length(AIdNo)-9, 9);
+      AIdNo := AIdNo + CheckChineseId18;
+    end
+    else if CheckChineseId18 <> AIdNo.Chars[17].ToUpper then // 身份证号校验码检查
+      Exit;
+    ACityCode := AIdNo.Substring(0,6);
+    AYear:=StrToIntDef(AIdNo.Substring(6,4),0);
+    AMonth:=StrToIntDef(AIdNo.Substring(10,2),0);
+    ADay:=StrToIntDef(AIdNo.Substring(12,2),0);
+    if not TryEncodeDate(AYear, AMonth, ADay, ABirthday) then
+      Exit;
+    if TryStrToInt(AIdNo.Substring(14,3),ALen) then
+    begin
+      Result := True;
+      if (ALen mod 2) = 0 then
+        AIsFemale := True
+      else
+        AIsFemale := False;
+    end;
+  end
+  else
+    Result := False;
 end;
 
 { TQTextValidator }
 
 function TQTextValidator.Accept(const AValue: UnicodeString): Boolean;
 begin
-  Result := true;
+  Result := True;
 end;
 
 procedure TQTextValidator.Check(const AValue: UnicodeString);
@@ -742,7 +772,7 @@ begin
   end;
 end;
 
-class function TQTextValidator.GetValueTypeName: UnicodeString;
+class function TQTextValidator.GeTQValueTypeName: UnicodeString;
 begin
   Result := GetTypeName;
 end;
@@ -765,19 +795,73 @@ end;
 function TQEmailValidator.Accept(const AValue: UnicodeString): Boolean;
 begin
   // Todo:验证邮件地址
+  Result := False;
 end;
 
 { TQChinesseMobile }
 
 function TQChineseMobileValidator.Accept(const AValue: UnicodeString): Boolean;
+var
+  p: PWideChar;
+  ACount: Integer;
+const
+  Delimiters: PWideChar = ' -';
 begin
-  // Todo:验证手机号
+  ACount := Length(AValue);
+  Result := False;
+  if ACount >= 11 then
+  begin
+    p := PWideChar(AValue);
+    if p^ = '+' then // +86
+    begin
+      Inc(p);
+      if p^ <> '8' then
+        Exit;
+      Inc(p);
+      if p^ <> '6' then
+        Exit;
+      Inc(p);
+      while p^=' ' do
+        Inc(p);
+      if p^='-' then
+        Inc(p);
+      while p^=' ' do
+        Inc(p);
+    end;
+    if p^ = '1' then // 中国手机号以1打头，目前是 13,14,15,16,17,18,19 都已使用
+    begin
+      Inc(p);
+      if (p^ >= '3') and (p^ <= '9') then
+      begin
+        ACount := 2;
+        Inc(p);
+        while p^ <> #0 do
+        begin
+          if (p^ >= '0') and (p^ <= '9') then
+          begin
+            Inc(p);
+            Inc(ACount);
+          end
+          else if (p^ = '-') or (p^ = ' ') then
+          begin
+            if (p^ = '-') and (ACount = 11) then // 虚拟号？
+              Exit(True);
+            Inc(p)
+          end
+          else
+            Exit;
+        end;
+        Result := (ACount = 11);
+      end;
+    end;
+  end;
 end;
 
 { TQBase64Validator }
 
 function TQBase64Validator.Accept(const AValue: UnicodeString): Boolean;
 begin
+  Result:=false;
   // Todo:验证 Base64 编码
 end;
 
@@ -789,6 +873,7 @@ var
   AParams: TArray<UnicodeString>;
   APort: Word;
 begin
+  APort := 0;
   Result := TryDecode(AValue, ASchema, AUserName, APassword, AHost, APath,
     AParams, APort);
 end;
@@ -798,9 +883,10 @@ function TQUrlValidator.TryDecode(const AUrl: UnicodeString;
   var AParams: TArray<UnicodeString>; APort: Word): Boolean;
 begin
   // Todo: 验证URL
+  Result:=false;
 end;
 
-class function TQChineseMobileValidator.GetValueTypeName: UnicodeString;
+class function TQChineseMobileValidator.GeTQValueTypeName: UnicodeString;
 begin
   Result := SChineseMobile;
 end;
@@ -811,7 +897,7 @@ function TQRegexValidator.Accept(const AValue: UnicodeString): Boolean;
 begin
   if Length(FRegex) = 0 then
   begin
-    Exit(true);
+    Exit(True);
   end;
   if not Assigned(FRegexProcessor) then
   begin
@@ -834,38 +920,38 @@ end;
 
 function TQIPV4Validator.Accept(const AValue: UnicodeString): Boolean;
 var
-  len,i,ipSegCount: Integer;
-  ipByte: SmallInt;
+  ALen,I,AIpSegCount: Integer;
+  AIpByte: SmallInt;
 begin
-  len := Length(AValue);
-  if (len < 7) or (len > 15) then
-    exit(false);
-  ipSegCount := 0;
-  ipByte := 0;
-  for i := 1 to len do
+  ALen := Length(AValue);
+  if (ALen < 7) or (ALen > 15) then
+    exit(False);
+  AIpSegCount := 0;
+  AIpByte := 0;
+  for I := 1 to ALen do
   begin
-     if ipSegCount > 3 then
-       exit(false);
-     case AValue[i] of
+     if AIpSegCount > 3 then
+       exit(False);
+     case AValue[I] of
      '0'..'9':
        begin
-         ipByte := ipByte*10+ Ord(AValue[i]) - 48;
-         if ipByte > 255 then
+         AIpByte := AIpByte*10+ Ord(AValue[I]) - 48;
+         if AIpByte > 255 then
            Exit(False);
        end;
      '.':
        begin
-         inc(ipSegCount);
-         ipByte := 0;
+         Inc(AIpSegCount);
+         AIpByte := 0;
        end;
      else
        Exit(False);
      end;
   end;
-  Result := (ipSegCount = 3) and (ipByte < 255);
+  Result := (AIpSegCount = 3) and (AIpByte < 255);
 end;
 
-class function TQIPV4Validator.GetValueTypeName: UnicodeString;
+class function TQIPV4Validator.GeTQValueTypeName: UnicodeString;
 begin
   Result := SIPV4;
 end;
