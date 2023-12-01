@@ -33,6 +33,7 @@ type
 
   TQLengthValidator<TValueType> = class(TQValidator<TValueType>)
   private
+<<<<<<< HEAD
     FMinSize, FMaxSize: NativeInt;
   public
     constructor Create(const AMinSize, AMaxSize: NativeInt;const AErrorMsg: UnicodeString); overload;
@@ -44,10 +45,30 @@ type
   // class methods
     class function LengthOf<TValueType>(const AValue: TValueType): NativeInt;static;
     class function Accept<TValueType>(const AValue: TValueType;const AMinSize, AMaxSize: NativeInt): Boolean; overload; static;
-    class procedure Check<TValueType>(const AValue: TValueType;const AMinSize, AMaxSize: NativeInt;
+    class procedure Check<TValueType>(const AValue: TValueType;const AMinSize, AMaxSize: NativeInt; 
       const AErrorMsg: UnicodeString);overload;static;
-    class function Require<TValueType>(const AValue: TValueType; const AMinSize, AMaxSize: NativeInt;
+    class function Require<TValueType>(const AValue: TValueType; const AMinSize, AMaxSize: NativeInt; 
       const ADefaultValue: TValueType): TValueType;overload;static;
+=======
+    FMinSize,FMaxSize: UInt64;
+  protected
+  public
+    constructor Create(const AMinSize,AMaxSize:UInt64;const AErrorMsg: UnicodeString); overload;
+    function Accept(const AValue: TValueType): Boolean; overload; override;
+    procedure Check(const AValue: TValueType); overload; override;
+    function Require(const AValue: TValueType; const ADefaultValue: TValueType)
+      : TValueType; overload; override;
+    property MinSize:UInt64 read FMinSize;
+    property MaxSize:UInt64 read FMaxSize;
+    //class methods
+    class function LengthOf<TValueType>(const AValue:TValueType):UInt64;static;
+    class function Accept<TValueType>(const AValue:TValueType;const AMinSize,AMaxSize:UInt64):Boolean; overload; static;
+    class procedure Check<TValueType>(const AValue:TValueType;const AMinSize,AMaxSize:UInt64;
+      const AErrorMsg: UnicodeString); overload; static;
+    class function Require<TValueType>(const AValue:TValueType;const AMinSize,AMaxSize:UInt64;
+      const ADefaultValue:TValueType):TValueType; overload; static;
+
+>>>>>>> 857c209d3a525675131930f6079d6729096cc757
   end;
 
   // 边界处理规则，默认相等
@@ -56,7 +77,7 @@ type
   TQRangeBounds = set of TQRangeBound;
 
   TQRangeValidator<TValueType> = class(TQValidator<TValueType>)
-  private
+  private 
     FBounds: TQRangeBounds;
     FComparer: IComparer<TValueType>;
     FMinValue, FMaxValue: TValueType;
@@ -126,6 +147,9 @@ type
 
   TQBase64Validator = class(TQTextValidator)
   public
+<<<<<<< HEAD
+    function Accept(const AValue: UnicodeString): Boolean;override;
+=======
     function Accept(const AValue: UnicodeString): Boolean; override;
   end;
 
@@ -158,12 +182,20 @@ type
       var AParams: TArray<UnicodeString>; APort: Word): Boolean;
   end;
 
-
+<<<<<<< HEAD
+  // 基于类型的规则验证实现，对特定类型的子规则都在其名下定义
+  TQTypeValidator < TValueType >= class 
+  public 
+  type 
+    TQValidatorType = TQValidator<TValueType>;
+=======
+  
   //基于类型的规则验证实现，对特定类型的子规则都在其名下定义
   TQTypeValidator<TValueType>=class
   public
     type
       TQValidatorType=TQValidator<TValueType>;
+>>>>>>> 857c209d3a525675131930f6079d6729096cc757
   private
     FTypeInfo: PTypeInfo;
     FItems: TDictionary<string, TQValidatorType>;
@@ -308,10 +340,17 @@ begin
   Result := Accept<TValueType>(AValue, FMinSize, FMaxSize);
 end;
 
+<<<<<<< HEAD
+class function TQLengthValidator<TValueType>.Accept<TValueType>
+  (const AValue: TValueType; const AMinSize, AMaxSize: NativeInt): Boolean;
+var
+  ALen: NativeInt;
+=======
 class function TQLengthValidator<TValueType>.Accept<TValueType>(
   const AValue: TValueType; const AMinSize, AMaxSize: UInt64): Boolean;
 var
   ALen:UInt64;
+>>>>>>> 857c209d3a525675131930f6079d6729096cc757
 begin
   Assert((AMaxSize >= AMinSize) and (AMinSize >= 0), SAssertSizeError);
   if AMaxSize > 0 then
@@ -328,8 +367,13 @@ begin
   Check<TValueType>(AValue, FMinSize, FMaxSize, FErrorMessage);
 end;
 
+<<<<<<< HEAD
+class procedure TQLengthValidator<TValueType>.Check<TValueType>
+  (const AValue: TValueType; const AMinSize, AMaxSize: NativeInt;
+=======
 class procedure TQLengthValidator<TValueType>.Check<TValueType>(
   const AValue: TValueType; const AMinSize, AMaxSize: UInt64;
+>>>>>>> 857c209d3a525675131930f6079d6729096cc757
   const AErrorMsg: UnicodeString);
 begin
   if not Accept<TValueType>(AValue, AMinSize, AMaxSize) then
@@ -341,7 +385,12 @@ begin
       AMaxSize.ToString)]));
 end;
 
+<<<<<<< HEAD
+constructor TQLengthValidator<TValueType>.Create(const AMinSize,
+  AMaxSize: NativeInt; const AErrorMsg: UnicodeString);
+=======
 constructor TQLengthValidator<TValueType>.Create(const AMinSize, AMaxSize: UInt64; const AErrorMsg: UnicodeString);
+>>>>>>> 857c209d3a525675131930f6079d6729096cc757
 begin
   Assert((AMaxSize >= AMinSize) and (AMinSize >= 0), SAssertSizeError);
   inherited Create(AErrorMsg);
@@ -349,7 +398,12 @@ begin
   FMaxSize := AMaxSize;
 end;
 
+<<<<<<< HEAD
+class function TQLengthValidator<TValueType>.LengthOf<TValueType>
+  (const AValue: TValueType): NativeInt;
+=======
 class function TQLengthValidator<TValueType>.LengthOf<TValueType>(const AValue: TValueType): UInt64;
+>>>>>>> 857c209d3a525675131930f6079d6729096cc757
 begin
   // 只有字符串、动态数组类型支持长度判断
   case GetTypeData(TypeInfo(TValueType)).BaseType^.Kind of
@@ -372,8 +426,14 @@ begin
   Result := Require<TValueType>(AValue, FMinSize, FMaxSize, ADefaultValue);
 end;
 
+<<<<<<< HEAD
+class function TQLengthValidator<TValueType>.Require<TValueType>
+  (const AValue: TValueType; const AMinSize, AMaxSize: NativeInt;
+  const ADefaultValue: TValueType): TValueType;
+=======
 class function TQLengthValidator<TValueType>.Require<TValueType>(const AValue: TValueType;
   const AMinSize, AMaxSize: UInt64;const ADefaultValue:TValueType):TValueType;
+>>>>>>> 857c209d3a525675131930f6079d6729096cc757
 begin
   if Accept<TValueType>(AValue, AMinSize, AMaxSize) then
     Result := AValue
@@ -666,6 +726,19 @@ begin
       TQTypeValidator<Shortint>.Create([TQRangeValidator<Shortint>.Create(-128,
       127, SDefaultRangeError, nil)]));
     FTypeValidators.Add(TypeInfo(Smallint),
+<<<<<<< HEAD
+      TQTypeValidator<Smallint>.Create
+      ([TQLengthValidator<Smallint>.Create(-32768, 32767,
+      SDefaultRangeError)]));
+    FTypeValidators.Add(TypeInfo(Integer),
+      TQTypeValidator<Integer>.Create
+      ([TQLengthValidator<Integer>.Create(-2147483648, 2147483647,
+      SDefaultLengthError)]));
+    FTypeValidators.Add(TypeInfo(Int64),
+      TQTypeValidator<Int64>.Create
+      ([TQLengthValidator<Int64>.Create(-9223372036854775808,
+      9223372036854775807, SDefaultLengthError)]));
+=======
       TQTypeValidator<Smallint>.Create([
        TQRangeValidator<Smallint>.Create(-32768,32767,SDefaultRangeError,nil)
        ]
@@ -680,16 +753,27 @@ begin
        TQRangeValidator<Int64>.Create(-9223372036854775808,9223372036854775807,SDefaultLengthError,nil)
        ]
       ));
+>>>>>>> 857c209d3a525675131930f6079d6729096cc757
     FTypeValidators.Add(TypeInfo(Byte),
       TQTypeValidator<Byte>.Create([TQRangeValidator<Byte>.Create(0, 255,
       SDefaultRangeError, nil)]));
     FTypeValidators.Add(TypeInfo(Word),
+<<<<<<< HEAD
+      TQTypeValidator<Word>.Create([TQLengthValidator<Word>.Create(0, 65535,
+      SDefaultRangeError)]));
+    FTypeValidators.Add(TypeInfo(Integer),
+      TQTypeValidator<Integer>.Create([TQLengthValidator<Integer>.Create(0,
+      4294967295, SDefaultLengthError)]));
+    FTypeValidators.Add(TypeInfo(Int64),
+      TQTypeValidator<Int64>.Create([TQLengthValidator<Int64>.Create(0,
+      18446744073709551615, SDefaultLengthError)]));
+=======
       TQTypeValidator<Word>.Create([
        TQLengthValidator<Word>.Create(0,65535,SDefaultRangeError)
        ]
       ));
     FTypeValidators.Add(TypeInfo(UINT32),
-      TQTypeValidator<UInt32>.Create([
+      TQTypeValidator<UINT32>.Create([
        TQLengthValidator<UINT32>.Create(0, 4294967295, SDefaultLengthError)
        ]
       ));
@@ -698,6 +782,7 @@ begin
        TQLengthValidator<UInt64>.Create(0, 18446744073709551615,SDefaultLengthError)
        ]
       ));
+>>>>>>> 857c209d3a525675131930f6079d6729096cc757
   end;
 end;
 

@@ -8,6 +8,9 @@ If a feather only support special version,define it in this file.
 {$IFDEF FPC_FULLVERSION}
 
 //Free Pascal
+  //FPC 默认使用 UTF-8 编码，我们切换为 Unicode
+  {$MODE DELPHIUNICODE}
+
 
   {$IF FPC_FULLVERSION<30301}
     {$ERROR At least FPC 3.3.1 needed.}

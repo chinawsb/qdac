@@ -11,6 +11,8 @@ resourcestring
   SRegExpressionError = '%s 不是一个有效的正则表达式';
   SChineseMobile = '中国大陆手机号码';
   SChineseId = '中国大陆居民身份证号';
+  SIPV4 = 'IPV4';
+  SIPV6 = 'IPV6';
 implementation
 
 end.
