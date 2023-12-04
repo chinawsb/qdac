@@ -23,12 +23,14 @@ implementation
 {$R *.dfm}
 
 procedure TForm4.FormCreate(Sender: TObject);
-var
-  ipv4: TQIPV4Validator;
 begin
-  ipv4 := TQIPV4Validator.create;
-  if ipv4.Accept('123.04.05.1') then
-    ShowMessage('gasdf');
+  //使用Custom来检验值
+  TQValidators.Custom<UnicodeString>('ipv4').Check('1.2.4.8');
+  //使用内置属性校验值
+  TQValidators.ChineseId.Check('371100197711110719');
+  TQValidators.ChineseMobile.Check('17788653263');
+  TQValidators.Email.Check('"abc.kkk"@.com.');
+  TQValidators.Length<UnicodeString>.CheckEx('123456',6,16,'长度必需介于 [MinSize] 到 [MaxSize] 之间');
 end;
 
 end.
