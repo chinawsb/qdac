@@ -450,11 +450,10 @@ uses
 {$IFDEF UNICODE}, Generics.Collections{$ENDIF}{$IF RTLVersion>=21},
   Rtti{$IFEND >=XE10}
 {$IFNDEF MSWINDOWS}
-{$IFNDEF CONSOLE}, fmx.Forms{$ENDIF}, System.Diagnostics
+{$IFNDEF CONSOLE}, Forms{$ENDIF}, System.Diagnostics
 {$ELSE}
 {$IFDEF MSWINDOWS}, Windows, Messages, TlHelp32, Activex{$ENDIF}
 {$ENDIF}
-    , Forms
 {$IFDEF POSIX}, Posix.Base, Posix.Unistd, Posix.Signal, Posix.Pthread,
   Posix.Sched, Posix.ErrNo, Posix.SysTypes{$ENDIF}
     , qstring, qrbtree, qtimetypes {$IFDEF ANDROID}, Androidapi.AppGlue,
