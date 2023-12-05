@@ -547,6 +547,8 @@ end;
 class function TQValidators.Length<TQValueType>: TQLengthValidator<TQValueType>;
 type
   TLengthValidator = TQLengthValidator<TQValueType>;
+var
+  AType:PTypeInfo;
 begin
   TMonitor.Enter(FCurrent.FTypeValidators);
   try
@@ -554,8 +556,17 @@ begin
       as TLengthValidator;
     if not Assigned(Result) then
     begin
-      Result:=TLengthValidator.Create(0,0,SDefaultLengthError);
-      RegisterTypeValidator<TQValueType>(Result);
+      AType := TypeInfo(TQValueType);
+      //长度限制只能应用于字符串或动态数组
+      if AType.Kind in [tkDynArray,tkUnicodeString,tkLString,tkShortString,tkWideString,tkAnsiString] then
+      begin
+        Result:=TLengthValidator.Create(0,0,SDefaultLengthError);
+        RegisterTypeValidator<TQValueType>(Result);
+      end
+      else
+      begin
+        raise EValidateException.CreateFmt(SValidatorNotExists,[PTypeInfo(TypeInfo(TQValueType)).Name+'.'+TLengthValidator.GetTypeName]);
+      end;
     end;
   finally
     TMonitor.Exit(FCurrent.FTypeValidators);
