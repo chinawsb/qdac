@@ -215,6 +215,7 @@ type
     class function GetEmail: TQTextValidator; static;
     class function GetUrl: TQUrlValidator; static;
     class function InternalCustom<TQValueType>(const AName:UnicodeString):TQGenericValidator<TQValueType>;
+    function RegisterRangeValidator<TIntType>(const AMin,AMax:TIntType):IQValidator;inline;
     procedure RegisterDefaultValidators;
   public
     constructor Create;overload;
@@ -625,54 +626,24 @@ begin
   FUrl := TQUrlValidator.Create(SValueTypeError);
   TQIPV4Validator.Create(SValueTypeError);
 
-  //其它类型的验证
-  FTypeValidators.Add(TypeInfo(AnsiString),
-    TQTypeValidator<AnsiString>.Create
-    ([TQLengthValidator<AnsiString>.Create(0, 0, SDefaultLengthError)]));
-  FTypeValidators.Add(TypeInfo(WideString),
-    TQTypeValidator<WideString>.Create
-    ([TQLengthValidator<WideString>.Create(0, 0, SDefaultLengthError)]));
-  FTypeValidators.Add(TypeInfo(ShortString),
-    TQTypeValidator<ShortString>.Create
-    ([TQLengthValidator<ShortString>.Create(0, 0, SDefaultLengthError)]));
-  // 数值类型
-  FTypeValidators.Add(TypeInfo(Shortint),
-    TQTypeValidator<Shortint>.Create([//
-      TQRangeValidator<Shortint>.Create(-128,127, SDefaultRangeError, nil)]
-    ));
-  FTypeValidators.Add(TypeInfo(Smallint),
-    TQTypeValidator<Smallint>.Create([
-     TQRangeValidator<Smallint>.Create(-32768,32767,SDefaultRangeError,nil)
-     ]
-    ));
-  FTypeValidators.Add(TypeInfo(Integer),
-    TQTypeValidator<Integer>.Create([
-     TQRangeValidator<Integer>.Create(-2147483648,2147483647,SDefaultRangeError,nil)
-     ]
-    ));
-  FTypeValidators.Add(TypeInfo(Int64),
-    TQTypeValidator<Int64>.Create([
-     TQRangeValidator<Int64>.Create(-9223372036854775808, 9223372036854775807, SDefaultRangeError, nil)
-     ]
-    ));
-  FTypeValidators.Add(TypeInfo(Byte),
-    TQTypeValidator<Byte>.Create([TQRangeValidator<Byte>.Create(0, 255,
-    SDefaultRangeError, nil)]));
-  FTypeValidators.Add(TypeInfo(Word),
-    TQTypeValidator<Word>.Create([
-     TQRangeValidator<Word>.Create(0, 65535, SDefaultRangeError,nil)
-     ]
-    ));
-  FTypeValidators.Add(TypeInfo(UINT32),
-    TQTypeValidator<UInt32>.Create([
-     TQRangeValidator<UINT32>.Create(0, 4294967295, SDefaultRangeError,nil)
-     ]
-    ));
-  FTypeValidators.Add(TypeInfo(UInt64),
-    TQTypeValidator<UInt64>.Create([
-     TQRangeValidator<UInt64>.Create(0, 18446744073709551615, SDefaultRangeError, nil)
-     ]
-    ));
+  // 数值类型范围支持
+  //带符号
+  RegisterRangeValidator<Int8>(-128,127);
+  RegisterRangeValidator<Int16>(-32768,32767);
+  RegisterRangeValidator<Int32>(-2147483648,2147483647);
+  RegisterRangeValidator<Int64>(-9223372036854775808, 9223372036854775807);
+  //无符号
+  RegisterRangeValidator<UInt8>(0, 255);
+  RegisterRangeValidator<UInt16>(0, 65535);
+  RegisterRangeValidator<UInt32>(0, 4294967295);
+  RegisterRangeValidator<UInt64>(0, 18446744073709551615);
+end;
+
+function TQValidators.RegisterRangeValidator<TIntType>(const AMin, AMax: TIntType): IQValidator;
+begin
+  Result := TQRangeValidator<TIntType>.Create(AMin,AMax, SDefaultRangeError, nil);
+  FTypeValidators.Add(TypeInfo(TIntType),TQTypeValidator<TIntType>.Create([
+    TQRangeValidator<TIntType>(Result.AsValidator)]));
 end;
 
 class procedure TQValidators.RegisterTextValidator(
