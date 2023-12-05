@@ -98,7 +98,7 @@ type
     property Bounds: TQRangeBounds read FBounds write FBounds;
   // class methods
     class function AcceptEx(const AValue: TQValueType; const AMinValue, AMaxValue: TQValueType;
-      ABounds: TQRangeBounds = []; const AComparer: IComparer < TQValueType >= nil): Boolean; overload; static;
+      ABounds: TQRangeBounds = []; AComparer: IComparer < TQValueType >= nil): Boolean; overload; static;
     class procedure CheckEx(const AValue: TQValueType; const AMinValue, AMaxValue: TQValueType;
       AErrorMsg: UnicodeString=''; ABounds: TQRangeBounds = [];
       const AComparer: IComparer < TQValueType >= nil); overload; static;
@@ -415,11 +415,13 @@ begin
   // 只有字符串、动态数组类型支持长度判断
   ATypeInfo:=TypeInfo(TQValueType);
   case ATypeInfo.Kind of
-    tkUnicodeString:
+    tkString:
+      Result := Length(PShortString(@AValue)^);
+    tkUString:
       Result := Length(PUnicodeString(@AValue)^);
-    tkAnsiString:
+    tkLString:
       Result := Length(PAnsiString(@AValue)^);
-    tkWideString:
+    tkWString:
       Result := Length(PWideString(@AValue)^);
     tkDynArray:
       Result := DynArraySize(PPointer(@AValue)^)
@@ -469,7 +471,9 @@ begin
     TMonitor.Exit(FCurrent.FTypeValidators);
   end;
   if not Assigned(Result) then
-    raise EValidateException.CreateFmt(SValidatorNotExists,[PTypeInfo(TypeInfo(TQValueType)).Name+'.'+AName]);
+    begin
+    raise EValidateException.CreateFmt(SValidatorNotExists,[PTypeInfo(TypeInfo(TQValueType)).Name,AName]);
+    end;
 end;
 
 class destructor TQValidators.Destroy;
@@ -566,7 +570,7 @@ begin
       end
       else
       begin
-        raise EValidateException.CreateFmt(SValidatorNotExists,[PTypeInfo(TypeInfo(TQValueType)).Name+'.'+TLengthValidator.GetTypeName]);
+        raise EValidateException.CreateFmt(SValidatorNotExists,[PTypeInfo(TypeInfo(TQValueType)).Name,TLengthValidator.GetTypeName]);
       end;
     end;
   finally
@@ -577,13 +581,32 @@ end;
 class function TQValidators.Range<TQValueType>: TQRangeValidator<TQValueType>;
 type
   TRangeValidator = TQRangeValidator<TQValueType>;
+  PQValueType = ^TQValueType;
+var
+  AType:PTypeInfo;
+  AMinVal,AMaxVal:TQValueType;
 begin
   TMonitor.Enter(FCurrent.FTypeValidators);
   try
     Result := InternalCustom<TQValueType>(TRangeValidator.GetTypeName) as TRangeValidator;
     if not Assigned(Result) then
     begin
-      Result:=TRangeValidator.Create(Default(TQValueType),Default(TQValueType),SDefaultRangeError,TComparer<TQValueType>.Default);
+      AType := TypeInfo(TQValueType);
+      //如果是枚举类型
+      if AType.Kind = tkEnumeration then
+      begin
+        with GetTypeData(AType)^ do
+        begin
+          AMinVal := PQValueType(@MinValue)^;
+          AMaxVal := PQValueType(@MaxValue)^;
+        end;
+      end
+      else
+      begin
+        AMinVal := Default(TQValueType);
+        AMaxVal := Default(TQValueType);
+      end;
+      Result:=TRangeValidator.Create(AMinVal,AMaxVal,SDefaultRangeError,TComparer<TQValueType>.Default);
       RegisterTypeValidator<TQValueType>(Result);
     end;
   finally
@@ -628,15 +651,17 @@ begin
 
   // 数值类型范围支持
   //带符号
-  RegisterRangeValidator<Int8>(-128,127);
-  RegisterRangeValidator<Int16>(-32768,32767);
-  RegisterRangeValidator<Int32>(-2147483648,2147483647);
-  RegisterRangeValidator<Int64>(-9223372036854775808, 9223372036854775807);
+  RegisterRangeValidator<Int8>(Int8.MinValue, Int8.MaxValue);
+  RegisterRangeValidator<Int16>(Int16.MinValue, Int16.MaxValue);
+  RegisterRangeValidator<Int32>(Int32.MinValue, Int32.MaxValue);
+  RegisterRangeValidator<Int64>(Int64.MinValue, Int64.MaxValue);
   //无符号
-  RegisterRangeValidator<UInt8>(0, 255);
-  RegisterRangeValidator<UInt16>(0, 65535);
-  RegisterRangeValidator<UInt32>(0, 4294967295);
-  RegisterRangeValidator<UInt64>(0, 18446744073709551615);
+  RegisterRangeValidator<UInt8>(UInt8.MinValue, UInt8.MaxValue);
+  RegisterRangeValidator<UInt16>(UInt16.MinValue, UInt16.MaxValue);
+  RegisterRangeValidator<UInt32>(UInt32.MinValue, UInt32.MaxValue);
+  RegisterRangeValidator<UInt64>(UInt64.MinValue,UInt64.MaxValue);
+  //货币类型，直接传最小值或最大值编译器会提示算术溢出
+  RegisterRangeValidator<Currency>(Currency.MinValue, Currency.MaxValue);
 end;
 
 function TQValidators.RegisterRangeValidator<TIntType>(const AMin, AMax: TIntType): IQValidator;
@@ -735,23 +760,21 @@ end;
 
 class function TQRangeValidator<TQValueType>.AcceptEx(const AValue,
   AMinValue, AMaxValue: TQValueType; ABounds: TQRangeBounds;
-  const AComparer: IComparer<TQValueType>): Boolean;
+  AComparer: IComparer<TQValueType>): Boolean;
 var
   AMinResult, AMaxResult: Integer;
 begin
-  if Assigned(AComparer) then
+  if not Assigned(AComparer) then
   begin
-    AMinResult := AComparer.Compare(AValue, AMinValue);
-    AMaxResult := AComparer.Compare(AValue, AMaxValue);
-  end
-  else
-  begin
-    with TComparer<TQValueType>.Default do
-    begin
-      AMinResult := Compare(AValue, AMinValue);
-      AMaxResult := Compare(AValue, AMaxValue);
-    end;
+    AComparer := TComparer<TQValueType>.Default;
   end;
+  //最小值和最大值相等时，不做检查
+  if AComparer.Compare(AMinValue,AMaxValue)=0 then
+  begin
+    Exit(True);
+  end;
+  AMinResult := AComparer.Compare(AValue, AMinValue);
+  AMaxResult := AComparer.Compare(AValue, AMaxValue);
   Result := ((AMinResult > 0) or ((AMinResult = 0) and
     (not(TQRangeBound.GreatThanMin in ABounds)))) and
     ((AMaxResult < 0) or ((AMaxResult = 0) and (not(TQRangeBound.LessThanMax
