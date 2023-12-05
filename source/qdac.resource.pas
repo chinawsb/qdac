@@ -9,6 +9,7 @@ resourcestring
   SAssertSizeError = 'AMaxSize 必需 >= AMinSize 并表 AMinSize must >= 0';
   SValueTypeError = '[Value] 不是一个有效的[ValueType]值';
   SRegExpressionError = '%s 不是一个有效的正则表达式';
+  SValidatorNotExists = '找不到名为 %s 的验证规则';
   SChineseMobile = '中国大陆手机号码';
   SChineseId = '中国大陆居民身份证号';
   SIPV4 = 'IPV4';
