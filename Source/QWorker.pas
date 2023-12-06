@@ -449,8 +449,9 @@ uses
   classes, types, sysutils, SyncObjs, Variants, dateutils, typinfo
 {$IFDEF UNICODE}, Generics.Collections{$ENDIF}{$IF RTLVersion>=21},
   Rtti{$IFEND >=XE10}
+{$IFNDEF CONSOLE}, Forms{$ENDIF}
 {$IFNDEF MSWINDOWS}
-{$IFNDEF CONSOLE}, Forms{$ENDIF}, System.Diagnostics
+, System.Diagnostics
 {$ELSE}
 {$IFDEF MSWINDOWS}, Windows, Messages, TlHelp32, Activex{$ENDIF}
 {$ENDIF}
