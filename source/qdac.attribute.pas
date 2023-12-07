@@ -2,7 +2,7 @@
 
 interface
 
-uses Classes, Sysutils, qdac.common, qdac.validator;
+uses Classes, Sysutils,Generics.Collections, qdac.common, qdac.validator;
 
 type
   // 路径注解，用于解析内容到特定的路径上去，路径间分隔使用反斜线“/”
@@ -32,8 +32,7 @@ type
     property ProtocolName: UnicodeString read FProtocolName;
   end;
 
-  //基础路径
-
+  //基础路径，一般用于路由
   BasePathAttribute = class(TCustomAttribute)
   private
     FPath: UnicodeString;
@@ -57,7 +56,7 @@ type
 
   // 日期时间类型格式
   TQDateTimeKind = (FormatedText, DelphiFloat, UnixTimeStamp, UnixTimeStampMS);
-
+  // 日期时间类型转换，用来指明原始数据是那一个时间格式
   DateTimeKindAttribute = class(TCustomAttribute)
   private
     FKind: TQDateTimeKind;
@@ -71,9 +70,9 @@ type
   //基于验证器的注解
   TQValidatorAttribute=class(TCustomAttribute)
   protected
-    FValidator:TQValidator;
+    FValidator:IQValidator;
   public
-    property Validator:TQValidator read FValidator;
+    property Validator:IQValidator read FValidator;
   end;
 
   //值范围
@@ -97,8 +96,21 @@ type
     property Value:TQValueType read FValue;
   end;
 
-  //类型转字符串格式设置
+  //格式校验规则
+  ValidatorAttribute=class(TQValidatorAttribute)
+  private
+    FErrorMsg:String;
+  public
+    constructor Create(const AName:UnicodeString;const AErrorMsg:UnicodeString='');overload;
+  end;
 
+  //正则表达式规则验证
+  RegexValidatorAttribute=class(TQValidatorAttribute)
+ public
+    constructor Create(const ARegexpr:UnicodeString;const AErrorMsg:UnicodeString='');overload;
+  end;
+
+  //类型转字符串格式设置
   TextFormatAttribute=class(TCustomAttribute)
   private
     FFormat: UnicodeString;
@@ -118,7 +130,6 @@ type
 
 
   //值模拟来源名称，为自动生成测试数据而创建，值来源名称由实现定义注册到 qdac.test.values.TQValueSources
-
   ValueSourceAttribute=class(TCustomAttribute)
   private
     FSourceName: UnicodeString;
@@ -226,6 +237,24 @@ constructor TextTransformAttribute.Create(const AName: UnicodeString);
 begin
   inherited Create;
   FName := AName;
+end;
+
+{ ValidatorAttribute }
+
+constructor ValidatorAttribute.Create(const AName,AErrorMsg:UnicodeString);
+begin
+  inherited Create;
+  FValidator := TQValidators.Custom<UnicodeString>(AName) as TQTextValidator;
+  FErrorMsg := AErrorMsg;
+end;
+
+{ RegexValidatorAttribute }
+
+constructor RegexValidatorAttribute.Create(const ARegexpr,AErrorMsg: UnicodeString);
+begin
+  inherited Create;
+  FValidator:=TQRegexValidator.Create(AErrorMsg);
+  (FValidator.AsValidator as TQRegexValidator).Regex:=ARegexpr;
 end;
 
 end.
