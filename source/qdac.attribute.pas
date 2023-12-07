@@ -1,4 +1,4 @@
-﻿unit qdac.attributes;
+﻿unit qdac.attribute;
 
 interface
 
