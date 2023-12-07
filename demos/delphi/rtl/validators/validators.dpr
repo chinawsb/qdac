@@ -2,7 +2,8 @@ program validators;
 
 uses
   Vcl.Forms,
-  main in 'main.pas' {Form4};
+  main in 'main.pas' {Form4},
+  qdac.attributes in '..\..\..\..\source\qdac.attributes.pas';
 
 {$R *.res}
 
