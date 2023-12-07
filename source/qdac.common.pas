@@ -7,6 +7,7 @@ uses System.Classes,System.SysUtils,System.Generics.Collections;
 type
   SizeInt=NativeUInt;
   TUnicodeStringArray=TArray<UnicodeString>;
+  TStringArray=TUnicodeStringArray;
 
 const
   {$IFDEF NEXTGEN}
