@@ -138,6 +138,16 @@ type
     property SourceName:UnicodeString read FSourceName;
   end;
 
+  //多线程注解，指明某个函数是否可以在多线程中直接访问，三种模式：主线程（默认）、单线程（可后台单线程跑）、多线程
+  TQMultiThreadMode = (MainThread,SingleThread,MultiThread);
+  ThreadModeAttribute=class(TCustomAttribute)
+  private
+    FMode: TQMultiThreadMode;
+  public
+    constructor Create(AMode:TQMultiThreadMode);overload;
+    property Mode:TQMultiThreadMode read FMode;
+  end;
+
 implementation
 
 { PathAttribute }
@@ -255,6 +265,14 @@ begin
   inherited Create;
   FValidator:=TQRegexValidator.Create(AErrorMsg);
   (FValidator.AsValidator as TQRegexValidator).Regex:=ARegexpr;
+end;
+
+{ ThreadModeAttribute }
+
+constructor ThreadModeAttribute.Create(AMode: TQMultiThreadMode);
+begin
+  inherited Create;
+  FMode := AMode;
 end;
 
 end.
