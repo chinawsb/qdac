@@ -4,6 +4,11 @@ interface
 
 uses Classes, Sysutils,Generics.Collections, qdac.common, qdac.validator;
 
+const
+  SHttpGet='GET';
+  SHttpPost='POST';
+  SHttpPut='PUT';
+  SHttpDelete='DELETE';
 type
 
   //内容为文本的注解基类
@@ -37,6 +42,13 @@ type
   SchemaAttribute = class(ProtocolAttribute)
   public
     property Name:String read FText;
+  end;
+
+  //令牌类型，如[TokenType('jwt')]
+
+  TokenTypeAttribute=class(TQTextAttribute)
+  public
+    property Kind:UnicodeString read FText;
   end;
 
   //基础路径，一般用于路由，如[BasePath('https://blog.qdac.cc/api/')]
@@ -102,6 +114,16 @@ type
   public
     constructor Create(const AValue:TQValueType);overload;
     property Value:TQValueType read FValue;
+  end;
+
+  //序列化时忽略该项，用例：[Ignore]
+  IgnoreAttribute=class(TCustomAttribute)
+
+  end;
+
+  //序列化时强制写入，用例：[NoDefault]
+  NoDefaultAttribute=class(TCustomAttribute)
+
   end;
 
   //格式校验规则，如 [Validator('email')]指明值使用 email 验证器进行验证
