@@ -5,40 +5,52 @@ interface
 uses Classes, Sysutils,Generics.Collections, qdac.common, qdac.validator;
 
 type
-  // 路径注解，用于解析内容到特定的路径上去，路径间分隔使用反斜线“/”
-  PathAttribute = class(TCustomAttribute)
-  private
-    FPath: UnicodeString;
+
+  //内容为文本的注解基类
+  TQTextAttribute = class(TCustomAttribute)
+  protected
+    FText:UnicodeString;
+    property Text:String read FText;
   public
-    constructor Create(const APath: UnicodeString); overload;
-    property Path: UnicodeString read FPath;
+    constructor Create(const AText:UnicodeString);overload;
+  end;
+
+  // 路径注解，用于解析内容到特定的路径上去，路径间分隔使用反斜线“/”
+  PathAttribute = class(TQTextAttribute)
+  public
+    property Path: UnicodeString read FText;
   end;
 
   //方法名称注解
-  MethodNameAttribute=class(TCustomAttribute)
-  private
-    FMethodName: UnicodeString;
+  MethodNameAttribute = class(TQTextAttribute)
   public
-    constructor Create(const AName: UnicodeString); overload;
-    property MethodName: UnicodeString read FMethodName;
+    property Name: UnicodeString read FText;
   end;
 
   //协议名称注解
-  ProtocolAttribute=class(TCustomAttribute)
-  private
-    FProtocolName: UnicodeString;
+  ProtocolAttribute = class(TQTextAttribute)
   public
-    constructor Create(const AProtocolName: UnicodeString); overload;
-    property ProtocolName: UnicodeString read FProtocolName;
+    property Name: UnicodeString read FText;
+  end;
+
+  //架构名称注解
+  SchemaAttribute = class(ProtocolAttribute)
+  public
+    property Name:String read FText;
   end;
 
   //基础路径，一般用于路由
-  BasePathAttribute = class(TCustomAttribute)
-  private
-    FPath: UnicodeString;
+  BasePathAttribute = class(TQTextAttribute)
   public
-    constructor Create(const APath: UnicodeString); overload;
-    property Path: UnicodeString read FPath;
+    property Path: UnicodeString read FText;
+  end;
+
+  ValueListAttribute<TQValueType>=class(TCustomAttribute)
+  private
+    FValues:TArray<TQValueType>;
+  public
+    constructor Create(const AValues:TArray<TQValueType>);overload;
+    property Values: TArray<TQValueType> read FValues;
   end;
 
   // 别名注解，用于设置别名，以保持版本间兼容
@@ -99,43 +111,46 @@ type
   //格式校验规则
   ValidatorAttribute=class(TQValidatorAttribute)
   private
-    FErrorMsg:String;
+    FErrorMsg: String;
   public
-    constructor Create(const AName:UnicodeString;const AErrorMsg:UnicodeString='');overload;
+    constructor Create(const AName:UnicodeString; const AErrorMsg:UnicodeString = '');overload;
+  end;
+
+  //前缀
+  PrefixAttribute=class(TQTextAttribute)
+  public
+    property Prefix: UnicodeString read FText;
+  end;
+
+  //尾缀
+  TailAttribute=class(TQTextAttribute)
+  public
+    property Tail:UnicodeString read FText;
   end;
 
   //正则表达式规则验证
   RegexValidatorAttribute=class(TQValidatorAttribute)
- public
-    constructor Create(const ARegexpr:UnicodeString;const AErrorMsg:UnicodeString='');overload;
+  public
+    constructor Create(const ARegexpr: UnicodeString; const AErrorMsg: UnicodeString = '');overload;
   end;
 
   //类型转字符串格式设置
-  TextFormatAttribute=class(TCustomAttribute)
-  private
-    FFormat: UnicodeString;
+  TextFormatAttribute=class(TQTextAttribute)
   public
-    constructor Create(const AFormat: UnicodeString); overload;
-    property Format: UnicodeString read FFormat;
+    property Format: UnicodeString read FText;
   end;
 
   //文本转换器，用于将指定的值转换为特定的文本，比如首字母大写，小驼峰，大驼峰，全角转半角，首行缩进等等，这里只保存名称
-  TextTransformAttribute=class(TCustomAttribute)
-  private
-    FName: UnicodeString;
+  TextTransformAttribute=class(TQTextAttribute)
   public
-    constructor Create(const AName: UnicodeString); overload;
-    property Name: UnicodeString read FName;
+    property Name: UnicodeString read FText;
   end;
 
 
   //值模拟来源名称，为自动生成测试数据而创建，值来源名称由实现定义注册到 qdac.test.values.TQValueSources
-  ValueSourceAttribute=class(TCustomAttribute)
-  private
-    FSourceName: UnicodeString;
+  ValueSourceAttribute=class(TQTextAttribute)
   public
-    constructor Create(ASourceName:UnicodeString);overload;
-    property SourceName:UnicodeString read FSourceName;
+    property SourceName:UnicodeString read FText;
   end;
 
   //多线程注解，指明某个函数是否可以在多线程中直接访问，三种模式：主线程（默认）、单线程（可后台单线程跑）、多线程
@@ -149,14 +164,6 @@ type
   end;
 
 implementation
-
-{ PathAttribute }
-
-constructor PathAttribute.Create(const APath: String);
-begin
-  inherited Create;
-  FPath := APath;
-end;
 
 { AliasAttribute }
 
@@ -201,54 +208,6 @@ begin
   FValue := AValue;
 end;
 
-{ ValueSourceAttribute }
-
-constructor ValueSourceAttribute.Create(ASourceName: UnicodeString);
-begin
-  inherited Create;
-  FSourceName := ASourceName;
-end;
-
-{ MethodNameAttribute }
-
-constructor MethodNameAttribute.Create(const AName: UnicodeString);
-begin
-  inherited Create;
-  FMethodName := AName;
-end;
-
-{ ProtocolAttribute }
-
-constructor ProtocolAttribute.Create(const AProtocolName: UnicodeString);
-begin
-  inherited Create;
-  FProtocolName := AProtocolName;
-end;
-
-{ BasePathAttribute }
-
-constructor BasePathAttribute.Create(const APath: UnicodeString);
-begin
-  inherited Create;
-  FPath := APath;
-end;
-
-{ TextFormatAttribute }
-
-constructor TextFormatAttribute.Create(const AFormat: UnicodeString);
-begin
-  inherited Create;
-  FFormat := AFormat;
-end;
-
-{ TextTransformAttribute }
-
-constructor TextTransformAttribute.Create(const AName: UnicodeString);
-begin
-  inherited Create;
-  FName := AName;
-end;
-
 { ValidatorAttribute }
 
 constructor ValidatorAttribute.Create(const AName,AErrorMsg:UnicodeString);
@@ -273,6 +232,22 @@ constructor ThreadModeAttribute.Create(AMode: TQMultiThreadMode);
 begin
   inherited Create;
   FMode := AMode;
+end;
+
+{ TQTextAttribute }
+
+constructor TQTextAttribute.Create(const AText: UnicodeString);
+begin
+  inherited Create;
+  FText := AText;
+end;
+
+{ ValueListAttribute<TQValueType> }
+
+constructor ValueListAttribute<TQValueType>.Create(const AValues: TArray<TQValueType>);
+begin
+  inherited Create;
+  FValues := Copy(AValues);
 end;
 
 end.
