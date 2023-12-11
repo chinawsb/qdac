@@ -2,13 +2,13 @@ program validators;
 
 uses
   Vcl.Forms,
-  main in 'main.pas' {Form4};
+  MainFrm in 'MainFrm.pas' {MainForm};
 
 {$R *.res}
 
 begin
   Application.Initialize;
   Application.MainFormOnTaskbar := True;
-  Application.CreateForm(TForm4, Form4);
+  Application.CreateForm(TMainForm, MainForm);
   Application.Run;
 end.
