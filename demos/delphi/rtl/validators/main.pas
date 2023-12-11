@@ -22,6 +22,7 @@ implementation
 
 {$R *.dfm}
 
+//创建
 procedure TForm4.FormCreate(Sender: TObject);
 begin
   //使用Custom来检验值
