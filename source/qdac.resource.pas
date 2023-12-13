@@ -14,6 +14,9 @@ resourcestring
   SChineseId = '中国大陆居民身份证号';
   SIPV4 = 'IPV4';
   SIPV6 = 'IPV6';
+  // Generics error
+  STypeNotClass = '指定的类型 %s 不是一个类';
+  SCantCreateSingletonInstance='无法创建类 %s 的实例';
 implementation
 
 end.
