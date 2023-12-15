@@ -197,6 +197,7 @@ type
     procedure Register(const AName: UnicodeString; AValidator: TQValidatorType);
   end;
 
+  //验证类本体，功能都在此类中实现1
   TQValidators = class sealed 
   private 
     class var
