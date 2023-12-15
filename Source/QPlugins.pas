@@ -1174,6 +1174,7 @@ begin
   end;
 end;
 
+//在指定的父结点下，查找指定路径的服务
 function FindService(AParent: IQServices; APath: PWideChar): IQService;
 var
   I: Integer;
@@ -1181,6 +1182,7 @@ var
   AMgr: IQPluginsManager;
   AFound: Boolean;
 begin
+  //判断路径存在以及_PluginsManager存在
   if Assigned(APath) and Assigned(_PluginsManager) then
   begin
     AMgr := PluginsManager;
@@ -1338,17 +1340,24 @@ begin
     Result := false;
 end;
 
+// 通过路径获取指定的服务接口实例的实现部分
 function TQServices.ByPath(APath: PWideChar): IQService;
 begin
+  //判断的服务接口存在如：'/Services/Docks/Forms'
   if (APath <> nil) then
   begin
+    // 判断路径第一个字节是不是单斜杠
     if APath^ = PathDelimiter^ then
     begin
+      //APath路径内容从单斜杠后面开始
       Inc(APath);
+      //在指定的父结点下，查找指定路径的服务
       Result := FindService(PluginsManager as IQServices, APath);
     end
     else
+      //路径第一个字节不是单斜杠就寻找路径对应的接口服务
       Result := FindService(Self, APath);
+    // 接口服务存在，就返回实例
     if Assigned(Result) then
       Result := Result.GetInstance;
   end
@@ -1538,6 +1547,7 @@ begin
   try
     for I := FRouters.Count - 1 downto 0 do
     begin
+      //
       if Supports(FRouters[I], IQServices, AServices) then
       begin
         Result := AServices.ByPath(APath);
