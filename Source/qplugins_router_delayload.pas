@@ -29,6 +29,7 @@ type
     destructor Destroy; override;
     function ByPath(APath: PWideChar): IQService; override; stdcall;
     function ById(const AId: TGuid; ADoGetInstance: Boolean): IQService; override; stdcall;
+    procedure SetConfigText(const AText: string); stdcall;
     property ConfigFile: QStringW read FConfigFile write SetConfigFile;
   end;
 
@@ -167,6 +168,14 @@ begin
       FConfig.LoadFromFile(Value)
     else
       FConfig.Clear;
+  end;
+end;
+
+procedure TQDelayRouter.SetConfigText(const AText: string);
+begin
+  try
+    FConfig.Parse(AText);
+  except
   end;
 end;
 
