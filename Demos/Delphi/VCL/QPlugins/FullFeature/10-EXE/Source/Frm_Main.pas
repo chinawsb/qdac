@@ -132,28 +132,29 @@ end;
 
 procedure TForm_Main.FormCreate(Sender: TObject);
 var
-  m_GUID: TGUID;
   m_DelayRouter: TQDelayRouter;
   m_DelayJson: string;
 begin
   // 检测内存泄漏
   ReportMemoryLeaksOnShutdown := True;
 
-  // 创建GUID唯一
-  CreateGUID(m_GUID);
-  // 创建延时加载的配置文件
-  m_DelayJson := CreateDelayJson(m_GUID, 'Services/Functest/Dll01',
-    'Loader_DLL', 'DLL.dll');
-  Memo1.Lines.Add(m_DelayJson);
+  m_DelayJson := '''
+            [
+                {
+                    "Id": "{AF7344DC-4CB1-44D2-BAB4-3F4E75B24C0F}",
+                    "Path": "Services/Functest/Dll01",
+                    "Loader": "Loader_DLL",
+                    "Module": "DLL.dll"
+                }
+            ]
+  ''';
 
-  // 配置文件保存到本地
-  TFile.WriteAllText(DllPath + 'delayload.config', m_DelayJson);
   // 加载同目录DLL文件
   PluginsManager.Loaders.Add(TQDLLLoader.Create(DllPath, '.dll'));
   // 创建延迟加载服务
   m_DelayRouter := TQDelayRouter.Create;
-  m_DelayRouter.ConfigFile := ExtractFilePath(Application.ExeName) +
-    'delayload.config';
+  // 插件文本内容
+  m_DelayRouter.SetConfigText(m_DelayJson);
   // 添加一个子服务接口实例
   PluginsManager.Routers.Add(m_DelayRouter);
 
