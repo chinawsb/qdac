@@ -7642,6 +7642,8 @@ begin
   AtomicIncrement(FRuns);
   if FWaitResult = wrIOCompletion then
   begin
+    if AJob.IsTerminated then
+      Cancel;
     AIsDone := false;
     FLocker.Enter;
     try
