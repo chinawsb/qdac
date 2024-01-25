@@ -1302,6 +1302,7 @@ end;
 
 destructor TQLogCastor.Destroy;
 begin
+  ClearWriters;
 {$IFDEF NEXTGEN}
   FNotifyHandle.DisposeOf;
   FCS.DisposeOf;
