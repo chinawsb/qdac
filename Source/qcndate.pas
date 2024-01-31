@@ -8,7 +8,7 @@ interface
 
   本单元Delphi接口由swish设计实现，版权归swish所有。
 
-更新日志
+  更新日志
   2015.2.26
   ==========
   * 修正了在2007下的编译警告（感谢麦子仲肥）
@@ -26,20 +26,14 @@ type
   end;
 
 const
-  CnDayNames: array [1 .. 30] of QStringW = ('初一', '初二', '初三', '初四', '初五', '初六',
-    '初七', '初八', '初九', '初十', '十一', '十二', '十三', '十四', '十五', '十六', '十七', '十八',
-    '十九', '二十', '廿一', '廿二', '廿三', '廿四', '廿五', '廿六', '廿七', '廿八', '廿九', '三十');
-  CnMonthNames: array [1 .. 12] of QStringW = ('正月', '二月', '三月', '四月', '五月',
-    '六月', '七月', '八月', '九月', '十月', '冬月', '腊月');
-  CnSkyNames: array [1 .. 10] of QStringW = ('甲', '乙', '丙', '丁', '戊', '己', '庚',
-    '辛', '壬', '癸');
-  CnEarthNames: array [1 .. 12] of QStringW = ('子', '丑', '寅', '卯', '辰', '巳',
-    '午', '未', '申', '酉', '戌', '亥');
-  CnAnimals: array [1 .. 12] of QStringW = ('鼠', '牛', '虎', '兔', '龙', '蛇', '马',
-    '羊', '猴', '鸡', '狗', '猪');
-  CnSolarTerms: array [0 .. 24] of QStringW = ('','小寒', '大寒', '立春', '雨水', '惊蛰',
-    '春分', '清明', '谷雨', '立夏', '小满', '芒种', '夏至', '小暑', '大暑', '立秋', '处暑', '白露',
-    '秋分', '寒露', '霜降', '立冬', '小雪', '大雪', '冬至');
+  CnDayNames: array [1 .. 30] of QStringW = ('初一', '初二', '初三', '初四', '初五', '初六', '初七', '初八', '初九', '初十', '十一', '十二',
+    '十三', '十四', '十五', '十六', '十七', '十八', '十九', '二十', '廿一', '廿二', '廿三', '廿四', '廿五', '廿六', '廿七', '廿八', '廿九', '三十');
+  CnMonthNames: array [1 .. 12] of QStringW = ('正月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '冬月', '腊月');
+  CnSkyNames: array [1 .. 10] of QStringW = ('甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸');
+  CnEarthNames: array [1 .. 12] of QStringW = ('子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥');
+  CnAnimals: array [1 .. 12] of QStringW = ('鼠', '牛', '虎', '兔', '龙', '蛇', '马', '羊', '猴', '鸡', '狗', '猪');
+  CnSolarTerms: array [0 .. 24] of QStringW = ('', '小寒', '大寒', '立春', '雨水', '惊蛰', '春分', '清明', '谷雨', '立夏', '小满', '芒种',
+    '夏至', '小暑', '大暑', '立秋', '处暑', '白露', '秋分', '寒露', '霜降', '立冬', '小雪', '大雪', '冬至');
   CnWeekNames: array [1 .. 7] of QStringW = ('一', '二', '三', '四', '五', '六', '日');
   /// <summary>
   /// 将指定的农历年月日编码为一个TCnDate变量
@@ -156,8 +150,7 @@ function CnAnimalOf(ADate: TDateTime): QStringW; overload;
 /// <param name="AName">节气名称</param>
 /// </params>
 /// <returns>返回对应的阳历日期</returns>
-function DateOfCnSolarTerm(AYear: Smallint; AName: QStringW)
-  : TDateTime; overload;
+function DateOfCnSolarTerm(AYear: Smallint; AName: QStringW): TDateTime; overload;
 /// <summary>获取指定阳历日期对应的节气序号</summary>
 /// <params>
 /// <param name="AYear">阳历年份</param>
@@ -238,13 +231,12 @@ const
   // 农历月份对应的bit为1则该月为30日，否则为29日
   // 第四字节为闰月月份
   // BaseDate='2000/02/04';//2000立春
-  BaseAnimalDate  = 1972; // 1972年支为子(是鼠年)
+  BaseAnimalDate = 1972; // 1972年支为子(是鼠年)
   BaseSkyStemDate = 1974; // 1974年干为甲
-  START_YEAR      = 1901;
-  END_YEAR        = 2050;
+  START_YEAR = 1901;
+  END_YEAR = 2050;
 
-  gLunarHolDay: array [0 .. 1799] of Byte = ($96, $B4, $96, $A6, $97, $97, $78,
-    $79, $79, $69, $78, $77, // 1901
+  gLunarHolDay: array [0 .. 1799] of Byte = ($96, $B4, $96, $A6, $97, $97, $78, $79, $79, $69, $78, $77, // 1901
     $96, $A4, $96, $96, $97, $87, $79, $79, $79, $69, $78, $78, // 1902
     $96, $A5, $87, $96, $87, $87, $79, $69, $69, $69, $78, $78, // 1903
     $86, $A5, $96, $A5, $96, $97, $88, $78, $78, $79, $78, $87, // 1904
@@ -395,65 +387,50 @@ const
     $A4, $C3, $A5, $A5, $A5, $A6, $97, $87, $87, $78, $87, $86, // 2049
     $A5, $C3, $A5, $B5, $A6, $A6, $87, $88, $78, $78, $87, $87); // 2050
 
-  CnData: array [0 .. 599] of Byte = ($0B, $52, $BA, $00, $16, $A9, $5D, $00,
-    $83, $A9, $37, $05, $0E, $74, $9B, $00, $1A, $B6, $55, $00, $87, $B5, $55,
-    $04, $11, $55, $AA, $00, $1C, $A6, $B5, $00, $8A, $A5, $75, $02, $14, $52,
-    $BA, $00, $81, $52, $6E, $06, $0D, $E9, $37, $00, $18, $74, $97, $00, $86,
-    $EA, $96, $05, $10, $6D, $55, $00, $1A, $35, $AA, $00, $88, $4B, $6A, $02,
-    $13, $A5, $6D, $00, $1E, $D2, $6E, $07, $0B, $D2, $5E, $00, $17, $E9, $2E,
-    $00, $84, $D9, $2D, $05, $0F, $DA, $95, $00, $19, $5B, $52, $00, $87, $56,
-    $D4, $04, $11, $4A, $DA, $00, $1C, $A5, $5D, $00, $89, $A4, $BD, $02, $15,
-    $D2, $5D, $00, $82, $B2, $5B, $06, $0D, $B5, $2B, $00, $18, $BA, $95, $00,
-    $86, $B6, $A5, $05, $10, $56, $B4, $00, $1A, $4A, $DA, $00, $87, $49, $BA,
-    $03, $13, $A4, $BB, $00, $1E, $B2, $5B, $07, $0B, $72, $57, $00, $16, $75,
-    $2B, $00, $84, $6D, $2A, $06, $0F, $AD, $55, $00, $19, $55, $AA, $00, $86,
-    $55, $6C, $04, $12, $C9, $76, $00, $1C, $64, $B7, $00, $8A, $E4, $AE, $02,
-    $15, $EA, $56, $00, $83, $DA, $55, $07, $0D, $5B, $2A, $00, $18, $AD, $55,
-    $00, $85, $AA, $D5, $05, $10, $53, $6A, $00, $1B, $A9, $6D, $00, $88, $A9,
-    $5D, $03, $13, $D4, $AE, $00, $81, $D4, $AB, $08, $0C, $BA, $55, $00, $16,
-    $5A, $AA, $00, $83, $56, $AA, $06, $0F, $AA, $D5, $00, $19, $52, $DA, $00,
-    $86, $52, $BA, $04, $11, $A9, $5D, $00, $1D, $D4, $9B, $00, $8A, $74, $9B,
-    $03, $15, $B6, $55, $00, $82, $AD, $55, $07, $0D, $55, $AA, $00, $18, $A5,
-    $B5, $00, $85, $A5, $75, $05, $0F, $52, $B6, $00, $1B, $69, $37, $00, $89,
-    $E9, $37, $04, $13, $74, $97, $00, $81, $EA, $96, $08, $0C, $6D, $52, $00,
-    $16, $2D, $AA, $00, $83, $4B, $6A, $06, $0E, $A5, $6D, $00, $1A, $D2, $6E,
-    $00, $87, $D2, $5E, $04, $12, $E9, $2E, $00, $1D, $EC, $96, $0A, $0B, $DA,
-    $95, $00, $15, $5B, $52, $00, $82, $56, $D2, $06, $0C, $2A, $DA, $00, $18,
-    $A4, $DD, $00, $85, $A4, $BD, $05, $10, $D2, $5D, $00, $1B, $D9, $2D, $00,
-    $89, $B5, $2B, $03, $14, $BA, $95, $00, $81, $B5, $95, $08, $0B, $56, $B2,
-    $00, $16, $2A, $DA, $00, $83, $49, $B6, $05, $0E, $64, $BB, $00, $19, $B2,
-    $5B, $00, $87, $6A, $57, $04, $12, $75, $2B, $00, $1D, $B6, $95, $00, $8A,
-    $AD, $55, $02, $15, $55, $AA, $00, $82, $55, $6C, $07, $0D, $C9, $76, $00,
-    $17, $64, $B7, $00, $86, $E4, $AE, $05, $11, $EA, $56, $00, $1B, $6D, $2A,
-    $00, $88, $5A, $AA, $04, $14, $AD, $55, $00, $81, $AA, $D5, $09, $0B, $52,
-    $EA, $00, $16, $A9, $6D, $00, $84, $A9, $5D, $06, $0F, $D4, $AE, $00, $1A,
-    $EA, $4D, $00, $87, $BA, $55, $04, $12, $5A, $AA, $00, $1D, $AB, $55, $00,
-    $8A, $A6, $D5, $02, $14, $52, $DA, $00, $82, $52, $BA, $06, $0D, $A9, $3B,
-    $00, $18, $B4, $9B, $00, $85, $74, $9B, $05, $11, $B5, $4D, $00, $1C, $D6,
-    $A9, $00, $88, $35, $AA, $03, $13, $A5, $B5, $00, $81, $A5, $75, $0B, $0B,
-    $52, $B6, $00, $16, $69, $37, $00, $84, $E9, $2F, $06, $10, $F4, $97, $00,
-    $1A, $75, $4B, $00, $87, $6D, $52, $05, $11, $2D, $69, $00, $1D, $95, $B5,
-    $00, $8A, $A5, $6D, $02, $15, $D2, $6E, $00, $82, $D2, $5E, $07, $0E, $E9,
-    $2E, $00, $19, $EA, $96, $00, $86, $DA, $95, $05, $10, $5B, $4A, $00, $1C,
-    $AB, $69, $00, $88, $2A, $D8, $03);
+  CnData: array [0 .. 599] of Byte = ($0B, $52, $BA, $00, $16, $A9, $5D, $00, $83, $A9, $37, $05, $0E, $74, $9B, $00,
+    $1A, $B6, $55, $00, $87, $B5, $55, $04, $11, $55, $AA, $00, $1C, $A6, $B5, $00, $8A, $A5, $75, $02, $14, $52, $BA,
+    $00, $81, $52, $6E, $06, $0D, $E9, $37, $00, $18, $74, $97, $00, $86, $EA, $96, $05, $10, $6D, $55, $00, $1A, $35,
+    $AA, $00, $88, $4B, $6A, $02, $13, $A5, $6D, $00, $1E, $D2, $6E, $07, $0B, $D2, $5E, $00, $17, $E9, $2E, $00, $84,
+    $D9, $2D, $05, $0F, $DA, $95, $00, $19, $5B, $52, $00, $87, $56, $D4, $04, $11, $4A, $DA, $00, $1C, $A5, $5D, $00,
+    $89, $A4, $BD, $02, $15, $D2, $5D, $00, $82, $B2, $5B, $06, $0D, $B5, $2B, $00, $18, $BA, $95, $00, $86, $B6, $A5,
+    $05, $10, $56, $B4, $00, $1A, $4A, $DA, $00, $87, $49, $BA, $03, $13, $A4, $BB, $00, $1E, $B2, $5B, $07, $0B, $72,
+    $57, $00, $16, $75, $2B, $00, $84, $6D, $2A, $06, $0F, $AD, $55, $00, $19, $55, $AA, $00, $86, $55, $6C, $04, $12,
+    $C9, $76, $00, $1C, $64, $B7, $00, $8A, $E4, $AE, $02, $15, $EA, $56, $00, $83, $DA, $55, $07, $0D, $5B, $2A, $00,
+    $18, $AD, $55, $00, $85, $AA, $D5, $05, $10, $53, $6A, $00, $1B, $A9, $6D, $00, $88, $A9, $5D, $03, $13, $D4, $AE,
+    $00, $81, $D4, $AB, $08, $0C, $BA, $55, $00, $16, $5A, $AA, $00, $83, $56, $AA, $06, $0F, $AA, $D5, $00, $19, $52,
+    $DA, $00, $86, $52, $BA, $04, $11, $A9, $5D, $00, $1D, $D4, $9B, $00, $8A, $74, $9B, $03, $15, $B6, $55, $00, $82,
+    $AD, $55, $07, $0D, $55, $AA, $00, $18, $A5, $B5, $00, $85, $A5, $75, $05, $0F, $52, $B6, $00, $1B, $69, $37, $00,
+    $89, $E9, $37, $04, $13, $74, $97, $00, $81, $EA, $96, $08, $0C, $6D, $52, $00, $16, $2D, $AA, $00, $83, $4B, $6A,
+    $06, $0E, $A5, $6D, $00, $1A, $D2, $6E, $00, $87, $D2, $5E, $04, $12, $E9, $2E, $00, $1D, $EC, $96, $0A, $0B, $DA,
+    $95, $00, $15, $5B, $52, $00, $82, $56, $D2, $06, $0C, $2A, $DA, $00, $18, $A4, $DD, $00, $85, $A4, $BD, $05, $10,
+    $D2, $5D, $00, $1B, $D9, $2D, $00, $89, $B5, $2B, $03, $14, $BA, $95, $00, $81, $B5, $95, $08, $0B, $56, $B2, $00,
+    $16, $2A, $DA, $00, $83, $49, $B6, $05, $0E, $64, $BB, $00, $19, $B2, $5B, $00, $87, $6A, $57, $04, $12, $75, $2B,
+    $00, $1D, $B6, $95, $00, $8A, $AD, $55, $02, $15, $55, $AA, $00, $82, $55, $6C, $07, $0D, $C9, $76, $00, $17, $64,
+    $B7, $00, $86, $E4, $AE, $05, $11, $EA, $56, $00, $1B, $6D, $2A, $00, $88, $5A, $AA, $04, $14, $AD, $55, $00, $81,
+    $AA, $D5, $09, $0B, $52, $EA, $00, $16, $A9, $6D, $00, $84, $A9, $5D, $06, $0F, $D4, $AE, $00, $1A, $EA, $4D, $00,
+    $87, $BA, $55, $04, $12, $5A, $AA, $00, $1D, $AB, $55, $00, $8A, $A6, $D5, $02, $14, $52, $DA, $00, $82, $52, $BA,
+    $06, $0D, $A9, $3B, $00, $18, $B4, $9B, $00, $85, $74, $9B, $05, $11, $B5, $4D, $00, $1C, $D6, $A9, $00, $88, $35,
+    $AA, $03, $13, $A5, $B5, $00, $81, $A5, $75, $0B, $0B, $52, $B6, $00, $16, $69, $37, $00, $84, $E9, $2F, $06, $10,
+    $F4, $97, $00, $1A, $75, $4B, $00, $87, $6D, $52, $05, $11, $2D, $69, $00, $1D, $95, $B5, $00, $8A, $A5, $6D, $02,
+    $15, $D2, $6E, $00, $82, $D2, $5E, $07, $0E, $E9, $2E, $00, $19, $EA, $96, $00, $86, $DA, $95, $05, $10, $5B, $4A,
+    $00, $1C, $AB, $69, $00, $88, $2A, $D8, $03);
 
 function CnDate(Y: Word; M, D: Shortint): TCnDate;
 begin
-if (Y < 1901) or (Y > 2050) then
-  raise EConvertError.CreateFmt('农历年份范围无效，只支持 1901-2050 年间的农历范围。', [Y]);
-if (M > 12) or (M = 0) or (M < -12) then
-  raise EConvertError.CreateFmt('农历月份范围无效，只支持 -12~-1,1-12 之间的有效值。', [M]);
-if (D < 1) or (D > 30) then
-  raise EConvertError.CreateFmt('农历日值范围无效，只支持 1-30 之间的有效值。', [M]);
-Result.Year := Y;
-Result.Day := CnMonthDays(Y, M);
-if Result.Day = 0 then
-  raise Exception.CreateFmt('指定的年份 %d 不存在 %s 月', [Y, CnMonthName(M)]);
-Result.Month := M;
-if Byte(D) > Result.Day then
-  raise Exception.CreateFmt('指定的 %d 年 %s 月 %d 日无效，该月只有 %d 天',
-    [Y, CnMonthName(M), Result.Day]);
-Result.Day := D;
+  if (Y < 1901) or (Y > 2050) then
+    raise EConvertError.CreateFmt('农历年份范围无效，只支持 1901-2050 年间的农历范围。', [Y]);
+  if (M > 12) or (M = 0) or (M < -12) then
+    raise EConvertError.CreateFmt('农历月份范围无效，只支持 -12~-1,1-12 之间的有效值。', [M]);
+  if (D < 1) or (D > 30) then
+    raise EConvertError.CreateFmt('农历日值范围无效，只支持 1-30 之间的有效值。', [M]);
+  Result.Year := Y;
+  Result.Day := CnMonthDays(Y, M);
+  if Result.Day = 0 then
+    raise Exception.CreateFmt('指定的年份 %d 不存在 %s 月', [Y, CnMonthName(M)]);
+  Result.Month := M;
+  if Byte(D) > Result.Day then
+    raise Exception.CreateFmt('指定的 %d 年 %s 月 %d 日无效，该月只有 %d 天', [Y, CnMonthName(M), Result.Day]);
+  Result.Day := D;
 end;
 
 // 日期是该年的第几天，1月1日为第一天
@@ -461,26 +438,26 @@ function DaysNumberOfDate(yyyy, mm, dd: Word): Integer; overload;
 var
   I: Integer;
 begin
-Result := 0;
-for I := 1 to mm - 1 do
-  Inc(Result, MonthDays[IsLeapYear(yyyy), I]);
-Inc(Result, dd);
+  Result := 0;
+  for I := 1 to mm - 1 do
+    Inc(Result, MonthDays[IsLeapYear(yyyy), I]);
+  Inc(Result, dd);
 end;
 
 function DaysNumberOfDate(ADate: TDateTime): Integer; overload;
 var
   yyyy, mm, dd: Word;
 begin
-DecodeDate(ADate, yyyy, mm, dd);
-Result := DaysNumberOfDate(yyyy, mm, dd);
+  DecodeDate(ADate, yyyy, mm, dd);
+  Result := DaysNumberOfDate(yyyy, mm, dd);
 end;
 
 function ToCnDate(ADate: TDateTime): TCnDate;
 var
   yyyy, mm, dd: Word;
 begin
-DecodeDate(ADate, yyyy, mm, dd);
-Result := ToCnDate(yyyy, mm, dd);
+  DecodeDate(ADate, yyyy, mm, dd);
+  Result := ToCnDate(yyyy, mm, dd);
 end;
 
 function CnMonthDays(Y: Word; M: Shortint): Byte;
@@ -491,55 +468,58 @@ var
   LeapMonth: Integer;
   CnMonthData: Word;
 begin
-Result := 0;
-if (Y < 1901) or (Y > 2050) then
-  Exit;
-Bytes[0] := CnData[(Y - 1901) * 4];
-Bytes[1] := CnData[(Y - 1901) * 4 + 1];
-Bytes[2] := CnData[(Y - 1901) * 4 + 2];
-Bytes[3] := CnData[(Y - 1901) * 4 + 3];
-if (Bytes[0] and $80) <> 0 then
-  CnMonth[0] := 12
-else
-  CnMonth[0] := 11;
-CnMonthData := Bytes[1];
-CnMonthData := CnMonthData shl 8;
-CnMonthData := CnMonthData or Bytes[2];
-LeapMonth := Bytes[3];
-for I := 15 downto 0 do
-  begin
-  CnMonthDays[15 - I] := 29;
-  if ((1 shl I) and CnMonthData) <> 0 then
-    Inc(CnMonthDays[15 - I]);
-  if CnMonth[15 - I] = LeapMonth then
-    CnMonth[15 - I + 1] := -LeapMonth
+  Result := 0;
+  if (Y < 1901) or (Y > 2050) then
+    Exit;
+  Bytes[0] := CnData[(Y - 1901) * 4];
+  Bytes[1] := CnData[(Y - 1901) * 4 + 1];
+  Bytes[2] := CnData[(Y - 1901) * 4 + 2];
+  Bytes[3] := CnData[(Y - 1901) * 4 + 3];
+  if (Bytes[0] and $80) <> 0 then
+    CnMonth[0] := 12
   else
+    CnMonth[0] := 11;
+  CnMonthData := Bytes[1];
+  CnMonthData := CnMonthData shl 8;
+  CnMonthData := CnMonthData or Bytes[2];
+  LeapMonth := Bytes[3];
+  for I := 15 downto 0 do
+  begin
+    CnMonthDays[15 - I] := 29;
+    if ((1 shl I) and CnMonthData) <> 0 then
+      Inc(CnMonthDays[15 - I]);
+    if I > 0 then
     begin
-    if CnMonth[15 - I] < 0 then // 上月为闰月
-      CnMonth[15 - I + 1] := -CnMonth[15 - I] + 1
-    else
-      CnMonth[15 - I + 1] := CnMonth[15 - I] + 1;
-    if CnMonth[15 - I + 1] > 12 then
-      CnMonth[15 - I + 1] := 1;
+      if CnMonth[15 - I] = LeapMonth then
+        CnMonth[15 - I + 1] := -LeapMonth
+      else
+      begin
+        if CnMonth[15 - I] < 0 then // 上月为闰月
+          CnMonth[15 - I + 1] := -CnMonth[15 - I] + 1
+        else
+          CnMonth[15 - I + 1] := CnMonth[15 - I] + 1;
+        if CnMonth[15 - I + 1] > 12 then
+          CnMonth[15 - I + 1] := 1;
+      end;
     end;
   end;
-I := 0;
-while I < 16 do
+  I := 0;
+  while I < 16 do
   begin
-  if CnMonth[I] = 1 then // 1月
+    if CnMonth[I] = 1 then // 1月
     begin
-    while I < 16 do
+      while I < 16 do
       begin
-      if CnMonth[I] = M then
+        if CnMonth[I] = M then
         begin
-        Result := CnMonthDays[I];
-        Break;
+          Result := CnMonthDays[I];
+          Break;
         end;
-      Inc(I);
+        Inc(I);
       end;
-    Break;
+      Break;
     end;
-  Inc(I);
+    Inc(I);
   end;
 end;
 
@@ -553,69 +533,71 @@ var
   ACnEnd: TCnDate;
   DaysCount, CnDaysCount, ResultMonth, ResultDay: Integer;
 begin
-if (yyyy < 1901) or (yyyy > 2050) then
+  if (yyyy < 1901) or (yyyy > 2050) then
   begin
-  Result.Value := 0;
-  Exit;
+    Result.Value := 0;
+    Exit;
   end;
-Bytes[0] := CnData[(yyyy - 1901) * 4];
-Bytes[1] := CnData[(yyyy - 1901) * 4 + 1];
-Bytes[2] := CnData[(yyyy - 1901) * 4 + 2];
-Bytes[3] := CnData[(yyyy - 1901) * 4 + 3];
-if (Bytes[0] and $80) <> 0 then
-  CnMonth[0] := 12
-else
-  CnMonth[0] := 11;
-CnBeginDay := (Bytes[0] and $7F);
-CnMonthData := Bytes[1];
-CnMonthData := CnMonthData shl 8;
-CnMonthData := CnMonthData or Bytes[2];
-LeapMonth := Bytes[3];
-for I := 15 downto 0 do
-  begin
-  CnMonthDays[15 - I] := 29;
-  if ((1 shl I) and CnMonthData) <> 0 then
-    Inc(CnMonthDays[15 - I]);
-  if CnMonth[15 - I] = LeapMonth then
-    CnMonth[15 - I + 1] := -LeapMonth
+  Bytes[0] := CnData[(yyyy - 1901) * 4];
+  Bytes[1] := CnData[(yyyy - 1901) * 4 + 1];
+  Bytes[2] := CnData[(yyyy - 1901) * 4 + 2];
+  Bytes[3] := CnData[(yyyy - 1901) * 4 + 3];
+  if (Bytes[0] and $80) <> 0 then
+    CnMonth[0] := 12
   else
+    CnMonth[0] := 11;
+  CnBeginDay := (Bytes[0] and $7F);
+  CnMonthData := Bytes[1];
+  CnMonthData := CnMonthData shl 8;
+  CnMonthData := CnMonthData or Bytes[2];
+  LeapMonth := Bytes[3];
+  for I := 15 downto 0 do
+  begin
+    CnMonthDays[15 - I] := 29;
+    if ((1 shl I) and CnMonthData) <> 0 then
+      Inc(CnMonthDays[15 - I]);
+    if I > 0 then
     begin
-    if CnMonth[15 - I] < 0 then // 上月为闰月
-      CnMonth[15 - I + 1] := -CnMonth[15 - I] + 1
+      if CnMonth[15 - I] = LeapMonth then
+        CnMonth[15 - I + 1] := -LeapMonth
+      else
+      begin
+        if CnMonth[15 - I] < 0 then // 上月为闰月
+          CnMonth[15 - I + 1] := -CnMonth[15 - I] + 1
+        else
+          CnMonth[15 - I + 1] := CnMonth[15 - I] + 1;
+        if CnMonth[15 - I + 1] > 12 then
+          CnMonth[15 - I + 1] := 1;
+      end;
+    end;
+  end;
+  DaysCount := DaysNumberOfDate(yyyy, mm, dd) - 1;
+  if DaysCount <= (CnMonthDays[0] - CnBeginDay) then
+  begin
+    ACnEnd := ToCnDate(EncodeDate(yyyy - 1, 12, 31));
+    if (yyyy > 1901) and (ACnEnd.Month < 0) then
+      ResultMonth := -CnMonth[0]
     else
-      CnMonth[15 - I + 1] := CnMonth[15 - I] + 1;
-    if CnMonth[15 - I + 1] > 12 then
-      CnMonth[15 - I + 1] := 1;
-    end;
-  end;
-DaysCount := DaysNumberOfDate(yyyy, mm, dd) - 1;
-if DaysCount <= (CnMonthDays[0] - CnBeginDay) then
-  begin
-  ACnEnd := ToCnDate(EncodeDate(yyyy - 1, 12, 31));
-  if (yyyy > 1901) and (ACnEnd.Month < 0) then
-    ResultMonth := -CnMonth[0]
-  else
-    ResultMonth := CnMonth[0];
-  ResultDay := CnBeginDay + DaysCount;
+      ResultMonth := CnMonth[0];
+    ResultDay := CnBeginDay + DaysCount;
   end
-else
+  else
   begin
-  CnDaysCount := CnMonthDays[0] - CnBeginDay;
-  I := 1;
-  while (CnDaysCount < DaysCount) and
-    (CnDaysCount + CnMonthDays[I] < DaysCount) do
+    CnDaysCount := CnMonthDays[0] - CnBeginDay;
+    I := 1;
+    while (CnDaysCount < DaysCount) and (CnDaysCount + CnMonthDays[I] < DaysCount) do
     begin
-    Inc(CnDaysCount, CnMonthDays[I]);
-    Inc(I);
+      Inc(CnDaysCount, CnMonthDays[I]);
+      Inc(I);
     end;
-  ResultMonth := CnMonth[I];
-  ResultDay := DaysCount - CnDaysCount;
+    ResultMonth := CnMonth[I];
+    ResultDay := DaysCount - CnDaysCount;
   end;
-if (ResultMonth in [11, 12]) and (mm in [1, 2]) then
-  Dec(yyyy);
-Result.Year := yyyy;
-Result.Month := ResultMonth;
-Result.Day := ResultDay;
+  if (ResultMonth in [11, 12]) and (mm in [1, 2]) then
+    Dec(yyyy);
+  Result.Year := yyyy;
+  Result.Month := ResultMonth;
+  Result.Day := ResultDay;
 end;
 
 function ToEnDate(ADate: TCnDate): TDateTime;
@@ -624,100 +606,100 @@ var
   ADelta: Integer;
   ACnTemp: TCnDate;
 begin
-if ADate.Month > 11 then
-  tempDate := EncodeDate(ADate.Year - 1, ADate.Month, ADate.Day)
-else
-  tempDate := EncodeDate(ADate.Year, abs(ADate.Month), ADate.Day);
-Result := 0;
-while Result = 0 do
-  begin
-  ACnTemp := ToCnDate(tempDate);
-  if ACnTemp.Value = ADate.Value then
-    begin
-    Result := tempDate;
-    Break;
-    end
+  if ADate.Month > 11 then
+    tempDate := EncodeDate(ADate.Year - 1, ADate.Month, ADate.Day)
   else
+    tempDate := EncodeDate(ADate.Year, abs(ADate.Month), ADate.Day);
+  Result := 0;
+  while Result = 0 do
+  begin
+    ACnTemp := ToCnDate(tempDate);
+    if ACnTemp.Value = ADate.Value then
     begin
-    ADelta := 0;
-    if ADate.Year <> ACnTemp.Year then
-      ADelta := (abs(ADate.Month) + 11 - abs(ACnTemp.Month)) * 29
-    else if ADate.Month <> ACnTemp.Month then
+      Result := tempDate;
+      Break;
+    end
+    else
+    begin
+      ADelta := 0;
+      if ADate.Year <> ACnTemp.Year then
+        ADelta := (abs(ADate.Month) + 11 - abs(ACnTemp.Month)) * 29
+      else if ADate.Month <> ACnTemp.Month then
       begin
-      if ADate.Month <> -ACnTemp.Month then
-        ADelta := (abs(ADate.Month) - abs(ACnTemp.Month) - 1) * 29;
+        if ADate.Month <> -ACnTemp.Month then
+          ADelta := (abs(ADate.Month) - abs(ACnTemp.Month) - 1) * 29;
       end;
-    if ADelta = 0 then
-      ADelta := 1;
-    tempDate := IncDay(tempDate, ADelta);
+      if ADelta = 0 then
+        ADelta := 1;
+      tempDate := IncDay(tempDate, ADelta);
     end;
   end;
 end;
 
 function CnYearOf(ADate: TDateTime): Smallint;
 begin
-Result := ToCnDate(ADate).Year;
+  Result := ToCnDate(ADate).Year;
 end;
 
 function CnYearName(ADate: TCnDate): QStringW;
 begin
-Result := CnSkyNames[(ADate.Year - BaseSkyStemDate) mod 10 + 1] + CnEarthNames
-  [(ADate.Year - BaseAnimalDate) mod 12 + 1];
+  Result := CnSkyNames[(ADate.Year - BaseSkyStemDate) mod 10 + 1] + CnEarthNames
+    [(ADate.Year - BaseAnimalDate) mod 12 + 1];
 end;
 
 function CnYearName(ADate: TDateTime): QStringW;
 begin
-Result := CnYearName(ToCnDate(ADate));
+  Result := CnYearName(ToCnDate(ADate));
 end;
 
 function CnMonthOf(ADate: TDateTime): Shortint;
 begin
-Result := ToCnDate(ADate).Month;
+  Result := ToCnDate(ADate).Month;
 end;
 
 function CnMonthName(ADate: TCnDate): QStringW;
 begin
-if ADate.Month < 0 then
-  Result := '闰' + CnMonthNames[-ADate.Month]
-else
-  Result := CnMonthNames[ADate.Month]
+  if ADate.Month < 0 then
+    Result := '闰' + CnMonthNames[-ADate.Month]
+  else
+    Result := CnMonthNames[ADate.Month]
 end;
 
 function CnMonthName(ADate: TDateTime): QStringW;
 begin
-Result := CnMonthName(ToCnDate(ADate));
+  Result := CnMonthName(ToCnDate(ADate));
 end;
 
 function CnDayOf(ADate: TDateTime): Shortint;
 begin
-Result := ToCnDate(ADate).Day;
+  Result := ToCnDate(ADate).Day;
 end;
 
 function CnDayName(ADate: TCnDate): QStringW;
 begin
-Result := CnDayNames[ADate.Day];
+  Result := CnDayNames[ADate.Day];
 end;
 
 function CnDayName(ADate: TDateTime): QStringW;
 begin
-Result := CnDayNames[ToCnDate(ADate).Day];
+  Result := CnDayNames[ToCnDate(ADate).Day];
 end;
 
 function CnHourName(AHour: Byte): QStringW;
 begin
-AHour := ((AHour + 1) shr 1) mod 12; //
-Result := CnEarthNames[AHour + 1];
+  AHour := ((AHour + 1) shr 1) mod 12; //
+  Result := CnEarthNames[AHour + 1];
 end;
 
 function CnAnimalOf(ADate: TCnDate): QStringW;
 begin
-Result := CnEarthNames[(ADate.Year - BaseAnimalDate) mod 12 + 1] +
-  CnAnimals[(ADate.Year - BaseAnimalDate) mod 12 + 1];
+  Result := CnEarthNames[(ADate.Year - BaseAnimalDate) mod 12 + 1] +
+    CnAnimals[(ADate.Year - BaseAnimalDate) mod 12 + 1];
 end;
 
 function CnAnimalOf(ADate: TDateTime): QStringW;
 begin
-Result := CnAnimalOf(ToCnDate(ADate));
+  Result := CnAnimalOf(ToCnDate(ADate));
 end;
 
 function DateOfCnSolarTerm(AYear: Smallint; AName: QStringW): TDateTime;
@@ -727,24 +709,24 @@ var
   ADay: Word;
   I: Integer;
 begin
-AIndex := (AYear - START_YEAR) * 12;
-Result := 0;
-for I := 1 to 12 do
+  AIndex := (AYear - START_YEAR) * 12;
+  Result := 0;
+  for I := 1 to 12 do
   begin
-  AFlags := gLunarHolDay[AIndex + I - 1];
-  ADay := 15 - (AFlags shr 4) and $0F;
-  if CnSolarTerms[((I - 1) shl 1) + 1] = AName then
+    AFlags := gLunarHolDay[AIndex + I - 1];
+    ADay := 15 - (AFlags shr 4) and $0F;
+    if CnSolarTerms[((I - 1) shl 1) + 1] = AName then
     begin
-    Result := EncodeDate(AYear, I, ADay);
-    Break;
-    end
-  else
-    begin
-    ADay := 15 + (AFlags and $0F);
-    if CnSolarTerms[I shl 1] = AName then
-      begin
       Result := EncodeDate(AYear, I, ADay);
       Break;
+    end
+    else
+    begin
+      ADay := 15 + (AFlags and $0F);
+      if CnSolarTerms[I shl 1] = AName then
+      begin
+        Result := EncodeDate(AYear, I, ADay);
+        Break;
       end
     end;
   end;
@@ -752,25 +734,25 @@ end;
 
 function CnSolarTerm(ADate: TCnDate): Shortint;
 begin
-Result := CnSolarTerm(ToEnDate(ADate));
+  Result := CnSolarTerm(ToEnDate(ADate));
 end;
 
 function CnSolarTerm(ADate: TDateTime): Shortint;
 var
   iYear, iMonth, iDay: Word;
 begin
-DecodeDate(ADate, iYear, iMonth, iDay);
-Result := CnSolarTerm(iYear, iMonth, iDay);
+  DecodeDate(ADate, iYear, iMonth, iDay);
+  Result := CnSolarTerm(iYear, iMonth, iDay);
 end;
 
 function CnSolarTermName(ADate: TCnDate): QStringW;
 begin
-Result := CnSolarTerms[CnSolarTerm(ADate)];
+  Result := CnSolarTerms[CnSolarTerm(ADate)];
 end;
 
 function CnSolarTermName(ADate: TDateTime): QStringW;
 begin
-Result := CnSolarTerms[CnSolarTerm(ADate)];
+  Result := CnSolarTerms[CnSolarTerm(ADate)];
 end;
 
 function CnSolarTerm(AYear, AMonth, ADay: Word): Shortint;
@@ -779,62 +761,61 @@ var
   Day: Word;
   AIndex: Integer;
 begin
-AIndex := (AYear - START_YEAR) * 12 + AMonth - 1;
-Flag := gLunarHolDay[AIndex];
-if ADay < 15 then
-  Day := 15 - ((Flag shr 4) and $0F)
-else
-  Day := (Flag and $0F) + 15;
-if ADay = Day then
-  if ADay > 15 then
-    Result := (AMonth - 1) * 2 + 2
+  AIndex := (AYear - START_YEAR) * 12 + AMonth - 1;
+  Flag := gLunarHolDay[AIndex];
+  if ADay < 15 then
+    Day := 15 - ((Flag shr 4) and $0F)
   else
-    Result := (AMonth - 1) * 2 + 1
-else
-  Result := 0;
+    Day := (Flag and $0F) + 15;
+  if ADay = Day then
+    if ADay > 15 then
+      Result := (AMonth - 1) * 2 + 2
+    else
+      Result := (AMonth - 1) * 2 + 1
+  else
+    Result := 0;
 end;
 
 function CalcCnFirstDay(ADate: TDateTime): TDateTime;
 var
   ATemp: TCnDate;
 begin
-ATemp.Year := CnYearOf(ADate);
-ATemp.Month := 1;
-ATemp.Day := 1;
-Result := ToEnDate(ATemp);
+  ATemp.Year := CnYearOf(ADate);
+  ATemp.Month := 1;
+  ATemp.Day := 1;
+  Result := ToEnDate(ATemp);
 end;
 
 function CnWeeksInYear(const ADate: TDateTime): Byte;
 var
   CnStartYearDate, CnEndYearDate: TDateTime;
 begin
-CnStartYearDate := CalcCnFirstDay(ADate);
-CnEndYearDate := CalcCnFirstDay(IncYear(ADate));
-Result := Trunc(CnEndYearDate - CnStartYearDate) div 7;
-if DayOfTheWeek(CnStartYearDate) <> 1 then
-  Inc(Result, 1);
-if DayOfTheWeek(CnEndYearDate) <> 7 then
-  Inc(Result, 1);
+  CnStartYearDate := CalcCnFirstDay(ADate);
+  CnEndYearDate := CalcCnFirstDay(IncYear(ADate));
+  Result := Trunc(CnEndYearDate - CnStartYearDate) div 7;
+  if DayOfTheWeek(CnStartYearDate) <> 1 then
+    Inc(Result, 1);
+  if DayOfTheWeek(CnEndYearDate) <> 7 then
+    Inc(Result, 1);
 end;
 
 function CnIncYear(ADate: TCnDate; ADelta: Integer): TCnDate;
 var
   Days: Integer;
 begin
-Inc(ADate.Year, ADelta);
-if (ADate.Year < 1901) or (ADate.Year > 2050) then
-  raise Exception.Create('指定的年份范围越界，农历只支持 1901-2050年范围。');
-Result.Year := ADate.Year;
-if ADate.Month < 0 then
-  Result.Month := -ADate.Month
-else
-  Result.Month := ADate.Month;
-Days := CnMonthDays(Result.Year, Result.Month);
-if ADate.Day <= Days then
-  Result.Day := ADate.Day
-else
-  raise Exception.CreateFmt('编码日期时出错，无法获取 %d 年 %s 月的天数。',
-    [Result.Year, CnMonthName(Result.Month)]);
+  Inc(ADate.Year, ADelta);
+  if (ADate.Year < 1901) or (ADate.Year > 2050) then
+    raise Exception.Create('指定的年份范围越界，农历只支持 1901-2050年范围。');
+  Result.Year := ADate.Year;
+  if ADate.Month < 0 then
+    Result.Month := -ADate.Month
+  else
+    Result.Month := ADate.Month;
+  Days := CnMonthDays(Result.Year, Result.Month);
+  if ADate.Day <= Days then
+    Result.Day := ADate.Day
+  else
+    raise Exception.CreateFmt('编码日期时出错，无法获取 %d 年 %s 月的天数。', [Result.Year, CnMonthName(Result.Month)]);
 end;
 
 function CnIncDay(ADate: TCnDate; ADelta: Integer): TCnDate;
@@ -846,28 +827,28 @@ function CnIncMonth(ADate: TCnDate; ADelta: Integer): TCnDate;
 var
   D: Byte;
 begin
-Result.Value := ADate.Value;
-while ADelta > 0 do
+  Result.Value := ADate.Value;
+  while ADelta > 0 do
   begin
-  Result.Day := 1;
-  Result := ToCnDate(IncDay(ToEnDate(Result), 31));
-  D := CnMonthDays(Result.Year, Result.Month);
-  if ADate.Day > D then
-    Result.Day := D
-  else
-    Result.Day := ADate.Day;
-  Dec(ADelta);
+    Result.Day := 1;
+    Result := ToCnDate(IncDay(ToEnDate(Result), 31));
+    D := CnMonthDays(Result.Year, Result.Month);
+    if ADate.Day > D then
+      Result.Day := D
+    else
+      Result.Day := ADate.Day;
+    Dec(ADelta);
   end;
-while ADelta < 0 do
+  while ADelta < 0 do
   begin
-  Result.Day := 1;
-  Result := ToCnDate(IncDay(ToEnDate(Result), -2));
-  D := CnMonthDays(Result.Year, Result.Month);
-  if ADate.Day > D then
-    Result.Day := D
-  else
-    Result.Day := ADate.Day;
-  Inc(ADelta);
+    Result.Day := 1;
+    Result := ToCnDate(IncDay(ToEnDate(Result), -2));
+    D := CnMonthDays(Result.Year, Result.Month);
+    if ADate.Day > D then
+      Result.Day := D
+    else
+      Result.Day := ADate.Day;
+    Inc(ADelta);
   end;
 end;
 
