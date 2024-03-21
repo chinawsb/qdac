@@ -2172,7 +2172,7 @@ begin
   else if (ALimit.Flags and PLAN_MASK_RANGE) <> 0 then
     Result := (AValue >= Word(ALimit.Start)) and (AValue <= Word(ALimit.Stop))
   else if (ALimit.Flags and PLAN_MASK_REPEAT) <> 0 then
-    Result := ((AValue - ALimit.Start) mod ALimit.Interval) = 0
+    Result :=(AValue>=Word(ALimit.Start)) and (AValue<=Word(ALimit.Stop)) and (((AValue - ALimit.Start) mod ALimit.Interval) = 0)
   else if (ALimit.Flags and PLAN_MASK_LAST) = 0 then
     Result := AValue = Word(ALimit.Start);
 end;
@@ -2718,6 +2718,9 @@ begin
             FLimits[AIdx][AItemIndex].Interval := V;
             FLimits[AIdx][AItemIndex].Flags := FLimits[AIdx][AItemIndex]
               .Flags or PLAN_MASK_REPEAT;
+            //不是范围内重复，则结束值设置为不可达到的值
+            if (FLimits[AIdx][AItemIndex].Flags and PLAN_MASK_RANGE)=0 then
+              FLimits[AIdx][AItemIndex].Stop:=32767;
           end;
           if P^ = MASK_WEEKOFMONTH then
           begin
