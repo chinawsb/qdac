@@ -7494,6 +7494,7 @@ var
   ABuilder: TQStringCatHelperW;
 begin
   SkipBom(p);
+  Clear;
   ABuilder := TQStringCatHelperW.Create;
   try
     try
