@@ -2942,9 +2942,95 @@ end;
 function TQJson.Encode(ASettings: TJsonEncodeSettings; AIndent: QStringW): QStringW;
 var
   ABuilder: TQStringCatHelperW;
+  AIndentSize, ABreakSize: Integer;
+  function CalcSize(AParent: TQJson; ALevel: Integer): Integer;
+  var
+    AExtended: Extended;
+    AVal: Int64 absolute AExtended;
+    AIndex, ACount: Integer;
+    AChild: TQJson;
+  begin
+    Result := 0;
+    case AParent.DataType of
+      jdtUnknown, jdtNull:
+        Inc(Result, 4);
+      jdtString: // 这里假设不需要进行转义，不分配过多内存
+        Inc(Result, Length(AParent.Value) + 2);
+      jdtInteger:
+        begin
+          AVal := PInt64(AParent.FValue)^;
+          if AVal = 0 then
+            Inc(Result)
+          else
+          begin
+            if AVal < 0 then
+            begin
+              Inc(Result);
+              AVal := -AVal;
+            end;
+            while AVal > 0 do
+            begin
+              Inc(Result);
+              AVal := AVal div 10;
+            end;
+          end;
+        end;
+      jdtFloat, jdtBcd: // 生产中，绝大部分情况下，数值都不会特别大，我们做一个简化处理，以x.y总计16位为一个估算值来计算内存
+        Inc(Result, 16);
+      jdtBoolean:
+        begin
+          if PBoolean(AParent.FValue)^ then
+            Inc(Result, 4)
+          else
+            Inc(Result, 5);
+        end;
+      jdtDateTime:
+        Inc(Result, Length(JsonDateTimeFormat));
+      jdtArray:
+        begin
+          ACount := AParent.FItems.Count - 1;
+          Inc(Result, 2);
+          for AIndex := 0 to ACount do
+          begin
+            if AIndex = 0 then
+              Inc(Result, ABreakSize + AIndentSize * ALevel)
+            else
+              Inc(Result, ABreakSize + 1 + AIndentSize * ALevel);
+            Inc(Result, CalcSize(AParent.FItems[AIndex], ALevel + 1));
+          end;
+        end;
+      jdtObject:
+        begin
+          ACount := AParent.FItems.Count - 1;
+          Inc(Result, 2);
+          for AIndex := 0 to ACount do
+          begin
+            if AIndex = 0 then
+              Inc(Result, ABreakSize + AIndentSize * ALevel)
+            else
+              Inc(Result, ABreakSize + 1 + AIndentSize * ALevel);
+            AChild := AParent.FItems[AIndex];
+            Inc(Result, Length(AChild.Name) + 2);
+            Inc(Result, CalcSize(AChild, ALevel + 1));
+          end;
+        end;
+    end;
+  end;
+
 begin
+  if jesDoFormat in ASettings then
+  begin
+    AIndentSize := Length(AIndent);
+    ABreakSize := SizeOf(SLineBreak);
+  end
+  else
+  begin
+    AIndentSize := 0;
+    ABreakSize := 0;
+  end;
   ABuilder := TQStringCatHelperW.Create;
   try
+    ABuilder.IncSize(CalcSize(Self, 0));
     InternalEncode(ABuilder, ASettings, AIndent);
     ABuilder.Back(1); // 删除最后一个逗号
     Result := ABuilder.Value;
