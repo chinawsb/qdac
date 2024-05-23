@@ -1588,6 +1588,7 @@ type
 
   public
     constructor Create;
+    procedure PushJson(AJson: TQJson);
     class destructor Destroy;
     class property Current: TQJsonPool read GetCurrent;
   end;
@@ -1595,12 +1596,6 @@ type
 function AcquireJson: TQJson;
 begin
   Result := TQJsonPool.Current.Pop;
-  // DebugOut('Get %x from pool', [IntPtr(Result)]);
-  if not(Result.DataType in [jdtUnknown, jdtNull]) then
-  begin
-    DebugOut('Bad json %x from pool,expect null or unknown,but get %s',
-      [IntPtr(Result), JsonTypeName[Result.DataType]]);
-  end;
 end;
 
 function AcquireJson(const AJsonText: String): TQJson; overload;
@@ -1610,30 +1605,14 @@ begin
 end;
 
 procedure ReleaseJson(AJson: TQJson);
-var
-  I: Integer;
-  AChild: TQJson;
 begin
-  // DebugOut('Release %x to pool', [IntPtr(AJson)]);
-  AJson.Detach;
-  if AJson.DataType in [jdtArray, jdtObject] then
-  begin
-    for I := 0 to AJson.Count - 1 do
-    begin
-      AChild := AJson[I];
-      AChild.FParent := nil;
-      ReleaseJson(AChild);
-    end;
-    AJson.FItems.Clear;
-  end;
-  AJson.ResetNull;
-  Assert(AJson.Count = 0);
-  AJson.Name := '';
-  AJson.Data := nil;
   if Assigned(TQJsonPool.FCurrent) then
-    TQJsonPool.FCurrent.Push(AJson)
+    TQJsonPool.FCurrent.PushJson(AJson)
   else
+  begin
     FreeAndNil(AJson);
+    Exit;
+  end;
 end;
 
 procedure ResizeJsonPool(const ASize: Cardinal);
@@ -2942,95 +2921,9 @@ end;
 function TQJson.Encode(ASettings: TJsonEncodeSettings; AIndent: QStringW): QStringW;
 var
   ABuilder: TQStringCatHelperW;
-  AIndentSize, ABreakSize: Integer;
-  function CalcSize(AParent: TQJson; ALevel: Integer): Integer;
-  var
-    AExtended: Extended;
-    AVal: Int64 absolute AExtended;
-    AIndex, ACount: Integer;
-    AChild: TQJson;
-  begin
-    Result := 0;
-    case AParent.DataType of
-      jdtUnknown, jdtNull:
-        Inc(Result, 4);
-      jdtString: // 这里假设不需要进行转义，不分配过多内存
-        Inc(Result, Length(AParent.Value) + 2);
-      jdtInteger:
-        begin
-          AVal := PInt64(AParent.FValue)^;
-          if AVal = 0 then
-            Inc(Result)
-          else
-          begin
-            if AVal < 0 then
-            begin
-              Inc(Result);
-              AVal := -AVal;
-            end;
-            while AVal > 0 do
-            begin
-              Inc(Result);
-              AVal := AVal div 10;
-            end;
-          end;
-        end;
-      jdtFloat, jdtBcd: // 生产中，绝大部分情况下，数值都不会特别大，我们做一个简化处理，以x.y总计16位为一个估算值来计算内存
-        Inc(Result, 16);
-      jdtBoolean:
-        begin
-          if PBoolean(AParent.FValue)^ then
-            Inc(Result, 4)
-          else
-            Inc(Result, 5);
-        end;
-      jdtDateTime:
-        Inc(Result, Length(JsonDateTimeFormat));
-      jdtArray:
-        begin
-          ACount := AParent.FItems.Count - 1;
-          Inc(Result, 2);
-          for AIndex := 0 to ACount do
-          begin
-            if AIndex = 0 then
-              Inc(Result, ABreakSize + AIndentSize * ALevel)
-            else
-              Inc(Result, ABreakSize + 1 + AIndentSize * ALevel);
-            Inc(Result, CalcSize(AParent.FItems[AIndex], ALevel + 1));
-          end;
-        end;
-      jdtObject:
-        begin
-          ACount := AParent.FItems.Count - 1;
-          Inc(Result, 2);
-          for AIndex := 0 to ACount do
-          begin
-            if AIndex = 0 then
-              Inc(Result, ABreakSize + AIndentSize * ALevel)
-            else
-              Inc(Result, ABreakSize + 1 + AIndentSize * ALevel);
-            AChild := AParent.FItems[AIndex];
-            Inc(Result, Length(AChild.Name) + 2);
-            Inc(Result, CalcSize(AChild, ALevel + 1));
-          end;
-        end;
-    end;
-  end;
-
 begin
-  if jesDoFormat in ASettings then
-  begin
-    AIndentSize := Length(AIndent);
-    ABreakSize := SizeOf(SLineBreak);
-  end
-  else
-  begin
-    AIndentSize := 0;
-    ABreakSize := 0;
-  end;
   ABuilder := TQStringCatHelperW.Create;
   try
-    ABuilder.IncSize(CalcSize(Self, 0));
     InternalEncode(ABuilder, ASettings, AIndent);
     ABuilder.Back(1); // 删除最后一个逗号
     Result := ABuilder.Value;
@@ -8844,6 +8737,45 @@ begin
 {$ENDIF}
   end;
   Result := FCurrent;
+end;
+
+procedure TQJsonPool.PushJson(AJson: TQJson);
+  procedure DirectFree(AItem: TQJson);
+  var
+    AChild: TQJson;
+  begin
+    while AItem.Count > 0 do
+      DirectFree(AItem.Remove(AItem.Count - 1));
+    FreeAndNil(AItem);
+  end;
+
+  procedure DoRelease(AItem: TQJson);
+  var
+    I: Integer;
+    AChild: TQJson;
+  begin
+    if FCount = FSize then // 超出池大小，直接释放
+      DirectFree(AItem)
+    else
+    begin
+      if AItem.Count > 0 then
+      begin
+        for I := AItem.Count - 1 downto 0 do
+          DoRelease(AItem.Remove(I));
+      end;
+      AItem.Reset(True);
+      Push(AItem);
+    end;
+  end;
+
+begin
+  FLocker.Enter;
+  try
+    DoRelease(AJson);
+  finally
+    FLocker.Leave;
+  end;
+
 end;
 
 initialization
