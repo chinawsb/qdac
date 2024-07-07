@@ -1595,7 +1595,6 @@ var
   Utf8Host: QStringA;
   AEntry: PHostEnt;
   function TryAsAddr(
-
     var AResult: Cardinal): Boolean;
   var
     p: PQCharW;
@@ -3224,7 +3223,6 @@ end;
 { TQMQTTMessage }
 
 function TQMQTTMessage.Cat(
-
   const V: Cardinal; AEncode: Boolean): PQMQTTMessage;
 begin
   Result := @Self;
@@ -3238,7 +3236,6 @@ begin
 end;
 
 function TQMQTTMessage.Cat(
-
   const V: Shortint): PQMQTTMessage;
 begin
   Result := @Self;
@@ -3247,7 +3244,6 @@ begin
 end;
 
 function TQMQTTMessage.Cat(
-
   const V: Smallint; AEncode: Boolean): PQMQTTMessage;
 begin
   Result := @Self;
@@ -3261,7 +3257,6 @@ begin
 end;
 
 function TQMQTTMessage.Cat(
-
   const S: QStringW; AWriteZeroLen: Boolean): PQMQTTMessage;
 var
   T: QStringA;
@@ -3275,7 +3270,6 @@ begin
 end;
 
 function TQMQTTMessage.Cat(
-
   const V: Byte): PQMQTTMessage;
 begin
   Result := @Self;
@@ -3285,7 +3279,6 @@ begin
 end;
 
 function TQMQTTMessage.Cat(
-
   const V: Word; AEncode: Boolean): PQMQTTMessage;
 begin
   Result := @Self;
@@ -3300,7 +3293,6 @@ begin
 end;
 
 function TQMQTTMessage.Cat(
-
   const V: Double; AEncode: Boolean): PQMQTTMessage;
 var
   T: UInt64 absolute V;
@@ -3356,7 +3348,6 @@ begin
 end;
 
 function TQMQTTMessage.Cat(
-
   const ABytes: TBytes): PQMQTTMessage;
 begin
   if Length(ABytes) > 0 then
@@ -3366,14 +3357,12 @@ begin
 end;
 
 function TQMQTTMessage.Cat(
-
   const V: Int64; AEncode: Boolean): PQMQTTMessage;
 begin
   Result := Cat(UInt64(V), AEncode);
 end;
 
 function TQMQTTMessage.Cat(
-
   const V: UInt64; AEncode: Boolean): PQMQTTMessage;
 begin
   Result := @Self;
@@ -3388,7 +3377,6 @@ begin
 end;
 
 function TQMQTTMessage.Cat(
-
   const ABuf: Pointer;
 
 const ALen: Cardinal): PQMQTTMessage;
@@ -3404,7 +3392,6 @@ begin
 end;
 
 function TQMQTTMessage.DecodeInt(
-
   var ABuf: PByte; AMaxCount: Integer;
 
 var AResult: Cardinal): Boolean;
@@ -3930,7 +3917,6 @@ begin
 end;
 
 procedure TQMQTTMessage.SetCapacity(
-
   const Value: Cardinal);
 begin
   if Value > FSize then
@@ -3943,7 +3929,6 @@ begin
 end;
 
 procedure TQMQTTMessage.SetControlType(
-
   const AType: TQMQTTControlType);
 begin
   Assert(Length(FData) > 0);
@@ -3951,7 +3936,6 @@ begin
 end;
 
 procedure TQMQTTMessage.SetHeaderFlags(
-
   const Index: Integer;
 
 const Value: Boolean);
@@ -3980,7 +3964,6 @@ begin
 end;
 
 procedure TQMQTTMessage.SetPosition(
-
   const Value: Integer);
 begin
   FCurrent := Bof;
@@ -4087,7 +4070,6 @@ end;
 { TTopicHandler }
 
 constructor TTopicHandler.Create(
-
   const ATopic: String; AHandler: TQMQTTTopicDispatchEvent;
 AMatchType: TTopicMatchType);
 begin
@@ -4118,7 +4100,6 @@ begin
 end;
 
 function TTopicHandler.IsMatch(
-
   const ATopic: String): Boolean;
   function PatternMatch: Boolean;
   var

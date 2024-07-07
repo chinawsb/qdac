@@ -633,7 +633,6 @@ begin
 end;
 
 procedure TQStream.LoadFromFile(
-
   const AFileName: QStringW);
 var
   AStream: TStream;

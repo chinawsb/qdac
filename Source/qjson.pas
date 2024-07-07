@@ -1521,7 +1521,7 @@ procedure ResizeJsonPool(const ASize: Cardinal);
 
 implementation
 
-uses variants, varutils, dateutils, qsimplepool;
+uses variants, varutils, dateutils, qsimplepool, qworker, qdac.profile;
 
 resourcestring
   SBadJson = '当前内容不是有效的JSON字符串。';
@@ -1896,7 +1896,7 @@ function TQJson.Add(ANode: TQJson): Integer;
 begin
   if Assigned(ANode.Parent) then
   begin
-    if ANode.Parent <> Self then
+    if ANode.Parent <> self then
       ANode.Parent.Remove(ANode)
     else
     begin
@@ -1906,7 +1906,7 @@ begin
   end;
   ArrayNeeded(jdtObject);
   Result := FItems.Add(ANode);
-  ANode.FParent := Self;
+  ANode.FParent := self;
   ANode.FIgnoreCase := FIgnoreCase;
 end;
 
@@ -2139,6 +2139,7 @@ var
   AQuoter: QCharW;
   ps: PQCharW;
 begin
+  ProfileLog('BuildJsonString', 2142);
   ABuilder.Position := 0;
   if (p^ = '"') or (p^ = '''') then
   begin
@@ -2630,7 +2631,7 @@ end;
 function TQJson.Copy: TQJson;
 begin
   Result := CreateJson;
-  Result.Assign(Self);
+  Result.Assign(self);
 end;
 {$IF RTLVersion>=21}
 
@@ -2645,7 +2646,7 @@ function TQJson.CopyIf(const ATag: Pointer; AFilter: TQJsonFilterEventA): TQJson
     begin
       Accept := True;
       AChildSource := AParentSource[I];
-      AFilter(Self, AChildSource, Accept, ATag);
+      AFilter(self, AChildSource, Accept, ATag);
       if Accept then
       begin
         AChildDest := AParentDest.Add(AChildSource.FName, AChildSource.DataType);
@@ -2667,10 +2668,10 @@ begin
     Result.FName := Name;
     if DataType in [jdtObject, jdtArray] then
     begin
-      NestCopy(Self, Result);
+      NestCopy(self, Result);
     end
     else
-      Result.CopyValue(Self);
+      Result.CopyValue(self);
   end
   else
     Result := Copy;
@@ -2688,7 +2689,7 @@ function TQJson.CopyIf(const ATag: Pointer; AFilter: TQJsonFilterEvent): TQJson;
     begin
       Accept := True;
       AChildSource := AParentSource[I];
-      AFilter(Self, AChildSource, Accept, ATag);
+      AFilter(self, AChildSource, Accept, ATag);
       if Accept then
       begin
         AChildDest := AParentDest.Add(AChildSource.FName, AChildSource.DataType);
@@ -2707,10 +2708,10 @@ begin
     Result.FName := Name;
     if DataType in [jdtObject, jdtArray] then
     begin
-      NestCopy(Self, Result);
+      NestCopy(self, Result);
     end
     else
-      Result.CopyValue(Self);
+      Result.CopyValue(self);
   end
   else
     Result := Copy;
@@ -2806,7 +2807,7 @@ procedure TQJson.DeleteIf(const ATag: Pointer; ANest: Boolean; AFilter: TQJsonFi
       AChild := AParent.Items[I];
       if ANest then
         DeleteChildren(AChild);
-      AFilter(Self, AChild, Accept, ATag);
+      AFilter(self, AChild, Accept, ATag);
       if Accept then
         AParent.Delete(I)
       else
@@ -2816,7 +2817,7 @@ procedure TQJson.DeleteIf(const ATag: Pointer; ANest: Boolean; AFilter: TQJsonFi
 
 begin
   if Assigned(AFilter) then
-    DeleteChildren(Self)
+    DeleteChildren(self)
   else
     Clear;
 end;
@@ -2836,7 +2837,7 @@ procedure TQJson.DeleteIf(const ATag: Pointer; ANest: Boolean; AFilter: TQJsonFi
       AChild := AParent.Items[I];
       if ANest then
         DeleteChildren(AChild);
-      AFilter(Self, AChild, Accept, ATag);
+      AFilter(self, AChild, Accept, ATag);
       if Accept then
         AParent.Delete(I)
       else
@@ -2846,7 +2847,7 @@ procedure TQJson.DeleteIf(const ATag: Pointer; ANest: Boolean; AFilter: TQJsonFi
 
 begin
   if Assigned(AFilter) then
-    DeleteChildren(Self)
+    DeleteChildren(self)
   else
     Clear;
 end;
@@ -2870,7 +2871,7 @@ end;
 procedure TQJson.Detach;
 begin
   if Assigned(FParent) then
-    FParent.Remove(Self);
+    FParent.Remove(self);
 end;
 
 function TQJson.Diff(AJson: TQJson): TQJson;
@@ -2913,18 +2914,16 @@ function TQJson.Diff(AJson: TQJson): TQJson;
 
 begin
   Result := AcquireJson;
-  DoDiff(Self, AJson, Result);
-  DoDiff(AJson, Self, Result);
+  DoDiff(self, AJson, Result);
+  DoDiff(AJson, self, Result);
 end;
 
 procedure TQJson.DoJsonNameChanged(AJson: TQJson);
 begin
-
 end;
 
 procedure TQJson.DoParsed;
 begin
-
 end;
 
 function TQJson.Encode(ADoFormat: Boolean; ADoEscape: Boolean; AIndent: QStringW): QStringW;
@@ -3030,7 +3029,7 @@ begin
   end;
   ABuilder := TQStringCatHelperW.Create;
   try
-    ABuilder.IncSize(CalcSize(Self, 0));
+    ABuilder.IncSize(CalcSize(self, 0));
     InternalEncode(ABuilder, ASettings, AIndent);
     ABuilder.Back(1); // 删除最后一个逗号
     Result := ABuilder.Value;
@@ -3144,7 +3143,7 @@ function TQJson.FindIf(const ATag: Pointer; ANest: Boolean; AFilter: TQJsonFilte
     begin
       AChild := AParent[I];
       Accept := True;
-      AFilter(Self, AChild, Accept, ATag);
+      AFilter(self, AChild, Accept, ATag);
       if Accept then
         Result := AChild
       else if ANest then
@@ -3156,7 +3155,7 @@ function TQJson.FindIf(const ATag: Pointer; ANest: Boolean; AFilter: TQJsonFilte
 
 begin
   if Assigned(AFilter) then
-    Result := DoFind(Self)
+    Result := DoFind(self)
   else
     Result := nil;
 end;
@@ -3186,7 +3185,7 @@ function TQJson.FindIf(const ATag: Pointer; ANest: Boolean; AFilter: TQJsonFilte
     begin
       AChild := AParent[I];
       Accept := True;
-      AFilter(Self, AChild, Accept, ATag);
+      AFilter(self, AChild, Accept, ATag);
       if Accept then
         Result := AChild
       else if ANest then
@@ -3198,7 +3197,7 @@ function TQJson.FindIf(const ATag: Pointer; ANest: Boolean; AFilter: TQJsonFilte
 
 begin
   if Assigned(AFilter) then
-    Result := DoFind(Self)
+    Result := DoFind(self)
   else
     Result := nil;
 end;
@@ -3263,8 +3262,8 @@ const
   PathDelimiters: PWideChar = './\';
 begin
   p := PQCharW(APath);
-  AParent := Self;
-  Result := Self;
+  AParent := self;
+  Result := self;
   while p^ <> #0 do
   begin
     AName := DecodeTokenW(p, PathDelimiters, WideChar(0), True);
@@ -3341,7 +3340,7 @@ var
     while (I < AParent.Count) and AContinue do
     begin
       AChild := AParent[I];
-      ACallback(Self, AChild, AContinue, ATag);
+      ACallback(self, AChild, AContinue, ATag);
       if AContinue and ANest then
         DoEnum(AChild);
       Inc(I);
@@ -3352,7 +3351,7 @@ begin
   if Assigned(ACallback) then
   begin
     AContinue := True;
-    DoEnum(Self);
+    DoEnum(self);
   end;
 end;
 {$IF RTLVersion>=21}
@@ -3369,7 +3368,7 @@ var
     while (I < AParent.Count) and AContinue do
     begin
       AChild := AParent[I];
-      ACallback(Self, AChild, AContinue, ATag);
+      ACallback(self, AChild, AContinue, ATag);
       if AContinue and ANest then
         DoEnum(AChild);
       Inc(I);
@@ -3380,7 +3379,7 @@ begin
   if Assigned(ACallback) then
   begin
     AContinue := True;
-    DoEnum(Self);
+    DoEnum(self);
   end;
 end;
 {$IFEND}
@@ -3613,7 +3612,7 @@ var
     else if AObj is TCollection then
     begin
       DataType := jdtArray;
-      AddCollection(Self, AObj as TCollection)
+      AddCollection(self, AObj as TCollection)
     end
     else
     begin
@@ -3644,7 +3643,8 @@ var
                       Add(AName, jdtObject).FromRtti(AChildObj);
                   end;
                 end;
-              tkRecord, tkArray, tkDynArray{$IFDEF MANAGED_RECORD}, tkMRecord{$ENDIF}: // 记录、数组、动态数组属性系统也不保存，也没提供所有太好的接口
+              tkRecord, tkArray, tkDynArray{$IFDEF MANAGED_RECORD}, tkMRecord{$ENDIF}:
+                // 记录、数组、动态数组属性系统也不保存，也没提供所有太好的接口
                 raise Exception.Create(SUnsupportPropertyType);
               tkInteger:
                 Add(AName).AsInt64 := GetOrdProp(AObj, APropList[J]);
@@ -3978,7 +3978,7 @@ end;
 
 function TQJson.GetEnumerator: TQJsonEnumerator;
 begin
-  Result := TQJsonEnumerator.Create(Self);
+  Result := TQJsonEnumerator.Create(self);
 end;
 
 function TQJson.GetF(const APath: String): Double;
@@ -4055,7 +4055,7 @@ begin
   begin
     for I := 0 to Parent.Count - 1 do
     begin
-      if Parent.Items[I] = Self then
+      if Parent.Items[I] = self then
       begin
         Result := I;
         Break;
@@ -4084,7 +4084,7 @@ var
   AItem, APItem: TQJson;
   AItemName: QStringW;
 begin
-  AItem := Self;
+  AItem := self;
   SetLength(Result, 0);
   while Assigned(AItem) and (AItem <> AParent) do
   begin
@@ -4112,7 +4112,7 @@ end;
 
 function TQJson.GetRoot: TQJson;
 begin
-  Result := Self;
+  Result := self;
   while Result.FParent <> nil do
     Result := Result.FParent;
 end;
@@ -4390,13 +4390,13 @@ procedure TQJson.Insert(AIndex: Integer; AChild: TQJson);
 begin
   if Assigned(AChild.Parent) then
   begin
-    if AChild.Parent <> Self then
+    if AChild.Parent <> self then
       AChild.Parent.Remove(AChild)
     else
       Exit;
   end;
   ArrayNeeded(jdtObject);
-  AChild.FParent := Self;
+  AChild.FParent := self;
   AChild.FIgnoreCase := FIgnoreCase;
   if AIndex <= 0 then
     AIndex := 0
@@ -4525,7 +4525,7 @@ function TQJson.InternalEncode(ABuilder: TQStringCatHelperW; ASettings: TJsonEnc
       ((ANode.CommentStyle = jcsBeforeName) or ((ANode.CommentStyle = jcsInherited) and (CommentStyle = jcsBeforeName)))
     then
       AddComment(ANode.Comment);
-    if (ANode.Parent <> nil) and (ANode.Parent.DataType <> jdtArray) and (ANode <> Self) then
+    if (ANode.Parent <> nil) and (ANode.Parent.DataType <> jdtArray) and (ANode <> self) then
     begin
       if jesDoFormat in ASettings then
         ABuilder.Replicate(AIndent, ALevel);
@@ -4664,7 +4664,7 @@ function TQJson.InternalEncode(ABuilder: TQStringCatHelperW; ASettings: TJsonEnc
 
 begin
   Result := ABuilder;
-  DoEncode(Self, 0);
+  DoEncode(self, 0);
 end;
 
 function TQJson.InternalFlatItems(var AItems: TQStringArray; AFlatPart: Integer; AOptions: TQCatOptions): Integer;
@@ -4909,7 +4909,7 @@ end;
 function TQJson.IsParentOf(AChild: TQJson): Boolean;
 begin
   if Assigned(AChild) then
-    Result := AChild.IsChildOf(Self)
+    Result := AChild.IsChildOf(self)
   else
     Result := False;
 end;
@@ -4986,7 +4986,7 @@ begin
   if l > 0 then
   begin
     AHash := HashName(AName);
-    Result := InternalFind(Self);
+    Result := InternalFind(self);
   end
   else
   begin
@@ -5007,7 +5007,7 @@ const
   PathDelimiters: PWideChar = './\';
   ArrayStart: PWideChar = '[';
 begin
-  AParent := Self;
+  AParent := self;
   p := PQCharW(APath);
   Result := nil;
   while Assigned(AParent) and (p^ <> #0) do
@@ -5122,7 +5122,7 @@ begin
   try
     APcre.RegEx := RegexStr(ARegex);
     APcre.Compile;
-    Result := InternalFind(Self);
+    Result := InternalFind(self);
   finally
     FreeObject(APcre);
   end;
@@ -5134,7 +5134,7 @@ var
 begin
   T := TQJsonContainer.Create;
   try
-    T.FItems.Add(Self);
+    T.FItems.Add(self);
     Result := T.Match(ARegex, AMatches);
   finally
     FreeAndNil(T);
@@ -5258,7 +5258,7 @@ end;
 
 procedure TQJson.MoveTo(ANewParent: TQJson; AIndex: Integer);
 begin
-  if ANewParent = Self then
+  if ANewParent = self then
     raise Exception.Create(SCantAttachToSelf)
   else
   begin
@@ -5279,15 +5279,15 @@ begin
           raise Exception.CreateFmt(SNodeNameExists, [Name]);;
       end;
       if Assigned(FParent) then
-        FParent.Remove(Self);
+        FParent.Remove(self);
       FParent := ANewParent;
       if AIndex >= ANewParent.Count then
-        ANewParent.FItems.Add(Self)
+        ANewParent.FItems.Add(self)
       else if AIndex <= 0 then
-        ANewParent.FItems.Insert(0, Self)
+        ANewParent.FItems.Insert(0, self)
       else
-        ANewParent.FItems.Insert(AIndex, Self);
-      DoJsonNameChanged(Self);
+        ANewParent.FItems.Insert(AIndex, self);
+      DoJsonNameChanged(self);
     end
     else
       raise Exception.Create(SCanAttachToNoneContainer);
@@ -5475,6 +5475,7 @@ var
   AObjEnd, lastP: QCharW;
   AComment: QStringW;
 begin
+  ProfileLog('ParseJsonPair', GetEip);
   Result := SkipSpaceAndComment(p, AComment);
   if Result <> 0 then
     Exit;
@@ -5763,7 +5764,7 @@ begin
   FreeObject(Items[AIndex]);
   if Assigned(ANewItem.FParent) then
     ANewItem.FParent.Remove(ANewItem.ItemIndex);
-  ANewItem.FParent := Self;
+  ANewItem.FParent := self;
   FItems[AIndex] := ANewItem;
 end;
 
@@ -5771,7 +5772,7 @@ procedure TQJson.Reset(ADetach: Boolean);
 begin
   if ADetach and Assigned(FParent) then
   begin
-    FParent.Remove(Self);
+    FParent.Remove(self);
     FParent := nil;
   end;
   SetLength(FName, 0);
@@ -5920,8 +5921,6 @@ end;
 
 procedure TQJson.SetAsFloat(const Value: Extended);
 begin
-  // if IsNan(Value) or IsInfinite(Value) then
-  // raise Exception.Create(SSupportFloat);
   DataType := jdtFloat;
   PExtended(FValue)^ := Value;
 end;
@@ -6128,7 +6127,7 @@ begin
     end;
     FName := Value;
     FNameHash := 0;
-    DoJsonNameChanged(Self);
+    DoJsonNameChanged(self);
   end;
 end;
 
@@ -6834,7 +6833,7 @@ procedure TQJson.ToRtti(ADest: Pointer; AType: PTypeInfo; AClearCollections: Boo
     if AObj is TStrings then
       (AObj as TStrings).Text := AsString
     else if AObj is TCollection then
-      LoadCollection(Self, AObj as TCollection)
+      LoadCollection(self, AObj as TCollection)
     else
     begin
       for J := 0 to ACount - 1 do
@@ -7599,6 +7598,7 @@ function TQJson.TryParseValue(ABuilder: TQStringCatHelperW; var p: PQCharW): Int
 var
   AComment: QStringW;
   AIsFloat: Boolean;
+
 const
   JsonEndChars: PWideChar = ',]}';
 
@@ -7609,10 +7609,10 @@ const
     vFloat: Extended;
     AFlags: Integer;
   const
-    INT_OVERFLOW = 1;
-    FRAC_OVERFLOW = 2;
-    MASK_OVERFLOW = 3;
-    FLOAT_SCIENTIFIC = 4;
+    INT_OVERFLOW = $8;
+    FRAC_OVERFLOW = $4;
+    MASK_OVERFLOW = $2;
+    FLOAT_SCIENTIFIC = $1;
   begin
     pl := p;
     Result := False;
@@ -7656,6 +7656,11 @@ const
         p := pl;
         Exit;
       end
+      else if CharInW(p, JsonEndChars) then
+      begin
+        AsInt64 := 0;
+        Exit;
+      end
       else
         Dec(pl);
     end;
@@ -7680,6 +7685,7 @@ const
               AFlags := AFlags or FRAC_OVERFLOW
             else
               AFloat := V;
+            Inc(AFlags);
           end
           else
           begin
@@ -7719,30 +7725,35 @@ const
       Result := (pe^ = #0) or CharInW(pe, JsonEndChars);
       if Result then
       begin
+        ProfileLog('ParseBcd.Assign', 7732);
         // 科学计数法表示的值，直接就是按浮点数处理
         if (AFlags and FLOAT_SCIENTIFIC) <> 0 then
         begin
+          ProfileLog('ParseBcd.Scientific', 7730);
           Result := TryStrToFloat(StrDupX(p, pl - p), vFloat);
           if Result then
             AsFloat := vFloat
           else
             Exit(False);
         end
-        // 双精度浮点数最高精确到小数点后14位，所以如果有更多小数，肯定不是浮点数了
-        else if ((AFlags and MASK_OVERFLOW) <> 0) or (AFloat > 99999999999999) then
-          AsBcd := StrToBcd(StrDupX(p, pl - p))
-        else if AFloat = 0 then // 如果只有整数部分
-        begin
-          if p^ = '-' then
-            AsInt64 := -AInt
-          else
-            AsInt64 := AInt;
-        end
+        else if (AFloat = 0) and ((AFlags and INT_OVERFLOW) = 0) then
+          AsInt64 := AInt
+        else if((AFlags and (INT_OVERFLOW OR FRAC_OVERFLOW))<>0) then
+          AsBcd:=StrToBcd(StrDupX(p, pl - p))
         else
         begin
-          vFloat := StrToFloat(StrDupX(p, pl - p));
-          if Frac(vFloat) <> AInt then
-            AsBcd := StrToBcd(StrDupX(p, pl - p));
+          vFloat := AFloat;
+          AFlags := AFlags and $FF;
+          while AFlags > 0 do
+          begin
+            vFloat := vFloat / 10;
+            Dec(AFlags);
+          end;
+          vFloat := Double(AInt) + vFloat;
+          if Floor(vFloat) <> AInt then // 无法提供精度，则转换为Bcd
+            AsBcd := StrToBcd(StrDupX(p, pl - p))
+          else
+            AsFloat := vFloat;
         end;
         p := pe;
       end;
@@ -7914,7 +7925,7 @@ begin
   if Assigned(FParent) then
     FParent.Delete(ItemIndex)
   else
-    FreeObject(Self);
+    FreeObject(self);
 end;
 
 procedure TQJson.ValuesFromStrings(const AValues: TQStringArray; AIsReplace: Boolean; AStartIndex, ACount: Integer);
@@ -7976,7 +7987,6 @@ end;
 
 procedure TQJson.ValuesFromIntegers(const AValues: TIntArray; AIsReplace: Boolean; AStartIndex, ACount: Integer);
 begin
-
   DataType := jdtArray; // 必需是数组
   if AIsReplace then
     Clear;
@@ -8049,7 +8059,7 @@ begin
   begin
     FNameHash := HashName(FName);
     if Assigned(Parent) then
-      TQHashedJson(Parent).FHashTable.Add(Self, FNameHash);
+      TQHashedJson(Parent).FHashTable.Add(self, FNameHash);
   end;
   for I := 0 to Count - 1 do
   begin
@@ -8562,7 +8572,7 @@ function TQJsonContainer.ForEach(ACallback: TQJsonForEachCallback; ATag: Pointer
 var
   I: Integer;
 begin
-  Result := Self;
+  Result := self;
   if Assigned(ACallback) then
   begin
     for I := 0 to FItems.Count - 1 do
@@ -8595,7 +8605,7 @@ function TQJsonContainer.ForEach(ACallback: TQJsonForEachCallbackA): IQJsonConta
 var
   I: Integer;
 begin
-  Result := Self;
+  Result := self;
   if Assigned(ACallback) then
   begin
     for I := 0 to FItems.Count - 1 do
@@ -8622,7 +8632,7 @@ begin
     end;
   end
   else // 没有执行任何过滤
-    Result := Self;
+    Result := self;
 end;
 {$ENDIF}
 
@@ -8633,7 +8643,7 @@ end;
 
 function TQJsonContainer.GetEnumerator: TQJsonContainerEnumerator;
 begin
-  Result := TQJsonContainerEnumerator.Create(Self);
+  Result := TQJsonContainerEnumerator.Create(self);
 end;
 
 function TQJsonContainer.GetIsEmpty: Boolean;
@@ -8665,7 +8675,7 @@ begin
     end;
   end
   else // 没有执行任何过滤
-    Result := Self;
+    Result := self;
 end;
 
 function TQJsonContainer.Match(const AStart, AStop, AStep: Integer): IQJsonContainer;
