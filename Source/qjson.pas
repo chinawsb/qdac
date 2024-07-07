@@ -1521,7 +1521,7 @@ procedure ResizeJsonPool(const ASize: Cardinal);
 
 implementation
 
-uses variants, varutils, dateutils, qsimplepool, qworker, qdac.profile;
+uses variants, varutils, dateutils, qsimplepool;
 
 resourcestring
   SBadJson = '当前内容不是有效的JSON字符串。';
@@ -1588,6 +1588,7 @@ type
 
   public
     constructor Create;
+    procedure PushJson(AJson: TQJson);
     class destructor Destroy;
     class property Current: TQJsonPool read GetCurrent;
   end;
@@ -1595,12 +1596,6 @@ type
 function AcquireJson: TQJson;
 begin
   Result := TQJsonPool.Current.Pop;
-  // DebugOut('Get %x from pool', [IntPtr(Result)]);
-  if not(Result.DataType in [jdtUnknown, jdtNull]) then
-  begin
-    DebugOut('Bad json %x from pool,expect null or unknown,but get %s',
-      [IntPtr(Result), JsonTypeName[Result.DataType]]);
-  end;
 end;
 
 function AcquireJson(const AJsonText: String): TQJson; overload;
@@ -1610,30 +1605,14 @@ begin
 end;
 
 procedure ReleaseJson(AJson: TQJson);
-var
-  I: Integer;
-  AChild: TQJson;
 begin
-  // DebugOut('Release %x to pool', [IntPtr(AJson)]);
-  AJson.Detach;
-  if AJson.DataType in [jdtArray, jdtObject] then
-  begin
-    for I := 0 to AJson.Count - 1 do
-    begin
-      AChild := AJson[I];
-      AChild.FParent := nil;
-      ReleaseJson(AChild);
-    end;
-    AJson.FItems.Clear;
-  end;
-  AJson.ResetNull;
-  Assert(AJson.Count = 0);
-  AJson.Name := '';
-  AJson.Data := nil;
   if Assigned(TQJsonPool.FCurrent) then
-    TQJsonPool.FCurrent.Push(AJson)
+    TQJsonPool.FCurrent.PushJson(AJson)
   else
+  begin
     FreeAndNil(AJson);
+    Exit;
+  end;
 end;
 
 procedure ResizeJsonPool(const ASize: Cardinal);
@@ -2139,7 +2118,6 @@ var
   AQuoter: QCharW;
   ps: PQCharW;
 begin
-  ProfileLog('BuildJsonString', 2142);
   ABuilder.Position := 0;
   if (p^ = '"') or (p^ = '''') then
   begin
@@ -5475,7 +5453,6 @@ var
   AObjEnd, lastP: QCharW;
   AComment: QStringW;
 begin
-  ProfileLog('ParseJsonPair', GetEip);
   Result := SkipSpaceAndComment(p, AComment);
   if Result <> 0 then
     Exit;
@@ -7609,10 +7586,10 @@ const
     vFloat: Extended;
     AFlags: Integer;
   const
-    INT_OVERFLOW = $8;
-    FRAC_OVERFLOW = $4;
-    MASK_OVERFLOW = $2;
-    FLOAT_SCIENTIFIC = $1;
+    INT_OVERFLOW = $80000000;
+    FRAC_OVERFLOW = $40000000;
+    MASK_OVERFLOW = $C0000000;
+    FLOAT_SCIENTIFIC = $20000000;
   begin
     pl := p;
     Result := False;
@@ -7725,11 +7702,9 @@ const
       Result := (pe^ = #0) or CharInW(pe, JsonEndChars);
       if Result then
       begin
-        ProfileLog('ParseBcd.Assign', 7732);
         // 科学计数法表示的值，直接就是按浮点数处理
         if (AFlags and FLOAT_SCIENTIFIC) <> 0 then
         begin
-          ProfileLog('ParseBcd.Scientific', 7730);
           Result := TryStrToFloat(StrDupX(p, pl - p), vFloat);
           if Result then
             AsFloat := vFloat
@@ -7738,8 +7713,8 @@ const
         end
         else if (AFloat = 0) and ((AFlags and INT_OVERFLOW) = 0) then
           AsInt64 := AInt
-        else if((AFlags and (INT_OVERFLOW OR FRAC_OVERFLOW))<>0) then
-          AsBcd:=StrToBcd(StrDupX(p, pl - p))
+        else if (AFlags and MASK_OVERFLOW) <> 0 then
+          AsBcd := StrToBcd(StrDupX(p, pl - p))
         else
         begin
           vFloat := AFloat;
@@ -8854,6 +8829,45 @@ begin
 {$ENDIF}
   end;
   Result := FCurrent;
+end;
+
+procedure TQJsonPool.PushJson(AJson: TQJson);
+  procedure DirectFree(AItem: TQJson);
+  var
+    AChild: TQJson;
+  begin
+    while AItem.Count > 0 do
+      DirectFree(AItem.Remove(AItem.Count - 1));
+    FreeAndNil(AItem);
+  end;
+
+  procedure DoRelease(AItem: TQJson);
+  var
+    I: Integer;
+    AChild: TQJson;
+  begin
+    if FCount = FSize then // 超出池大小，直接释放
+      DirectFree(AItem)
+    else
+    begin
+      if AItem.Count > 0 then
+      begin
+        for I := AItem.Count - 1 downto 0 do
+          DoRelease(AItem.Remove(I));
+      end;
+      AItem.Reset(True);
+      Push(AItem);
+    end;
+  end;
+
+begin
+  FLocker.Enter;
+  try
+    DoRelease(AJson);
+  finally
+    FLocker.Leave;
+  end;
+
 end;
 
 initialization
