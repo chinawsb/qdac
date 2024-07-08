@@ -36,8 +36,17 @@ type
     class property Current: TQProfile read FCurrent;
   end;
 
-function GetEIP: NativeInt;
+{$IFDEF CPUX64}
+{$DEFINE CPU_CLASSIC}
+{$ENDIF}
+{$IFDEF CPUX86}
+{$DEFINE CPU_CLASSIC}
+{$ENDIF}
+{$IFDEF CPU_CLASSIC}
 
+  // 只有 X86/64 CPU 才支持，其它不支持汇编，无法获取
+function GetEIP: NativeUInt; stdcall;
+{$ENDIF}
 function ProfileLog(const AName: String; Addr: NativeUInt = 0): IInterface;
 
 implementation
@@ -56,29 +65,40 @@ type
     function _AddRef: Integer; stdcall;
     function _Release: Integer; stdcall;
   end;
+{$IFDEF CPU_CLASSIC}
 
-function GetEIP: NativeInt;
+function GetEIP: NativeUInt; stdcall;
 asm
-  pop eax;
-  mov Result,eax;
-  push eax;
+  {$IFDEF CPUX86}
+  POP EAX;
+  PUSH EAX;
+  {$ELSE}
+  POP RAX;
+  PUSH RAX;
+  {$ENDIF}
 end;
+{$ENDIF}
 
 function ProfileLog(const AName: String; Addr: NativeUInt): IInterface;
 var
   ATemp: IQProfileItem;
 begin
-  TMonitor.Enter(TQProfile.FCurrent);
-  try
-    if not TQProfile.FCurrent.FItems.TryGetValue(Addr, ATemp) then
-    begin
-      ATemp := TQProfileItem.Create(AName, Addr);
-      TQProfile.FCurrent.FItems.Add(Addr, ATemp);
+  if TQProfile.FCurrent.Enabled then
+  begin
+    TMonitor.Enter(TQProfile.FCurrent);
+    try
+      if not TQProfile.FCurrent.FItems.TryGetValue(Addr, ATemp) then
+      begin
+        ATemp := TQProfileItem.Create(AName, Addr);
+        TQProfile.FCurrent.FItems.Add(Addr, ATemp);
+      end;
+    finally
+      TMonitor.Exit(TQProfile.FCurrent);
     end;
-  finally
-    TMonitor.Exit(TQProfile.FCurrent);
-  end;
-  Result := ATemp;
+    Result := ATemp;
+  end
+  else
+    Result := nil;
 end;
 
 { TQProfile }
@@ -163,10 +183,10 @@ function TQProfileItem._AddRef: Integer;
 begin
   Result := inherited;
   if Result = 2 then // 如果是递归，忽略后续调用
-    begin
+  begin
     FWatch.Reset;
     FWatch.Start;
-    end;
+  end;
 end;
 
 function TQProfileItem._Release: Integer;
@@ -200,6 +220,7 @@ end;
 initialization
 
 TQProfile.FCurrent := TQProfile.Create;
+TQProfile.FCurrent.Enabled := true;
 
 finalization
 
