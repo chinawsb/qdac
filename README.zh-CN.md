@@ -1,6 +1,6 @@
 ## QDAC3
 
-主库地址：http://code.qdac.cc:3000
+主库地址：https://code.qdac.cc:3000
 
 国内镜像地址：https://gitee.com/z-proj/qdac
 
