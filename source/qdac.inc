@@ -17,6 +17,8 @@ If a feather only support special version,define it in this file.
 
   {$ENDIF}
 
+  {$DEFINE FAST_HASH_CODE}
+
 {$ELSE}
 
   {$MESSAGE 'Compile with Delphi'}
@@ -26,6 +28,8 @@ If a feather only support special version,define it in this file.
     {$ERROR 'At least XE 3 + needed.'}
 
   {$ENDIF}
+
+  {$DEFINE FAST_HASH_CODE}
 
 {$ENDIF}
 
