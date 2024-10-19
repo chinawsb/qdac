@@ -74,6 +74,9 @@ type
   StrictTypeAttribute = class(TCustomAttribute)
   end;
 
+  IncludePropsAttribute=class(TCustomAttribute)
+
+  end;
   // 日期时间类型格式
   TQDateTimeKind = (FormatedText, DelphiFloat, UnixTimeStamp, UnixTimeStampMS);
   // 日期时间类型转换，用来指明原始数据是那一个时间格式，如 [DateTimeKind(UnixTimeStamp)]
