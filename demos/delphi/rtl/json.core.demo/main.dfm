@@ -1,7 +1,7 @@
 object Form1: TForm1
   Left = 0
   Top = 0
-  Caption = 'Form1'
+  Caption = 'QJson Demos'
   ClientHeight = 441
   ClientWidth = 624
   Color = clBtnFace
@@ -11,4 +11,68 @@ object Form1: TForm1
   Font.Name = 'Segoe UI'
   Font.Style = []
   TextHeight = 15
+  object Panel1: TPanel
+    Left = 0
+    Top = 0
+    Width = 624
+    Height = 89
+    Align = alTop
+    BevelOuter = bvNone
+    Color = clInfoBk
+    ParentBackground = False
+    TabOrder = 0
+    object Button1: TButton
+      Left = 8
+      Top = 9
+      Width = 100
+      Height = 25
+      Caption = 'Speed compare'
+      TabOrder = 0
+      OnClick = Button1Click
+    end
+    object Button2: TButton
+      Left = 130
+      Top = 9
+      Width = 100
+      Height = 25
+      Caption = 'Cache test'
+      TabOrder = 1
+      OnClick = Button2Click
+    end
+    object Button3: TButton
+      Left = 253
+      Top = 8
+      Width = 100
+      Height = 25
+      Caption = 'Hash compare'
+      TabOrder = 2
+      OnClick = Button3Click
+    end
+    object Button5: TButton
+      Left = 376
+      Top = 8
+      Width = 100
+      Height = 25
+      Caption = 'Manual write'
+      TabOrder = 3
+      OnClick = Button5Click
+    end
+    object Button4: TButton
+      Left = 496
+      Top = 8
+      Width = 75
+      Height = 25
+      Caption = 'Button4'
+      TabOrder = 4
+      OnClick = Button4Click
+    end
+  end
+  object Memo1: TMemo
+    Left = 0
+    Top = 89
+    Width = 624
+    Height = 352
+    Align = alClient
+    TabOrder = 1
+  end
 end
