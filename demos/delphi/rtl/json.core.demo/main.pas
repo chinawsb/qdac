@@ -203,11 +203,14 @@ procedure TForm1.Button5Click(Sender: TObject);
 var
   AStream: TStream;
   AWriter: TQJsonEncoder;
+
 begin
   Memo1.Lines.Clear;
   AStream := TBytesStream.Create;
-  AWriter := TQJsonEncoder.Create(AStream, true, TQJsonEncoder.DefaultFormat,
-    TEncoding.Utf8, 0);
+  var
+  AFormat := TQJsonEncoder.DefaultFormat;
+  AFormat.Settings := AFormat.Settings + [jesDoFormat];
+  AWriter := TQJsonEncoder.Create(AStream, true, AFormat, TEncoding.Utf8, 0);
   try
     AWriter.StartObject;
     AWriter.WritePair('allow', true);
@@ -216,6 +219,8 @@ begin
     AWriter.StartArrayPair('cpu');
     AWriter.WriteValue(1978);
     AWriter.WriteValue(1979);
+    AWriter.WriteComment('this is a block comment'#13#10'auto created.');
+    AWriter.WriteValue(1980);
     AWriter.EndArray;
     AWriter.EndObject;
     AStream.Position := 0;
