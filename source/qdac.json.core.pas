@@ -74,7 +74,7 @@ type
   TQJsonDateTimeKind = (tkFormatedText, tkUnixTimeStamp);
 
   TQJsonFormatSettings = record
-    DateFormat, TimeFormat, DateTimeFormat, IndentText: String;
+    DateFormat, TimeFormat, DateTimeFormat, IndentText: UnicodeString;
     TimeKind: TQJsonDateTimeKind;
     Settings: TQJsonEncodeSettings;
   end;
@@ -153,11 +153,11 @@ type
     procedure SetDataType(const Value: TQJsonDataType);
     function GetAsBoolean: Boolean;
     procedure SetAsBoolean(const Value: Boolean);
-    function GetPath: String;
+    function GetPath: UnicodeString;
     function GetAsString: UnicodeString;
     procedure SetAsString(const Value: UnicodeString);
-    procedure InternalEncode(ABuilder: PQPageBuffers; const AIndent: String;
-      const AFormat: TQJsonFormatSettings);
+    procedure InternalEncode(ABuilder: PQPageBuffers;
+      const AIndent: UnicodeString; const AFormat: TQJsonFormatSettings);
     function GetAsJson: UnicodeString;
     procedure SetAsJson(const Value: UnicodeString);
     function GetAsDateTime: TDateTime;
@@ -199,11 +199,16 @@ type
       : Boolean;
     procedure LoadFromStream(AStream: TStream; AMode: TQJsonStoreMode;
       AEncoding: TEncoding = nil; ACallback: TQJsonParseCallback = nil);
-    function TryLoadFromFile(const AFileName: String; AMode: TQJsonStoreMode;
-      AEncoding: TEncoding; ACallback: TQJsonParseCallback = nil): Boolean;
-    procedure LoadFromFile(const AFileName: String; AMode: TQJsonStoreMode;
-      AEncoding: TEncoding = nil; ACallback: TQJsonParseCallback = nil);
-
+    function TryLoadFromFile(const AFileName: UnicodeString;
+      AMode: TQJsonStoreMode; AEncoding: TEncoding;
+      ACallback: TQJsonParseCallback = nil): Boolean;
+    procedure LoadFromFile(const AFileName: UnicodeString;
+      AMode: TQJsonStoreMode; AEncoding: TEncoding = nil;
+      ACallback: TQJsonParseCallback = nil);
+    procedure SaveToStream(AStream: TStream; AEncoding: TEncoding;
+      const AFormat: TQJsonFormatSettings; AWriteBom: Boolean);
+    procedure SaveToFile(const AFileName: UnicodeString; AEncoding: TEncoding;
+      const AFormat: TQJsonFormatSettings; AWriteBom: Boolean);
     // 添加数组元素子结点
     function Add: PQJsonNode; overload;
     function Add(const AValue: Int64): PQJsonNode; overload;
@@ -284,7 +289,7 @@ type
     function TryToDateTime(var AValue: TDateTime): Boolean;
 
     property Name: UnicodeString read GetName;
-    property Path: String read GetPath;
+    property Path: UnicodeString read GetPath;
     property Level: Integer read GetLevel;
     property FirstChild: PQJsonNode read GetFirstChild;
     property LastChild: PQJsonNode read GetLastChild;
@@ -349,7 +354,7 @@ type
     function ReadNumber(var ANode: TQJsonNode; ABcd: PBcd): Boolean;
     function ReadString: Boolean;
     procedure SkipString;
-    procedure SetLastError(const ACode: Cardinal; const AMsg: String);
+    procedure SetLastError(const ACode: Cardinal; const AMsg: UnicodeString);
     function ReadToken: Boolean;
     function InternalTryParseText(const p: PByte; AReader: TCharReader;
       ACallback: TQJsonParseCallback): Boolean;
@@ -357,7 +362,7 @@ type
     function ParseChildren(AParent: PQJsonNode): Boolean;
     function ParseValue(var AChild: TQJsonNode; ABcd: PBcd): Boolean;
     procedure DoParse;
-    function LastChars: String;
+    function LastChars: UnicodeString;
   public
     constructor Create(const AMode: TQJsonStoreMode = jsmNormal;
       AStrict: Boolean = false); overload;
@@ -371,13 +376,13 @@ type
     function TryParseText(ARoot: PQJsonNode; const p: PWideChar; len: Integer;
       ACallback: TQJsonParseCallback = nil): Boolean; overload;
 
-    function TryParseFile(ARoot: PQJsonNode; const AFileName: String;
+    function TryParseFile(ARoot: PQJsonNode; const AFileName: UnicodeString;
       AEncoding: TEncoding; ACallback: TQJsonParseCallback = nil): Boolean;
     function TryParseStream(ARoot: PQJsonNode; const AStream: TStream;
       AEncoding: TEncoding; ACallback: TQJsonParseCallback = nil): Boolean;
-    procedure ParseText(ARoot: PQJsonNode; const AText: String;
+    procedure ParseText(ARoot: PQJsonNode; const AText: UnicodeString;
       ACallback: TQJsonParseCallback = nil);
-    procedure ParseFile(ARoot: PQJsonNode; const AFileName: String;
+    procedure ParseFile(ARoot: PQJsonNode; const AFileName: UnicodeString;
       AEncoding: TEncoding; ACallback: TQJsonParseCallback = nil);
     procedure ParseStream(ARoot: PQJsonNode; const AStream: TStream;
       AEncoding: TEncoding; ACallback: TQJsonParseCallback = nil);
@@ -453,6 +458,8 @@ type
       overload;
     procedure WritePair(const AName: UnicodeString; const V: TBytes); overload;
     procedure WritePair(const AName: UnicodeString); overload;
+    //
+    procedure WriteComment(const AComment: UnicodeString);
     class property DefaultFormat: TQJsonFormatSettings read FDefaultFormat
       write FDefaultFormat;
   end;
@@ -465,6 +472,8 @@ resourcestring
   SValueNotNumber = '%s 不是一个有效的数值类型';
   SExpectCharNotFound = '未找到期望的字符 %s ';
   SBadUtf8CharFound = '无效的 UTF8 编码字符';
+  SBadLineComment = '字符串不是有效的行注释内容';
+  SBadBlockComment = '字符串不是有效的块注释内容';
 
 const
   LowerHexChars: array [0 .. 15] of WideChar = ('0', '1', '2', '3', '4', '5',
@@ -594,7 +603,7 @@ begin
   Result := false;
 end;
 
-function TQJsonParser.LastChars: String;
+function TQJsonParser.LastChars: UnicodeString;
 begin
   if FLastChar < $10000 then
     Result := WideChar(FLastChar)
@@ -782,8 +791,9 @@ begin
   Result := FErrorCode = 0;
 end;
 
-procedure TQJsonParser.ParseFile(ARoot: PQJsonNode; const AFileName: String;
-  AEncoding: TEncoding; ACallback: TQJsonParseCallback);
+procedure TQJsonParser.ParseFile(ARoot: PQJsonNode;
+  const AFileName: UnicodeString; AEncoding: TEncoding;
+  ACallback: TQJsonParseCallback);
 begin
   if not TryParseFile(ARoot, AFileName, AEncoding, ACallback) then
     raise EJsonError.CreateFmt(SJsonParseError, [FErrorLine, FErrorColumn,
@@ -798,7 +808,7 @@ begin
       FErrorMsg]);
 end;
 
-procedure TQJsonParser.ParseText(ARoot: PQJsonNode; const AText: String;
+procedure TQJsonParser.ParseText(ARoot: PQJsonNode; const AText: UnicodeString;
   ACallback: TQJsonParseCallback);
 begin
   if not TryParseText(ARoot, AText, ACallback) then
@@ -864,14 +874,14 @@ begin
               jsmCacheStrings:
                 begin
                   FStringBuilder.ToString(AValue);
-                  AChild.FValue.AsString := TQJsonStringCaches.Current.AddRef
-                    (@AValue);
+                  AChild.FValue.AsString :=
+                    TQJsonStringCaches.Current.AddRef(@AValue);
                 end;
               jsmForwardOnly:
                 begin
                   FStringBuilder.ToString(AValue);
-                  AChild.FValue.AsString := TQJsonStringCaches.MakeReference
-                    (@AValue);
+                  AChild.FValue.AsString :=
+                    TQJsonStringCaches.MakeReference(@AValue);
                 end;
             end;
             DoParseStage(@AChild, TQJsonParseStage.jpsEndItem);
@@ -962,7 +972,7 @@ procedure TQJsonParser.PeekCharAnsi;
 var
   AChars: array [0 .. 4] of WideChar;
 begin
-  //非 Unicode 编码都走这儿，使用 UnicodeFromLocaleChars 来获取单个字符的长度
+  // 非 Unicode 编码都走这儿，使用 UnicodeFromLocaleChars 来获取单个字符的长度
   if FEof = FCurrent then
   begin
     if not Assigned(FBufferReader) or (FBufferReader(Self) = 0) then
@@ -1548,10 +1558,9 @@ begin
                   break;
                 end
                 else
-                  AppendLastChar;
-              end
-              else
-                AppendLastChar;
+                  FStringBuilder.Append('*');
+              end;
+              AppendAndPeekNextChar;
             end;
           end
           else
@@ -1593,7 +1602,8 @@ begin
   FStringBuilder.Length := 0;
 end;
 
-procedure TQJsonParser.SetLastError(const ACode: Cardinal; const AMsg: String);
+procedure TQJsonParser.SetLastError(const ACode: Cardinal;
+  const AMsg: UnicodeString);
 begin
   FErrorCode := ACode;
   FErrorMsg := AMsg;
@@ -1646,8 +1656,9 @@ begin
     ParseValue(FRoot^, @ABcd);
 end;
 
-function TQJsonParser.TryParseFile(ARoot: PQJsonNode; const AFileName: String;
-  AEncoding: TEncoding; ACallback: TQJsonParseCallback): Boolean;
+function TQJsonParser.TryParseFile(ARoot: PQJsonNode;
+  const AFileName: UnicodeString; AEncoding: TEncoding;
+  ACallback: TQJsonParseCallback): Boolean;
 var
   AStream: TFileStream;
 begin
@@ -2039,7 +2050,7 @@ begin
   Reset;
 end;
 
-function TQJsonNode.Encode(AFormat: TQJsonFormatSettings): String;
+function TQJsonNode.Encode(AFormat: TQJsonFormatSettings): UnicodeString;
   function EncodeChildren: UnicodeString;
   var
     ABuilder: TQPageBuffers;
@@ -2253,7 +2264,7 @@ begin
     SetLength(Result, 0);
 end;
 
-function TQJsonNode.GetPath: String;
+function TQJsonNode.GetPath: UnicodeString;
 begin
   if Assigned(FParent) then
   begin
@@ -2269,8 +2280,8 @@ begin
     Result := Name;
 end;
 
-function TQJsonNode.HasChild(const APath: UnicodeString; var ANode: PQJsonNode)
-  : Boolean;
+function TQJsonNode.HasChild(const APath: UnicodeString;
+  var ANode: PQJsonNode): Boolean;
 begin
   ANode := ItemByPath(APath);
   Result := Assigned(ANode);
@@ -2357,10 +2368,10 @@ begin
 end;
 
 procedure TQJsonNode.InternalEncode(ABuilder: PQPageBuffers;
-  const AIndent: String; const AFormat: TQJsonFormatSettings);
+  const AIndent: UnicodeString; const AFormat: TQJsonFormatSettings);
 var
-  AChild: PQJsonNode;
-  ALevelIndent: String;
+  AChild, ANext: PQJsonNode;
+  ALevelIndent: UnicodeString;
 const
   EndChars: array [Boolean] of Char = (']', '}');
 begin
@@ -2445,19 +2456,30 @@ begin
         begin
           if jesWithComment in AFormat.Settings then
             ABuilder.Append('//').Append(AChild.AsString).Append(SLineBreak);
+          AChild:=AChild.FNext;
+          continue;
         end;
       jdtBlockComment:
         begin
           if jesWithComment in AFormat.Settings then
             ABuilder.Append('/*').Append(AChild.AsString).Append('*/')
               .Append(SLineBreak);
+          AChild:=AChild.FNext;
+          continue;
         end
     else
       AChild.InternalEncode(ABuilder, ALevelIndent, AFormat);
     end;
     AChild := AChild.FNext;
     if Assigned(AChild) then
-      ABuilder.Append(',');
+    begin
+      ANext := AChild;
+      while Assigned(ANext) and
+        (ANext.DataType in [jdtLineComment, jdtBlockComment]) do
+        ANext := ANext.FNext;
+      if Assigned(ANext) then
+        ABuilder.Append(',');
+    end;
   end;
   if jesDoFormat in AFormat.Settings then
     ABuilder.Append(SLineBreak).Append(AIndent);
@@ -2486,7 +2508,7 @@ function TQJsonNode.ItemByPath(const APath: UnicodeString;
 var
   p: PWideChar;
   AIndex: Integer;
-  AName: String;
+  AName: UnicodeString;
   function LookupNameAndIndex: Boolean;
   var
     ps: PWideChar;
@@ -2572,7 +2594,7 @@ begin
   end;
 end;
 
-procedure TQJsonNode.LoadFromFile(const AFileName: String;
+procedure TQJsonNode.LoadFromFile(const AFileName: UnicodeString;
   AMode: TQJsonStoreMode; AEncoding: TEncoding; ACallback: TQJsonParseCallback);
 var
   AParser: TQJsonParser;
@@ -2652,6 +2674,127 @@ begin
   end;
 end;
 
+procedure TQJsonNode.SaveToFile(const AFileName: UnicodeString;
+  AEncoding: TEncoding; const AFormat: TQJsonFormatSettings;
+  AWriteBom: Boolean);
+var
+  AStream: TFileStream;
+begin
+  AStream := TFileStream.Create(AFileName, fmCreate);
+  try
+    SaveToStream(AStream, AEncoding, AFormat, AWriteBom);
+  finally
+    FreeAndNil(AStream);
+  end;
+end;
+
+procedure TQJsonNode.SaveToStream(AStream: TStream; AEncoding: TEncoding;
+  const AFormat: TQJsonFormatSettings; AWriteBom: Boolean);
+var
+  AEncoder: TQJsonEncoder;
+
+  procedure DoSave(ANode: PQJsonNode; AIsPair: Boolean);
+  var
+    AChild: PQJsonNode;
+  begin
+    case ANode.DataType of
+      jdtUnknown, jdtNull:
+        begin
+          if jesIgnoreNull in AEncoder.FFormat.Settings then
+            Exit;
+          if AIsPair then
+            AEncoder.WritePair(ANode.Name)
+          else
+            AEncoder.WriteNull;
+        end;
+      jdtLineComment, jdtBlockComment:
+        begin
+          // 自动检测保重注释内容有效性
+          if jesDoFormat in AFormat.Settings then
+            AEncoder.WriteComment(ANode.AsString);
+        end;
+      jdtBoolean:
+        begin
+          if AIsPair then
+            AEncoder.WritePair(ANode.Name, ANode.FValue.AsBoolean)
+          else
+            AEncoder.WriteValue(ANode.FValue.AsBoolean);
+        end;
+      jdtInteger:
+        begin
+          if AIsPair then
+            AEncoder.WritePair(ANode.Name, ANode.FValue.AsInt64)
+          else
+            AEncoder.WriteValue(ANode.FValue.AsInt64);
+        end;
+      jdtDateTime:
+        begin
+          if AIsPair then
+            AEncoder.WritePair(ANode.Name, ANode.FValue.AsDateTime)
+          else
+            AEncoder.WriteValue(ANode.FValue.AsDateTime);
+        end;
+      jdtFloat:
+        begin
+          if AIsPair then
+            AEncoder.WritePair(ANode.Name, ANode.FValue.AsFloat)
+          else
+            AEncoder.WriteValue(ANode.FValue.AsFloat);
+        end;
+      jdtBcd:
+        begin
+          if AIsPair then
+            AEncoder.WritePair(ANode.Name, ANode.AsBcd)
+          else
+            AEncoder.WriteValue(ANode.AsBcd);
+        end;
+      jdtString:
+        begin
+          if AIsPair then
+            AEncoder.WritePair(ANode.Name, ANode.AsString)
+          else
+            AEncoder.WriteValue(ANode.AsString);
+        end;
+      jdtArray:
+        begin
+          AEncoder.StartArray;
+          try
+            AChild := ANode.FValue.Items.First;
+            while Assigned(AChild) do
+            begin
+              DoSave(AChild, false);
+              AChild := AChild.FNext;
+            end;
+          finally
+            AEncoder.EndArray;
+          end;
+        end;
+      jdtObject:
+        begin
+          AEncoder.StartObject;
+          try
+            AChild := ANode.FValue.Items.First;
+            while Assigned(AChild) do
+            begin
+              DoSave(AChild, true);
+              AChild := AChild.FNext;
+            end;
+          finally
+            AEncoder.EndObject;
+          end;
+        end;
+    end;
+  end;
+
+begin
+  AEncoder := TQJsonEncoder.Create(AStream, AWriteBom, AFormat, AEncoding, 0);
+  try
+    DoSave(@Self, FDataType = jdtObject);
+  finally
+    FreeAndNil(AEncoder);
+  end;
+end;
+
 procedure TQJsonNode.SetAsBase64Bytes(const Value: TBytes);
 begin
   AsString := TNetEncoding.Base64.EncodeBytesToString(Value);
@@ -2702,7 +2845,22 @@ end;
 
 procedure TQJsonNode.SetAsString(const Value: UnicodeString);
 begin
-  DataType := jdtString;
+  case DataType of
+    jdtLineComment:
+      begin
+        if Value.Contains(#$0A) then
+          raise EJsonError.Create(SBadLineComment);
+      end;
+    jdtBlockComment:
+      begin
+        if Value.Contains('*/') then
+          raise EJsonError.Create(SBadBlockComment);
+      end
+  else
+    begin
+      DataType := jdtString;
+    end;
+  end;
   if not Assigned(FValue.AsString) then
     New(PUnicodeString(FValue.AsString));
   FValue.AsString^ := Value;
@@ -2966,9 +3124,9 @@ begin
   end;
 end;
 
-function TQJsonNode.TryLoadFromFile(const AFileName: String;
-AMode: TQJsonStoreMode; AEncoding: TEncoding; ACallback: TQJsonParseCallback)
-  : Boolean;
+function TQJsonNode.TryLoadFromFile(const AFileName: UnicodeString;
+AMode: TQJsonStoreMode; AEncoding: TEncoding;
+ACallback: TQJsonParseCallback): Boolean;
 var
   AParser: TQJsonParser;
 begin
@@ -3078,7 +3236,7 @@ end;
 
 function TQJsonNode.TryToDateTime(var AValue: TDateTime): Boolean;
   function DateTimeFromString(AStr: UnicodeString; var AResult: TDateTime;
-  AFormat: String): Boolean; overload;
+  const AFormat: UnicodeString): Boolean; overload;
   // 日期时间格式
     function DecodeTagValue(var pf, ps: PWideChar; cl, cu: WideChar;
     var AValue, ACount: Integer; AMaxOnOne: Integer): Boolean;
@@ -3418,7 +3576,7 @@ begin
   Result.DataType := jdtArray;
 end;
 
-function TQJsonNode.AddKey(const AName: String): PQJsonNode;
+function TQJsonNode.AddKey(const AName: UnicodeString): PQJsonNode;
 begin
   Assert(FDataType = jdtObject);
   Result := InternalAdd;
@@ -3798,6 +3956,80 @@ begin
   NextType(jdtObject);
 end;
 
+procedure TQJsonEncoder.WriteComment(const AComment: UnicodeString);
+var
+  AIsBlock: Boolean;
+  ps, p: PWideChar;
+  ALine: UnicodeString;
+begin
+  // 要支持注释，暂时必需使用格式化模式
+  Assert(jesDoFormat in FFormat.Settings);
+  // 我们需要检查是否存在块注释结束字符串 */，如果存在，则要改成行注释
+  ps := PWideChar(AComment);
+  AIsBlock := false;
+  p := ps;
+  while p^ <> #0 do
+  begin
+    case p^ of
+      #$0A:
+        AIsBlock := true;
+      '*':
+        begin
+          Inc(p);
+          if p^ = '/' then
+          begin
+            AIsBlock := false;
+            break;
+          end
+          else
+            continue;
+        end;
+    end;
+    Inc(p);
+  end;
+  if AIsBlock then
+  begin
+    if jesDoFormat in FFormat.Settings then
+    begin
+      WriteString(SLineBreak, false);
+      WriteString(FCurrent.Indent, false);
+    end;
+    WriteString('/*', false);
+    WriteString(AComment, false);
+    WriteString('*/', false);
+  end
+  else
+  begin
+    p := ps;
+    while p^ <> #0 do
+    begin
+      if jesDoFormat in FFormat.Settings then
+      begin
+        WriteString(SLineBreak, false);
+        WriteString(FCurrent.Indent, false);
+      end;
+      WriteString('//', false);
+      while p^ <> #0 do
+      begin
+        case p^ of
+          #$0A:
+            begin
+              SetString(ALine, ps, p - ps + 1);
+              WriteString(ALine, false);
+              ps := p + 1;
+            end;
+        end;
+        Inc(p);
+      end;
+      if ps < p then
+      begin
+        SetString(ALine, ps, p - ps + 1);
+        WriteString(ALine, false);
+      end;
+    end;
+  end;
+end;
+
 procedure TQJsonEncoder.WriteNull;
 begin
   WritePrefix;
@@ -3847,7 +4079,7 @@ begin
     WriteString(',', false);
   if jesDoFormat in FFormat.Settings then
   begin
-    WriteString(#10, false); // 使用 \n，不使用 \r\n
+    WriteString(SLineBreak, false); // 使用 \n，不使用 \r\n
     WriteString(FCurrent.Indent, false);
   end;
 end;
@@ -3872,8 +4104,8 @@ begin
         if Trunc(V) = 0 then
           InternalWritePair(AName, FormatDateTime(FFormat.TimeFormat, V), true)
         else if Frac(V) > 0 then
-          InternalWritePair(AName, FormatDateTime(FFormat.DateTimeFormat,
-            V), true)
+          InternalWritePair(AName,
+            FormatDateTime(FFormat.DateTimeFormat, V), true)
         else
           InternalWritePair(AName, FormatDateTime(FFormat.DateFormat, V), true);
       end;
