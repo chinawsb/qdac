@@ -392,10 +392,12 @@ type
   TQJsonEncoder = class sealed(TInterfacedObject, IQSerializeWriter)
   private type
     PQJsonStackItem = ^TQJsonStackItem;
+    TWriteStage = (wsValue, wsName);
 
     TQJsonStackItem = record
       Prior, Next: PQJsonStackItem;
       Indent: UnicodeString;
+      Stage: TWriteStage;
       Count: Integer;
       DataType: TQJsonDataType;
     end;
@@ -434,7 +436,7 @@ type
     procedure StartArray;
     procedure EndArray;
     procedure WriteValue(const V: UnicodeString); overload;
-    procedure WriteValue(const V: Int64); overload;
+    procedure WriteValue(const V: Int64; AIsSign: Boolean = true); overload;
     procedure WriteValue(const V: Extended); overload;
     procedure WriteValue(const V: TBcd); overload;
     procedure WriteValue(const V: Boolean); overload;
@@ -445,9 +447,11 @@ type
     //
     procedure StartObjectPair(const AName: UnicodeString);
     procedure StartArrayPair(const AName: UnicodeString);
+    procedure StartPair(const AName: UnicodeString);
     procedure WritePair(const AName: UnicodeString;
       const V: UnicodeString); overload;
-    procedure WritePair(const AName: UnicodeString; const V: Int64); overload;
+    procedure WritePair(const AName: UnicodeString; const V: Int64;
+      AIsSign: Boolean = true); overload;
     procedure WritePair(const AName: UnicodeString; const V: Extended);
       overload;
     procedure WritePair(const AName: UnicodeString; const V: TBcd); overload;
@@ -2456,7 +2460,7 @@ begin
         begin
           if jesWithComment in AFormat.Settings then
             ABuilder.Append('//').Append(AChild.AsString).Append(SLineBreak);
-          AChild:=AChild.FNext;
+          AChild := AChild.FNext;
           continue;
         end;
       jdtBlockComment:
@@ -2464,7 +2468,7 @@ begin
           if jesWithComment in AFormat.Settings then
             ABuilder.Append('/*').Append(AChild.AsString).Append('*/')
               .Append(SLineBreak);
-          AChild:=AChild.FNext;
+          AChild := AChild.FNext;
           continue;
         end
     else
@@ -3891,9 +3895,12 @@ end;
 procedure TQJsonEncoder.InternalWriteValue(const AValue: UnicodeString;
 ADoQuote: Boolean);
 begin
+  Assert(FCurrent.Stage = wsValue);
   WritePrefix;
   WriteString(AValue, ADoQuote);
   Inc(FCurrent.Count);
+  if FCurrent.DataType = jdtObject then
+    FCurrent.Stage := wsName;
 end;
 
 class function TQJsonEncoder.JavaEscape(const S: UnicodeString;
@@ -3936,24 +3943,37 @@ procedure TQJsonEncoder.StartArray;
 begin
   WriteString('[', false);
   NextType(jdtArray);
+  FCurrent.Stage := wsValue;
 end;
 
 procedure TQJsonEncoder.StartArrayPair(const AName: UnicodeString);
 begin
   InternalWritePair(AName, '[', false);
   NextType(jdtArray);
+  FCurrent.Stage := wsValue;
 end;
 
 procedure TQJsonEncoder.StartObject;
 begin
   WriteString('{', false);
   NextType(jdtObject);
+  FCurrent.Stage := wsName;
 end;
 
 procedure TQJsonEncoder.StartObjectPair(const AName: UnicodeString);
 begin
   InternalWritePair(AName, '{', false);
   NextType(jdtObject);
+  FCurrent.Stage := wsName;
+end;
+
+procedure TQJsonEncoder.StartPair(const AName: UnicodeString);
+begin
+  Assert(FCurrent.Stage = wsName);
+  WritePrefix;
+  WriteString(AName, true);
+  WriteString(':', false);
+  FCurrent.Stage := wsValue;
 end;
 
 procedure TQJsonEncoder.WriteComment(const AComment: UnicodeString);
@@ -4048,9 +4068,13 @@ begin
   InternalWritePair(AName, FloatToStr(V), false);
 end;
 
-procedure TQJsonEncoder.WritePair(const AName: UnicodeString; const V: Int64);
+procedure TQJsonEncoder.WritePair(const AName: UnicodeString; const V: Int64;
+AIsSign: Boolean);
 begin
-  InternalWritePair(AName, IntToStr(V), false);
+  if AIsSign then
+    InternalWritePair(AName, IntToStr(V), false)
+  else
+    InternalWritePair(AName, UIntToStr(UInt64(V)), false);
 end;
 
 procedure TQJsonEncoder.WritePair(const AName, V: UnicodeString);
@@ -4158,9 +4182,12 @@ begin
   InternalWriteValue(FloatToStr(V), false);
 end;
 
-procedure TQJsonEncoder.WriteValue(const V: Int64);
+procedure TQJsonEncoder.WriteValue(const V: Int64; AIsSign: Boolean);
 begin
-  InternalWriteValue(IntToStr(V), false);
+  if AIsSign then
+    InternalWriteValue(IntToStr(V), false)
+  else
+    InternalWriteValue(SysUtils.UIntToStr(UInt64(V)), false);
 end;
 
 procedure TQJsonEncoder.WriteValue(const V: UnicodeString);
