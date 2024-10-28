@@ -30,6 +30,37 @@ type
     { Public declarations }
   end;
 
+  TOrderStatus = (osUnknown, osBeforePay, osAfterPay, osPrinted, osSent,
+    osSigned, osReject);
+
+  [NameFormat(LowerCamel)]
+  TSubscribeItem = record
+    Code: String;
+    Quantity: Integer;
+  end;
+
+  [NameFormat(LowerCamel), IncludeProps]
+  TSubscribeOrder = record
+  private
+    function GetCount: Integer;
+    procedure SetCount(const Value: Integer);
+  public
+    PackageId: Int64;
+    Tid: String;
+    Price: Currency;
+    PackageWeight: Double;
+    PackageVolume: Single;
+    CreateTime: TDateTime;
+    [DateTimeFormat(UnixTimeStamp)]
+    ConfirmTime: TDateTime;
+    [Prefix('os')]
+    Status: TOrderStatus;
+    Paid: Boolean;
+    Items: TArray<TSubscribeItem>;
+    [Exclude]
+    property Count: Integer read GetCount write SetCount;
+  end;
+
 var
   Form1: TForm1;
 
@@ -189,14 +220,40 @@ end;
 
 procedure TForm1.Button4Click(Sender: TObject);
 var
+  AOrders: TArray<TSubscribeOrder>;
+  ATime: TDateTime;
   AJson: TQJsonNode;
-  S: AnsiString;
 begin
-  S := '{"name":"吉林长春CBD中心A120室'#$A0'+"}';
-  AJson := TQJsonNode.Create;
-  AJson.TryParse(S);
-  Memo1.Lines.Add(AJson.AsJson);
-  AJson.Reset;
+  SetLength(AOrders, 10);
+  ATime := Now;
+  for var I := 0 to High(AOrders) do
+  begin
+    AOrders[I].PackageId := 100000 + I * 1000 + random(100);
+    AOrders[I].Tid := FormatDateTime('yymmdd-', ATime) +
+      TStopWatch.GetTimeStamp.ToString;
+    AOrders[I].Price := random(10000) / 100;
+    AOrders[I].PackageWeight := random(100000) / 1000;
+    AOrders[I].PackageVolume := random(10000) / 1000;
+    AOrders[I].CreateTime := ATime - random(1000) / 1000;
+    AOrders[I].ConfirmTime := ATime + (ATime - AOrders[I].CreateTime) *
+      random(100) / 100;
+    AOrders[I].Status := TOrderStatus(random(Ord(High(TOrderStatus)) + 1));
+    AOrders[I].Paid := AOrders[I].Status >= TOrderStatus.osAfterPay;
+    SetLength(AOrders[I].Items, 1 + random(10));
+    for var J := 0 to High(AOrders[I].Items) do
+    begin
+      AOrders[I].Items[J].Code := 'C' + Char(Ord('A') + random(25));
+      AOrders[I].Items[J].Quantity := 1 + random(10);
+    end;
+  end;
+  var
+  AStream := TBytesStream.Create;
+  TQSerializer.Current.FromRtti < TArray < TSubscribeOrder >>
+    (TQJsonEncoder.Create(AStream, true, TQJsonEncoder.DefaultFormat,
+    TEncoding.Utf8, 0), AOrders);
+  AStream.Position := 0;
+  Memo1.Lines.Add(TEncoding.Utf8.GetString(AStream.Bytes));
+  FreeAndNil(AStream);
 end;
 
 procedure TForm1.Button5Click(Sender: TObject);
@@ -237,6 +294,18 @@ begin
     FreeAndNil(AWriter);
     FreeAndNil(AStream);
   end;
+end;
+
+{ TSubscribeOrder }
+
+function TSubscribeOrder.GetCount: Integer;
+begin
+  Result := Length(Items);
+end;
+
+procedure TSubscribeOrder.SetCount(const Value: Integer);
+begin
+  SetLength(Items, Value);
 end;
 
 end.

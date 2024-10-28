@@ -62,7 +62,7 @@ object Form1: TForm1
       Top = 8
       Width = 75
       Height = 25
-      Caption = 'Button4'
+      Caption = 'RTTI'
       TabOrder = 4
       OnClick = Button4Click
     end
