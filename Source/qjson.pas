@@ -7816,7 +7816,7 @@ const
     pl, pe: PQCharW;
     AInt, V, AFloat: Int64;
     vFloat: Extended;
-    AFlags: Integer;
+    AFlags,AFrac: Integer;
   const
     INT_OVERFLOW = $80000000;
     FRAC_OVERFLOW = $40000000;
@@ -7969,11 +7969,11 @@ const
         else
         begin
           vFloat := AFloat;
-          AFlags := AFlags and $FF;
-          while AFlags > 0 do
+          AFrac := AFrac and $FF;
+          while AFrac > 0 do
           begin
             vFloat := vFloat / 10;
-            Dec(AFlags);
+            Dec(AFrac);
           end;
           vFloat := Double(AInt) + vFloat;
           if Floor(vFloat) <> AInt then // 无法提供精度，则转换为Bcd
