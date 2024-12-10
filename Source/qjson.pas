@@ -7969,7 +7969,7 @@ const
         else
         begin
           vFloat := AFloat;
-          AFrac := AFrac and $FF;
+          AFrac := AFlags and $FF;
           while AFrac > 0 do
           begin
             vFloat := vFloat / 10;
