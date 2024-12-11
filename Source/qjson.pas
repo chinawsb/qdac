@@ -7943,12 +7943,7 @@ const
         begin
           Result := TryStrToFloat(StrDupX(p, pl - p), vFloat);
           if Result then
-          begin
-            if (AFlags and IS_NEG_VALUE) <> 0 then
-              AsFloat := -vFloat
-            else
-              AsFloat := vFloat;
-          end
+            AsFloat := vFloat
           else
             Exit(False);
         end
