@@ -21,7 +21,6 @@ object Form1: TForm1
     BevelOuter = bvNone
     TabOrder = 0
     OnClick = Panel1Click
-    ExplicitWidth = 852
     object Button1: TButton
       Left = 8
       Top = 8
@@ -309,8 +308,6 @@ object Form1: TForm1
     Align = alClient
     ImeName = #20013#25991' - QQ'#20116#31508#36755#20837#27861
     TabOrder = 1
-    ExplicitWidth = 852
-    ExplicitHeight = 263
   end
   object OpenDialog1: TOpenDialog
     Left = 80

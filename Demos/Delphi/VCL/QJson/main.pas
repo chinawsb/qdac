@@ -616,20 +616,12 @@ end;
 
 procedure TForm1.Button25Click(Sender: TObject);
 var
-  ABank, AId: String;
-  AList: TStringList;
-  I: Integer;
+  AJson:TQJson;
 begin
-  AList := TStringList.Create;
-  AList.LoadFromFile('C:\User\QDAC3\temp\bankno.txt');
-  for I := 0 to AList.Count - 1 do
-  begin
-    if DecodeBankNo(AList[I], ABank, AId) then
-      mmResult.Lines.Add(AList[I] + '=' + ABank + '/' + AId)
-    else
-      mmResult.Lines.Add(AList[I] + '=x');
-  end;
-  FreeAndNil(AList);
+  AJson:=AcquireJson;
+  AJson.Parse('{"A":-3E2,"B":-2}');
+  mmResult.Lines.Add('A='+AJson.Items[0].AsString+',B='+AJson.Items[1].AsString);
+  ReleaseJson(AJson);
   // if DecodeBankNo('6212835005000180534',ABank,AId) then
   // ShowMessage('银行代码：'+ABank+' 个人代码:'+AId)
   // else
