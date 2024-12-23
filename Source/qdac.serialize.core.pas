@@ -2,8 +2,9 @@
 
 interface
 
-uses classes, sysutils, typinfo, generics.Collections, generics.Defaults, rtti,
-  fmtbcd, qdac.attribute;
+uses classes, sysutils, typinfo, dateutils, math, ansistrings,
+  generics.Collections,
+  generics.Defaults, rtti, variants, fmtbcd, qdac.common, qdac.attribute;
 
 const
   PAGE_BUFFER_SIZE = 4096 - sizeof(Pointer) - sizeof(Word);
@@ -12,89 +13,62 @@ type
   PQSerializeField = ^TQSerializeField;
   TQSerializeProc = procedure(AField: PQSerializeField; ASourceType: PTypeInfo;
     ASource, ATarget: Pointer) of object;
-  // 序列化时字段名的匹配模式（Delphi是用大驼峰命名，但程序员可能不一定遵守，Normal会按程序员定义匹配）
-  // - Normal : 正常匹配（默认），字段名要与数据源名称一致(AgeKind->AgeKind)
-  // - LowerCamel : 小驼峰匹配，字段名与源的小驼峰命名反转后的值一致(ageKind->AgeKind/FAgeKind)
-  // - UpperCamel : 大驼峰匹配，字段名与源的大驼峰命名反转后的值一致(AgeKind->AgeKind/FAgeKind)
-  // - Underline : 下划线匹配，字段名被删除下划线（age_kind->AgeKind/FAgeKind)
-  TSerializeNameFormat = (Normal, LowerCamel, UpperCamel, Underline);
-
-  // 序列化导出时的命名格式
-  NameFormatAttribute = class(TCustomAttribute)
-  private
-    FNameFormat: TSerializeNameFormat;
-  public
-    constructor Create(AFormat: TSerializeNameFormat); overload;
-    property NameFormat: TSerializeNameFormat read FNameFormat
-      write FNameFormat;
-  end;
-
-  // 不序列化指定的项目符号
-  ExcludeAttribute = class(TCustomAttribute)
-
-  end;
-
-  // 序列化记录类型的属性值
-  IncludePropsAttribute = class(TCustomAttribute)
-
-  end;
-
-  // 排除掉不需要的序列化的字段
-  ExcludeFieldsAttribute = class(TCustomAttribute)
-  private
-    FFields: TArray<UnicodeString>;
-  public
-    constructor Create(const AFields: TArray<UnicodeString>);
-  end;
-
-  TSerializeDateTimeFormat = (DateTimeString, UnixTimeStamp, DateString,
-    TimeString);
-
-  DateTimeFormatAttribute = class(TCustomAttribute)
-  private
-    FFormat: TSerializeDateTimeFormat;
-  public
-    constructor Create(const AFormat: TSerializeDateTimeFormat);
-    property Format: TSerializeDateTimeFormat read FFormat;
-  end;
-
-  PrefixAttribute = class(TCustomAttribute)
-  private
-    FPrefix: UnicodeString;
-  public
-    constructor Create(const APrefix: UnicodeString);
-    property Prefix: UnicodeString read FPrefix;
-  end;
-
   PQSerializeFields = ^TQSerializeFields;
 
+  TQSerializeTypeData = record
+    Prefix: UnicodeString; // 名称前缀
+    NameFormat: TSerializeNameFormat; // 名称格式
+    IdentFormat: TSerializeNameFormat; // 枚举或标志时值的转换规则
+    DateTimeFormat: TSerializeDateTimeFormat; // 日期时间类型格式
+    FormatText: String; // 目前仅 FormatDateTime/FormatFloat 支持
+    TypeInfo: PTypeInfo; // 类型信息
+    TypeData: PTypeData; // 类型数据
+    PropInfo: PPropInfo; // 如果是属性时，对应的属性信息
+    // Delphi 整数与标志字符串之间转换
+    IdentToInt: TIdentToInt;
+    IntToIdent: TIntToIdent;
+    // 原始类型信息
+    // 集合对应的枚举类型或数组元素的项目类型
+    case Integer of
+      0:
+        (BaseType: PTypeInfo;
+          BaseTypeData: PTypeData;
+        );
+      1:
+        (ElementType: PTypeInfo; ElementTypeData: PTypeData;
+          ElementFields: PQSerializeFields;);
+      2:
+        (EnumType: PTypeInfo;
+          EnumTypeData: PTypeData;
+          // 是否将枚举类型识别为整数
+          EnumAsInt: Boolean;
+        );
+  end;
+
+  PQSerializeTypeData = ^TQSerializeTypeData;
+
   TQSerializeField = record
+    TypeData: TQSerializeTypeData; // 关联的类型信息缓存
+    Parent, Fields: PQSerializeFields; // 成员列表
     // 字段的名称，可以有多个别名，如由于历史原因，可能原来叫 a1，后面改名叫 a2，则Names就是 ['a2','a1']
     Names: TArray<UnicodeString>;
     Pathes: TArray<UnicodeString>;
+    // 枚举或标志符映射及反映射
+    KVMap: TArray<TStringPair>;
+    VKMap: TArray<TStringPair>;
     FormatedName: UnicodeString;
-    Prefix: UnicodeString; // 枚举或集合类型的前缀
-    DateTimeFormat: TSerializeDateTimeFormat; // 日期时间类型格式
-
-    Fields: PQSerializeFields; // 子字段列表
     // 字段相对偏移
     Offset: Integer;
     // 字段长度
     Size: Integer;
-    // 是否是属性
-    IsProp: Boolean;
-    case Boolean of
-      false:
-        (TypeInfo: PTypeInfo; // 当前字段类型
-        );
-      true:
-        (PropInfo: PPropInfo; // 如果 IsProp 为 true
-        );
+  end;
+
+  TQSerializeFieldHelper = record helper for TQSerializeField
+    function FieldInstance<TPointer>(const AParent: Pointer): TPointer; inline;
   end;
 
   TQSerializeFields = record
-    TypeInfo: PTypeInfo;
-    NameFormat: TSerializeNameFormat;
+    TypeData: TQSerializeTypeData;
     Fields: TArray<TQSerializeField>;
   end;
 
@@ -107,11 +81,14 @@ type
     procedure EndArray;
     procedure WriteValue(const V: UnicodeString); overload;
     procedure WriteValue(const V: Int64; AIsSign: Boolean = true); overload;
-    procedure WriteValue(const V: Extended); overload;
+    procedure WriteValue(const V: UInt64); overload;
+    procedure WriteValue(const V: Extended;
+      const AFormat: String = ''); overload;
     procedure WriteValue(const V: TBcd); overload;
     procedure WriteValue(const V: Boolean); overload;
     procedure WriteValue(const V: TDateTime); overload;
-    procedure WriteValue(const V: Currency); overload;
+    procedure WriteValue(const V: Currency;
+      const AFormat: String = ''); overload;
     procedure WriteValue(const V: TBytes); overload;
     procedure WriteNull; overload;
     procedure StartObjectPair(const AName: UnicodeString);
@@ -121,14 +98,14 @@ type
       const V: UnicodeString); overload;
     procedure WritePair(const AName: UnicodeString; const V: Int64;
       AIsSign: Boolean = true); overload;
-    procedure WritePair(const AName: UnicodeString; const V: Extended);
-      overload;
+    procedure WritePair(const AName: UnicodeString; const V: Extended;
+      const AFormat: String = ''); overload;
     procedure WritePair(const AName: UnicodeString; const V: TBcd); overload;
     procedure WritePair(const AName: UnicodeString; const V: Boolean); overload;
     procedure WritePair(const AName: UnicodeString;
       const V: TDateTime); overload;
-    procedure WritePair(const AName: UnicodeString; const V: Currency);
-      overload;
+    procedure WritePair(const AName: UnicodeString; const V: Currency;
+      const AFormat: String = ''); overload;
     procedure WritePair(const AName: UnicodeString; const V: TBytes); overload;
     procedure WritePair(const AName: UnicodeString); overload;
   end;
@@ -146,17 +123,33 @@ type
       const AValueType: PTypeInfo);
   end;
 
+  PQSerializeStackItem = ^TQSerializeStackItem;
+
+  // 使用它以避免递归序列化，如 A 里引用了自身，或者 A 引用了B，B里又引用了A
+  TQSerializeStackItem = record
+    Instance: Pointer;
+    TypeInfo: PTypeInfo;
+    Fields: PQSerializeFields;
+    Prior: PQSerializeStackItem;
+  end;
+
   TQSerializer = class sealed
   private
-    class var FCurrent: TQSerializer;
+  class
+
+    var
+    FCurrent: TQSerializer;
+    FKeyComparer, FValueComparer: IComparer<TStringPair>;
 
   var
     FCachedTypes: TDictionary<PTypeInfo, PQSerializeFields>;
+
     class function GetCurrent: TQSerializer; static;
   protected
     function InternalRegisterType(AType: PTypeInfo): PQSerializeFields;
-    class procedure DoSerialize(AWriter: IQSerializeWriter; AInstance: Pointer;
-      AType: PTypeInfo; const AFields: PQSerializeFields); static;
+    class procedure DoSerialize(AWriter: IQSerializeWriter;
+      const AStack: TQSerializeStackItem); static;
+    function DoRegister(AType: PTypeInfo): PQSerializeFields; inline;
   public
     constructor Create; overload;
     destructor Destroy; override;
@@ -164,6 +157,8 @@ type
     procedure Register(AType: PTypeInfo; const AFields: TQSerializeFields);
     function Find(AType: PTypeInfo): PQSerializeFields;
     procedure Clear;
+    class function FormatName(const S: UnicodeString;
+      const AFormat: TSerializeNameFormat): UnicodeString;
     class procedure FromRtti<T>(AWriter: IQSerializeWriter;
       const AInstance: T); static;
     class procedure ToRtti<T>(AReader: IQSerializeReader;
@@ -232,15 +227,18 @@ type
 type
 TQValueCaches < TItemType >= class //
   private //
-  type PItemType = ^TItemType;
-TQCachedItem = record //
-  HashCode: Integer; //
-RefCount:
-Integer;
-Value:
-TItemType;
-end;
-PQCachedItem = ^TQCachedItem;
+  type //
+  PItemType = ^TItemType;
+
+type
+  TQCachedItem = record //
+    HashCode: Integer; //
+    RefCount: Integer;
+    Value: TItemType;
+  end;
+
+type
+  PQCachedItem = ^TQCachedItem;
 
 const
   POINTER_IS_REF = IntPtr($02);
@@ -299,6 +297,16 @@ constructor TQSerializer.Create;
 begin
   inherited;
   FCachedTypes := TDictionary<PTypeInfo, PQSerializeFields>.Create;
+  FKeyComparer := TComparer<TStringPair>.Construct(
+    function(const L, R: TStringPair): Integer
+    begin
+      Result := CompareStr(L.Key, R.Key);
+    end);
+  FValueComparer := TComparer<TStringPair>.Construct(
+    function(const L, R: TStringPair): Integer
+    begin
+      Result := CompareStr(L.Value, R.Value);
+    end);
 end;
 
 destructor TQSerializer.Destroy;
@@ -308,339 +316,872 @@ begin
   inherited;
 end;
 
+function TQSerializer.DoRegister(AType: PTypeInfo): PQSerializeFields;
+begin
+  Result := InternalRegisterType(AType);
+end;
+
+// 如果 AFields 为空，则根据 AType 自动获取当前实例对应的类型，这块应该可以优化
 class procedure TQSerializer.DoSerialize(AWriter: IQSerializeWriter;
-  AInstance: Pointer; AType: PTypeInfo; const AFields: PQSerializeFields);
+const AStack: TQSerializeStackItem);
 type
   TLargestSet = set of Byte;
   PLargestSet = ^TLargestSet;
+
 var
   S: UnicodeString;
-  AFieldIndex: Integer;
-
-  function GetEnumTypeValue(AInstance: Pointer; AType: PTypeInfo): Cardinal;
+  function GetOrdInstanceValue(AInstance: Pointer; AOrdType: TOrdType): Int64;
   begin
-    case GetTypeData(AType)^.OrdType of
-      otUByte, otSByte:
+    case AOrdType of
+      otUByte:
         Result := PByte(AInstance)^;
-      otUWord, otSWord:
+      otSByte:
+        Result := PShortint(AInstance)^;
+      otUWord:
         Result := PWord(AInstance)^;
-      otULong, otSLong:
-        Result := PCardinal(AInstance)^
-    else // 不可能执行到此位置
+      otSWord:
+        Result := PSmallint(AInstance)^;
+      otULong:
+        Result := PCardinal(AInstance)^;
+      otSLong:
+        Result := PInteger(AInstance)^
+    else // avoid compile warning
       Result := 0;
     end;
   end;
-
-  function IsBooleanType(AType: PTypeInfo): Boolean;
+  function GetIntValue(AInstance: Pointer;
+  const AField: TQSerializeField): Int64;
   begin
-    if AType <> TypeInfo(Boolean) then
-      Result := (AType.Kind = tkEnumeration) and
-        (GetTypeData(GetTypeData(AType).BaseType^).MinValue < 0)
-    else
-      Result := true;
-  end;
-
-  function GetEnumFieldValue(const AField: TQSerializeField): UnicodeString;
-  var
-    AValue: Cardinal;
-  begin
-    if AField.IsProp then
-      Result := GetEnumName(AField.PropInfo.PropType^,
-        GetOrdProp(AInstance, AField.PropInfo))
-    else
+    if Assigned(AField.TypeData.PropInfo) then
     begin
-      Result := GetEnumName(AField.TypeInfo,
-        GetEnumTypeValue(Pointer(PByte(AInstance) + AField.Offset),
-        AField.TypeInfo));
-    end;
-    if Length(AField.Prefix) > 0 then
-    begin
-      if Result.StartsWith(AField.Prefix) then
-        Result := Result.Substring(Length(AField.Prefix));
-    end;
-  end;
-
-  function FormatEnumValue(const AName, APrefix: UnicodeString): UnicodeString;
-  begin
-    if Length(APrefix) > 0 then
-      Result := AName.Substring(Length(APrefix))
-    else
-      Result := AName;
-  end;
-
-  procedure DoWriteSetValue(AInstance: Pointer; AType: PTypeInfo;
-    const AKey, APrefix: UnicodeString);
-  var
-    B: Byte;
-    EnumOffset: Integer;
-    PEnumInfo: PPTypeInfo;
-    AValue: UnicodeString;
-  begin
-    AWriter.StartArray;
-    PEnumInfo := GetTypeData(AType)^.CompType;
-    if PEnumInfo <> nil then
-    begin
-      EnumOffset := ByteOffsetOfSet(AType) * 8;
-      for B := 0 to SizeOfSet(AType) * 8 - 1 do
-        if B in PLargestSet(AInstance)^ then
-        begin
-          AValue := GetEnumName(PEnumInfo^, B + EnumOffset);
-          if (Length(APrefix) > 0) and AValue.StartsWith(APrefix) then
-            AValue := AValue.Substring(Length(APrefix));
-          if Length(AKey) > 0 then
-            AWriter.WritePair(AKey, AValue)
-          else
-            AWriter.WriteValue(AValue);
-        end;
+      case AField.TypeData.PropInfo.PropType^.Kind of
+        tkInteger, tkEnumeration:
+          Result := GetOrdProp(AInstance, AField.TypeData.PropInfo);
+        tkInt64:
+          Result := GetInt64Prop(AInstance, AField.TypeData.PropInfo)
+      else // avoid compile error
+        Result := 0;
+      end;
     end
     else
     begin
-      for B := 0 to SizeOfSet(AType) * 8 - 1 do
-        if B in PLargestSet(AInstance)^ then
+      case AField.TypeData.TypeInfo.Kind of
+        tkInteger, tkEnumeration:
+          Result := GetOrdInstanceValue
+            (AField.FieldInstance<Pointer>(AInstance),
+            AField.TypeData.BaseTypeData.OrdType);
+        tkInt64:
+          Result := AField.FieldInstance<PInt64>(AInstance)^
+      else // avoid compile error
+        Result := 0;
+      end;
+    end;
+  end;
+
+  function GetFloatValue(AInstance: Pointer; const AField: TQSerializeField)
+    : Extended;
+  begin
+    if Assigned(AField.TypeData.PropInfo) then
+      Result := GetFloatProp(AInstance, AField.TypeData.PropInfo)
+    else
+    begin
+      case AField.TypeData.BaseTypeData.FloatType of
+        ftSingle:
+          Result := AField.FieldInstance<PSingle>(AInstance)^;
+        ftDouble:
+          Result := AField.FieldInstance<PDouble>(AInstance)^;
+        ftExtended:
+          Result := AField.FieldInstance<PExtended>(AInstance)^;
+        ftComp:
+          Result := AField.FieldInstance<PComp>(AInstance)^;
+        ftCurr:
+          Result := AField.FieldInstance<PCurrency>(AInstance)^
+      else // avoid compile error
+        Result := 0;
+      end;
+    end;
+  end;
+
+  function GetCurrValue(AInstance: Pointer; const AField: TQSerializeField)
+    : Currency;
+  var
+    M: TMethod;
+  type
+    TGetProc = function: Currency of object;
+    TIdxGetProc = function(Index: Integer): Currency of object;
+  begin
+    if AField.TypeData.BaseTypeData.FloatType = ftCurr then
+    begin
+      if Assigned(AField.TypeData.PropInfo) then
+      begin
+        if (IntPtr(AField.TypeData.PropInfo.GetProc) and PROPSLOT_MASK) = PROPSLOT_FIELD
+        then
+          Result := PCurrency(PByte(AInstance) +
+            (IntPtr(AField.TypeData.PropInfo.GetProc) and not PROPSLOT_MASK))^
+        else
         begin
-          AValue := GetEnumName(PEnumInfo^, B);
-          if (Length(APrefix) > 0) and AValue.StartsWith(APrefix) then
-            AValue := AValue.Substring(Length(APrefix));
-          if Length(AKey) > 0 then
-            AWriter.WritePair(AKey, AValue)
+          if (IntPtr(AField.TypeData.PropInfo.GetProc) and PROPSLOT_MASK) = PROPSLOT_VIRTUAL
+          then // Virtual Method
+            M.Code := PPointer(PNativeUInt(AInstance)^ +
+              (UIntPtr(AField.TypeData.PropInfo.GetProc) and $FFFF))^
+          else // Static method
+            M.Code := AField.TypeData.PropInfo.GetProc;
+          M.Data := AInstance;
+          if AField.TypeData.PropInfo^.
+            Index = Low(AField.TypeData.PropInfo^.Index) then
+            // no index
+            Result := TGetProc(M)()
           else
-            AWriter.WriteValue(AValue);
+            Result := TIdxGetProc(M)(AField.TypeData.PropInfo^.Index);
+        end
+      end
+      else
+        Result := AField.FieldInstance<PCurrency>(AInstance)^
+    end
+    else // avoid complie error
+      Result := 0;
+  end;
+
+  function GetBooleanValue(AInstance: Pointer;
+  const AField: TQSerializeField): Boolean;
+  begin
+    if (AField.TypeData.BaseType = TypeInfo(Boolean)) or
+      (AField.TypeData.BaseType = TypeInfo(ByteBool)) or
+      (AField.TypeData.BaseType = TypeInfo(WordBool)) or
+      (AField.TypeData.BaseType = TypeInfo(LongBool)) or
+      ((AField.TypeData.BaseType.Kind = tkEnumeration) and
+      (AField.TypeData.BaseType.NameFld.ToString = 'bool')) then
+    begin
+      if Assigned(AField.TypeData.PropInfo) then
+        Result := GetOrdProp(AInstance, AField.TypeData.PropInfo) <> 0
+      else
+        Result := GetIntValue(AInstance, AField) <> 0;
+    end
+    else
+      Result := false;
+  end;
+
+  function GetEnumValue(AInstance: Pointer; const AField: TQSerializeField)
+    : UnicodeString;
+  begin
+    if Assigned(AField.TypeData.PropInfo) then
+      Result := GetEnumName(AField.TypeData.PropInfo.PropType^,
+        GetOrdProp(AInstance, AField.TypeData.PropInfo))
+    else
+    begin
+      Result := GetEnumName(AField.TypeData.TypeInfo,
+        GetIntValue(AInstance, AField));
+    end;
+    if Length(AField.TypeData.Prefix) > 0 then
+    begin
+      if Result.StartsWith(AField.TypeData.Prefix) then
+        Result := Result.Substring(Length(AField.TypeData.Prefix));
+    end;
+  end;
+
+  function GetStrValue(AInstance: Pointer; const AField: TQSerializeField)
+    : UnicodeString;
+  begin
+    if Assigned(AField.TypeData.PropInfo) then
+      Result := GetStrProp(AInstance, AField.TypeData.PropInfo)
+    else
+    begin
+      case AField.TypeData.BaseType.Kind of
+{$IFNDEF NEXTGEN}
+        tkString:
+          Result := UnicodeString(AField.FieldInstance<PShortString>
+            (AInstance)^);
+        tkWString:
+          Result := UnicodeString(AField.FieldInstance<PWideString>
+            (AInstance)^);
+{$ENDIF !NEXTGEN}
+        tkLString:
+          Result := UnicodeString(AField.FieldInstance<PAnsiString>
+            (AInstance)^);
+        tkUString:
+          Result := AField.FieldInstance<PUnicodeString>(AInstance)^;
+      else
+        Result := '';
+      end;
+    end;
+  end;
+
+  function GetObjectValue(AInstance: Pointer;
+  const AField: TQSerializeField): TObject;
+  begin
+    if Assigned(AField.TypeData.PropInfo) then
+      Result := TObject(GetOrdProp(AInstance, AField.TypeData.PropInfo))
+    else
+      Result := AField.FieldInstance<TObject>(AInstance);
+  end;
+
+  function RemovePrefix(const AName, APrefix: UnicodeString;
+  ANameFormat: TSerializeNameFormat): UnicodeString;
+  begin
+    if Length(APrefix) > 0 then
+    begin
+      if AName.StartsWith(AName, false) then
+        Result := FormatName(AName.Substring(Length(APrefix)), ANameFormat)
+      else
+        Result := FormatName(AName, ANameFormat);
+    end
+    else
+      Result := FormatName(AName, ANameFormat);
+  end;
+
+  procedure WriteSetItems(ASet: PLargestSet; ASetType, AEnumType: PTypeInfo;
+  APrefix: UnicodeString; ANameFormat: TSerializeNameFormat);
+  var
+    ABit: Byte;
+    ABits: Integer;
+    AValue: UnicodeString;
+  begin
+    if Assigned(AEnumType) then
+    begin
+      for ABit := AEnumType.TypeData.MinValue to AEnumType.TypeData.MaxValue do
+      begin
+        if ABit in ASet^ then
+        begin
+          AValue := RemovePrefix(GetEnumName(AEnumType, ABit), APrefix,
+            ANameFormat);
+          AWriter.WriteValue(AValue);
         end;
+      end;
+    end
+    else // how?
+    begin
+      ABits := SizeOfSet(ASetType) * 8;
+      for ABit := 0 to ABits - 1 do
+      begin
+        if ABit in ASet^ then
+          AWriter.WriteValue(ABit);
+      end;
+    end;
+  end;
+
+  procedure WriteSetValue(AInstance: Pointer; const AField: TQSerializeField);
+  var
+    APrefix: String;
+    ANameFormat: TSerializeNameFormat;
+  begin
+    AWriter.StartArrayPair(AField.FormatedName);
+    try
+      if Assigned(AField.TypeData.EnumType) then
+      begin
+        APrefix := AField.TypeData.Prefix;
+        ANameFormat := AField.TypeData.IdentFormat;
+        if (Length(APrefix) = 0) and Assigned(AField.TypeData.ElementFields)
+        then
+          APrefix := AField.TypeData.ElementFields.TypeData.Prefix;
+        WriteSetItems(AField.FieldInstance<PLargestSet>(AInstance),
+          AField.TypeData.TypeInfo, AField.TypeData.EnumType, APrefix,
+          ANameFormat);
+      end;
+    finally
+      AWriter.EndArray;
     end;
   end;
 
   procedure WriteIntValue(AInstance: Pointer; const AField: TQSerializeField);
   begin
-    if AField.IsProp then
+    if AField.TypeData.BaseType.Kind = tkInt64 then
     begin
-      with GetTypeData(AField.PropInfo.PropType^)^ do
+      with AField.TypeData.BaseTypeData^ do
+        AWriter.WritePair(AField.FormatedName, GetIntValue(AInstance, AField),
+          MaxInt64Value < MinInt64Value)
+    end
+    else
+      AWriter.WritePair(AField.FormatedName, GetIntValue(AInstance, AField));
+  end;
+
+  function CanSerialize(AInstance: Pointer): Boolean;
+  var
+    bp: PQSerializeStackItem;
+  begin
+    if Assigned(AInstance) then
+    begin
+      bp := @AStack;
+      while Assigned(bp) do
       begin
-        AWriter.WritePair(AField.FormatedName,
-          GetOrdProp(AInstance, AField.PropInfo), MinValue > MaxValue);
+        if bp.Instance = AInstance then
+          Exit(false);
+        bp := bp.Prior;
+      end;
+      Result := true;
+    end
+    else
+      Result := false;
+  end;
+  function NewStack(AType: PTypeInfo; AInstance: Pointer;
+  AFields: PQSerializeFields): TQSerializeStackItem;
+  begin
+    Result.Instance := AInstance;
+    Result.TypeInfo := AType;
+    if not Assigned(AFields) then
+    begin
+      if AType.Kind = tkClass then
+        AFields := Current.RegisterType(TObject(AInstance).ClassInfo)
+      else
+        AFields := Current.RegisterType(AType);
+    end;
+    Result.Fields := AFields;
+    Result.Prior := @AStack;
+  end;
+
+  procedure WriteDynArrayItems(AInstance: Pointer;
+  const ATypeData: TQSerializeTypeData);
+  var
+    AElement: Pointer;
+    I, ACount: Integer;
+  begin
+    ACount := DynArraySize(AInstance);
+    for I := 0 to ACount - 1 do
+    begin
+      AElement := PByte(AInstance) + ATypeData.ElementTypeData.elSize * I;
+      if CanSerialize(AElement) then
+        DoSerialize(AWriter, NewStack(ATypeData.ElementType, AElement,
+          ATypeData.ElementFields));
+    end;
+  end;
+
+  procedure WriteFixedArrayItems(AInstance: Pointer;
+  const ATypeData: TQSerializeTypeData);
+  var
+    AElement: Pointer;
+    I, ACount: Integer;
+  begin
+    ACount := ATypeData.BaseTypeData.ArrayData.ElCount - 1;
+    for I := 0 to ACount - 1 do
+    begin
+      AElement := PByte(AInstance) + ATypeData.ElementTypeData.elSize * I;
+      if CanSerialize(AElement) then
+        DoSerialize(AWriter, NewStack(ATypeData.ElementType, AInstance,
+          ATypeData.ElementFields));
+    end;
+  end;
+
+  procedure WriteArrayValue(AInstance: Pointer; const AField: TQSerializeField);
+  begin
+    if AField.TypeData.BaseType.Kind = tkDynArray then
+    begin
+      if Assigned(AField.TypeData.PropInfo) then
+        AInstance := GetDynArrayProp(AInstance, AField.TypeData.PropInfo)
+      else
+        AInstance := AField.FieldInstance<Pointer>(AInstance);
+      AWriter.StartArrayPair(AField.FormatedName);
+      try
+        WriteDynArrayItems(AInstance, AField.TypeData);
+      finally
+        AWriter.EndArray;
+      end;
+    end
+    else if AField.TypeData.BaseType.Kind = tkArray then
+    begin
+      AWriter.StartArrayPair(AField.FormatedName);
+      try
+        WriteFixedArrayItems(AField.FieldInstance<Pointer>(AInstance),
+          AField.TypeData);
+      finally
+        AWriter.EndArray;
       end;
     end;
   end;
-  procedure WriteArrayValue(AInstance: Pointer; ACount: Integer;
-    AType: PTypeInfo);
-  begin
 
+  function IsEnumerable(AClass: TClass): Boolean;
+  begin
+    repeat
+      if AClass.ClassName.StartsWith('TEnumerable<') and
+        AClass.ClassName.EndsWith('>') then
+        Exit(true)
+      else
+        AClass := AClass.ClassParent;
+    until not Assigned(AClass);
+    Result := false;
   end;
-  procedure WriteField(const AField: TQSerializeField);
+
+  function DateTimeToUnixMs(const AValue: TDateTime;
+  AInputIsUTC: Boolean): Int64;
   var
-    AName: UnicodeString;
+    LDate: TDateTime;
+  begin
+    if AInputIsUTC then
+      LDate := AValue
+    else
+      LDate := TTimeZone.Local.ToUniversalTime(AValue);
+    Result := MilliSecondsBetween(UnixDateDelta, LDate);
+    if LDate < UnixDateDelta then
+      Result := -Result;
+  end;
+
+  function WriteDateTimeField(const ATime: TDateTime;
+  const AField: TQSerializeField): String;
+  begin
+    case AField.TypeData.DateTimeFormat of
+      AutoDetect:
+        begin
+          if not IsZero(Frac(ATime)) then
+          begin
+            if Trunc(ATime) > 0 then
+              AWriter.WritePair(AField.FormatedName,
+                FormatDateTime('yyyy-mm-dd hh:nn:ss', ATime))
+            else
+              AWriter.WritePair(AField.FormatedName,
+                FormatDateTime('hh:nn:ss', ATime));
+          end
+          else
+            AWriter.WritePair(AField.FormatedName,
+              FormatDateTime('yyyy-mm-dd', ATime));
+        end;
+      UnixTimeStamp:
+        begin
+          AWriter.WritePair(AField.FormatedName, DateTimeToUnix(ATime, false));
+        end;
+      UnixTimeStampMs:
+        begin
+          AWriter.WritePair(AField.FormatedName, DateTimeToUnixMs(ATime, false))
+        end
+    else
+      begin
+        AWriter.WritePair(AField.FormatedName,
+          FormatDateTime(AField.TypeData.FormatText, ATime));
+      end;
+    end;
+  end;
+
+  function WriteDateTimeValue(const ATime: TDateTime;
+  const ATypeData: TQSerializeTypeData): String;
+  begin
+    case ATypeData.DateTimeFormat of
+      AutoDetect:
+        begin
+          if not IsZero(Frac(ATime)) then
+          begin
+            if Trunc(ATime) > 0 then
+              AWriter.WriteValue(FormatDateTime('yyyy-mm-dd hh:nn:ss', ATime))
+            else
+              AWriter.WriteValue(FormatDateTime('hh:nn:ss', ATime));
+          end
+          else
+            AWriter.WriteValue(FormatDateTime('yyyy-mm-dd', ATime));
+        end;
+      UnixTimeStamp:
+        begin
+          AWriter.WriteValue(DateTimeToUnix(ATime, false));
+        end;
+      UnixTimeStampMs:
+        AWriter.WriteValue(DateTimeToUnixMs(ATime, false))
+    else
+      AWriter.WriteValue(FormatDateTime(ATypeData.FormatText, ATime));
+    end;
+  end;
+
+  function FindMapedValue(const AValues: TArray<TStringPair>;
+  const AKey: UnicodeString; var AValue: UnicodeString): Boolean;
+  var
+    APair: TStringPair;
+    AIndex: NativeInt;
+  begin
+    APair.Key := AKey;
+    Result := TArray.BinarySearch<TStringPair>(AValues, APair, AIndex,
+      FKeyComparer);
+    if Result then
+      AValue := AValues[AIndex].Value;
+  end;
+
+  function GetIdentValue(const AValue: Integer; const AField: TQSerializeField)
+    : UnicodeString;
+  begin
+    if not AField.TypeData.IntToIdent(AValue, Result) then
+      Result := IntToStr(AValue)
+    else
+    begin
+      if Length(AField.KVMap) > 0 then // 如果用户指定了键值映射对，则按键值映射走
+      begin
+        if FindMapedValue(AField.KVMap, Result, Result) then
+          Exit;
+      end;
+      if Length(AField.TypeData.Prefix) > 0 then
+        Result := RemovePrefix(Result, AField.TypeData.Prefix,
+          AField.TypeData.IdentFormat)
+      else if Assigned(AField.Fields) and
+        (Length(AField.Fields.TypeData.Prefix) > 0) then
+        Result := RemovePrefix(Result, AField.Fields.TypeData.Prefix,
+          AField.TypeData.IdentFormat);
+    end;
+  end;
+
+  procedure WriteField(AInstance: Pointer; const AField: TQSerializeField);
+  var
     ASubFields: PQSerializeFields;
-    ATypeData: PTypeData;
-    AFieldInstance: Pointer;
+    AFieldInstance, AChildInstance: Pointer;
     I: Integer;
   begin
-    if AField.IsProp then
-    begin
-      case AField.PropInfo.PropType^.Kind of
-        tkInteger:
-          begin
-            ATypeData := GetTypeData(AField.PropInfo.PropType^);
-            if ATypeData.MinValue > ATypeData.MaxValue then
-              AWriter.WritePair(AField.FormatedName,
-                GetOrdProp(AInstance, AField.PropInfo), false)
-            else
-              AWriter.WritePair(AField.FormatedName,
-                GetOrdProp(AInstance, AField.PropInfo));
-          end;
-        tkChar, tkString, tkWChar, tkLString, tkWString, tkUString:
+    case AField.TypeData.TypeInfo.Kind of
+      tkInteger:
+        begin
+          if Assigned(AField.TypeData.IntToIdent) then
+            AWriter.WritePair(AField.FormatedName,
+              GetIdentValue(GetIntValue(AInstance, AField), AField))
+          else
+            AWriter.WritePair(AField.FormatedName,
+              GetIntValue(AInstance, AField));
+        end;
+      tkChar, tkString, tkWChar, tkLString, tkWString, tkUString:
+        AWriter.WritePair(AField.FormatedName, GetStrValue(AInstance, AField));
+      tkEnumeration:
+        if AField.TypeData.EnumAsInt then
+          AWriter.WritePair(AField.FormatedName, GetIntValue(AInstance, AField))
+        else if IsBoolType(AField.TypeData.TypeInfo) then
           AWriter.WritePair(AField.FormatedName,
-            GetStrProp(AInstance, AField.PropInfo));
-        tkEnumeration:
-          begin
-            if IsBooleanType(AField.PropInfo.PropType^) then
-              AWriter.WritePair(AField.FormatedName,
-                GetOrdProp(AInstance, AField.PropInfo) <> 0)
-            else
-              AWriter.WritePair(AField.FormatedName,
-                FormatEnumValue(GetEnumProp(AInstance, AField.PropInfo),
-                AField.Prefix));
-          end;
-        tkFloat:
+            GetBooleanValue(AInstance, AField))
+        else
+          AWriter.WritePair(AField.FormatedName,
+            GetEnumValue(AInstance, AField));
+      tkFloat:
+        begin
+          if AField.TypeData.BaseTypeData.FloatType = ftCurr then
           begin
             AWriter.WritePair(AField.FormatedName,
-              GetFloatProp(AInstance, AField.PropInfo));
-          end;
-        tkSet:
-          AWriter.WritePair(AField.FormatedName,
-            GetSetProp(AInstance, AField.PropInfo, true));
-        tkClass:
+              GetCurrValue(AInstance, AField))
+          end
+          else if (AField.TypeData.BaseType = TypeInfo(TDateTime)) or
+            (AField.TypeData.BaseType = TypeInfo(TDate)) or
+            (AField.TypeData.BaseType = TypeInfo(TTime)) then
+            WriteDateTimeField(GetFloatValue(AInstance, AField), AField)
+          else
+            AWriter.WritePair(AField.FormatedName,
+              GetFloatValue(AInstance, AField), AField.TypeData.FormatText);
+        end;
+      tkSet:
+        WriteSetValue(AInstance, AField);
+      tkClass:
+        begin
+          AFieldInstance := GetObjectValue(AInstance, AField);
+          if Assigned(AFieldInstance) then
           begin
-            if Assigned(AField.Fields) then
+            // 字符串列表
+            if TObject(AFieldInstance) is TStrings then
+              AWriter.WritePair(AField.FormatedName,
+                TStrings(AFieldInstance).Text)
+            else if TObject(AFieldInstance) is TCollection then //
             begin
-              AFieldInstance := GetObjectProp(AInstance, AField.PropInfo);
-              if Assigned(AFieldInstance) then
-              begin
-                AWriter.StartObjectPair(AField.FormatedName);
-                try
-                  for I := 0 to High(AField.Fields.Fields) do
+              AWriter.StartArrayPair(AField.FormatedName);
+              try
+                ASubFields := Current.Find(TCollection(AFieldInstance)
+                  .ItemClass.ClassInfo);
+                for I := 0 to TCollection(AFieldInstance).Count - 1 do
+                begin
+                  AChildInstance := TCollection(AFieldInstance).Items[I];
+                  if CanSerialize(AChildInstance) then
                   begin
-                    AWriter.StartPair(AField.Fields.Fields[I].FormatedName);
-                    DoSerialize(AWriter, AFieldInstance,
-                      AField.Fields.Fields[I].TypeInfo, AField.Fields);
+                    if TObject(AChildInstance).ClassType = TCollection
+                      (AFieldInstance).ItemClass then
+                      DoSerialize(AWriter,
+                        NewStack(TObject(AChildInstance).ClassInfo,
+                        AChildInstance, ASubFields))
+                    else
+                      DoSerialize(AWriter,
+                        NewStack(TObject(AChildInstance).ClassInfo,
+                        AChildInstance, nil));
                   end;
-                finally
-                  AWriter.EndObject;
                 end;
+              finally
+                AWriter.EndArray;
               end;
-            end;
-          end;
-        tkVariant:
-          begin
-          end;
-        tkArray:
-          ;
-        tkRecord:
-          ;
-        tkInterface:
-          begin
-            AFieldInstance := nil;
-            IInterface(AFieldInstance) := GetInterfaceProp(AInstance,
-              AField.PropInfo);
-            if Assigned(AFieldInstance) then
+            end
+            // 泛型 TEnumerable<T> 的子类
+            else if IsEnumerable(TObject(AFieldInstance).ClassType) then
+            begin
+              // Todo:支持泛型
+            end
+            else
             begin
               AWriter.StartObjectPair(AField.FormatedName);
               try
                 for I := 0 to High(AField.Fields.Fields) do
                 begin
-                  AWriter.StartPair(AField.Fields.Fields[I].FormatedName);
-                  DoSerialize(AWriter, AFieldInstance,
-                    AField.Fields.Fields[I].TypeInfo, AField.Fields);
+                  with AField.Fields.Fields[I] do
+                  begin
+                    AFieldInstance := FieldInstance<Pointer>(AInstance);
+                    if CanSerialize(AFieldInstance) then
+                      DoSerialize(AWriter, NewStack(AFieldInstance,
+                        TypeData.TypeInfo, Fields));
+                  end;
                 end;
               finally
                 AWriter.EndObject;
               end;
             end;
-            IInterface(AFieldInstance) := nil;
           end;
-        tkInt64:
-          with GetTypeData(AField.PropInfo.PropType^)^ do
-            AWriter.WritePair(AField.FormatedName,
-              GetInt64Prop(AInstance, AField.PropInfo), MinValue > MaxValue);
-        tkDynArray:
+        end;
+      tkVariant:
+        begin
+        end;
+      tkArray, tkDynArray:
+        WriteArrayValue(AInstance, AField);
+      tkRecord:
+        begin
+          if Assigned(AField.Fields) then
           begin
-            AFieldInstance := GetDynArrayProp(AInstance, AField.PropInfo);
-            if Assigned(AFieldInstance) then
-            begin
-              AWriter.StartObjectPair(AField.FormatedName);
-              try
-                WriteArrayValue(AFieldInstance,
-                  System.DynArraySize(AFieldInstance),
-                  AField.PropInfo.PropType^);
-              finally
-                AWriter.EndArray;
+            AWriter.StartObjectPair(AField.FormatedName);
+            try
+              for I := 0 to High(AField.Fields.Fields) do
+              begin
+                with AField.Fields.Fields[I] do
+                begin
+                  AFieldInstance := FieldInstance<Pointer>(AInstance);
+                  if CanSerialize(AFieldInstance) then
+                    DoSerialize(AWriter, NewStack(TypeData.TypeInfo,
+                      AFieldInstance, Fields));
+                end;
               end;
+            finally
+              AWriter.EndObject;
             end;
           end;
-        tkClassRef:
-          ;
-        tkPointer:
-          ;
-        tkProcedure:
-          ;
-        tkMRecord:
-          ;
-      end;
-    end
-    else
-    begin
+        end;
+      tkInterface:
+        begin
+          AFieldInstance := nil;
+          IInterface(AFieldInstance) := GetInterfaceProp(AInstance,
+            AField.TypeData.PropInfo);
+          if Assigned(AFieldInstance) then
+          begin
+            AWriter.StartObjectPair(AField.FormatedName);
+            try
+              for I := 0 to High(AField.Fields.Fields) do
+              begin
+                with AField.Fields.Fields[I] do
+                begin
+                  AFieldInstance := FieldInstance<Pointer>(AInstance);
+                  if CanSerialize(AFieldInstance) then
+                    DoSerialize(AWriter, NewStack(TypeData.TypeInfo,
+                      AFieldInstance, Fields));
+                end;
+              end;
+            finally
+              AWriter.EndObject;
+            end;
+          end;
+          IInterface(AFieldInstance) := nil;
+        end;
+      tkInt64:
+        AWriter.WritePair(AField.FormatedName, GetIntValue(AInstance, AField),
+          AField.TypeData.BaseTypeData.MinInt64Value >
+          AField.TypeData.BaseTypeData.MaxInt64Value);
+      tkClassRef:
+        begin
+          S := TClass(AInstance).ClassName;
+          if S.StartsWith('T') then
+            S := S.Substring(1);
+          AWriter.WritePair(AField.FormatedName, S);
+        end;
+      tkPointer, tkProcedure, tkMRecord:
+        // 无类型指针，没法处理，忽略
+        ;
+    end;
+  end;
 
+  function GetVarValue(AInstance: Pointer;
+  const AField: TQSerializeField): Variant;
+  begin
+    if Assigned(AField.TypeData.PropInfo) then
+      Result := GetVariantProp(AInstance, AField.TypeData.PropInfo)
+    else
+      Result := PVariant(AInstance)^;
+  end;
+
+  procedure WriteVarValue(const AValue: Variant);
+  begin
+    case VarType(AValue) of
+      varSmallInt:
+        AWriter.WriteValue(PVarData(@AValue).VSmallInt);
+      varInteger:
+        AWriter.WriteValue(PVarData(@AValue).VInteger);
+      varSingle:
+        AWriter.WriteValue(PVarData(@AValue).VSingle);
+      varDouble:
+        AWriter.WriteValue(PVarData(@AValue).VDouble);
+      varCurrency:
+        AWriter.WriteValue(PVarData(@AValue).VCurrency);
+      varDate:
+        AWriter.WriteValue(PVarData(@AValue).VDate);
+      varOleStr:
+        AWriter.WriteValue(PVarData(@AValue).VOleStr);
+      varBoolean:
+        AWriter.WriteValue(PVarData(@AValue).VBoolean);
+      varShortInt:
+        AWriter.WriteValue(PVarData(@AValue).VShortInt);
+      varByte:
+        AWriter.WriteValue(PVarData(@AValue).VByte);
+      varWord:
+        AWriter.WriteValue(PVarData(@AValue).VWord);
+      varUInt32:
+        AWriter.WriteValue(PVarData(@AValue).VUInt32);
+      varInt64:
+        AWriter.WriteValue(PVarData(@AValue).VInt64);
+      varUInt64:
+        AWriter.WriteValue(PVarData(@AValue).VUInt64);
+      varString:
+        AWriter.WriteValue
+          (UnicodeString(PRawByteString(PVarData(@AValue).VString)^));
+      varArray:
+        begin
+          // AWriter.WriteValue(PVarData(@AValue).VArray: PVarArray);
+        end;
+      varByRef:
+        begin
+          // Todo:
+        end;
+      varUString:
+        AWriter.WriteValue(PUnicodeString(PVarData(@AValue).VUString)^);
+      varRecord:
+        begin
+          // Todo:
+          // (VRecord: TVarRecord);
+        end;
+    end;
+  end;
+
+  procedure WriteValue;
+  var
+    I: Integer;
+  begin
+    case AStack.TypeInfo.Kind of
+      tkInteger:
+        AWriter.WriteValue(GetOrdInstanceValue(AStack.Instance,
+          AStack.Fields.TypeData.BaseTypeData.OrdType));
+      tkChar:
+        AWriter.WriteValue(UnicodeString(WideChar(PByte(AStack.Instance)^)));
+      tkEnumeration:
+        begin
+          if Assigned(AStack.Fields) then
+          begin
+            if IsBoolType(AStack.Fields.TypeData.TypeInfo) then
+              AWriter.WriteValue(GetOrdInstanceValue(AStack.Instance,
+                AStack.Fields.TypeData.TypeData.OrdType))
+            else if AStack.Fields.TypeData.EnumAsInt then
+              AWriter.WriteValue(GetOrdInstanceValue(AStack.Instance,
+                AStack.Fields.TypeData.BaseTypeData.OrdType))
+            else
+              AWriter.WriteValue(RemovePrefix(GetEnumName(AStack.TypeInfo,
+                GetOrdInstanceValue(AStack.Instance,
+                AStack.Fields.TypeData.BaseTypeData.OrdType)),
+                AStack.Fields.TypeData.Prefix,
+                AStack.Fields.TypeData.IdentFormat));
+          end
+          else
+            AWriter.WriteValue(GetEnumName(AStack.TypeInfo,
+              GetOrdInstanceValue(AStack.Instance,
+              AStack.Fields.TypeData.BaseTypeData.OrdType)));
+        end;
+      tkFloat:
+        begin
+          if (AStack.TypeInfo = TypeInfo(TDateTime)) or
+            (AStack.TypeInfo = TypeInfo(TDate)) or
+            (AStack.TypeInfo = TypeInfo(TTime)) then
+            WriteDateTimeValue(PDateTime(AStack.Instance)^,
+              AStack.Fields.TypeData)
+          else
+          begin
+            case AStack.Fields.TypeData.BaseTypeData.FloatType of
+              ftSingle:
+                AWriter.WriteValue(PSingle(AStack.Instance)^,
+                  AStack.Fields.TypeData.FormatText);
+              ftDouble:
+                AWriter.WriteValue(PDouble(AStack.Instance)^,
+                  AStack.Fields.TypeData.FormatText);
+              ftExtended:
+                AWriter.WriteValue(PExtended(AStack.Instance)^,
+                  AStack.Fields.TypeData.FormatText);
+              ftComp:
+                AWriter.WriteValue(Extended(PComp(AStack.Instance)^),
+                  AStack.Fields.TypeData.FormatText);
+              ftCurr:
+                AWriter.WriteValue(PCurrency(AStack.Instance)^,
+                  AStack.Fields.TypeData.FormatText);
+            end;
+          end;
+        end;
+      tkString:
+        AWriter.WriteValue(UnicodeString(PShortString(AStack.Instance)^));
+      tkSet:
+        begin
+          AWriter.StartArray;
+          if Assigned(AStack.Fields) then
+            WriteSetItems(PLargestSet(AStack.Instance),
+              AStack.Fields.TypeData.TypeInfo, AStack.Fields.TypeData.EnumType,
+              AStack.Fields.TypeData.Prefix,
+              AStack.Fields.TypeData.IdentFormat);
+          AWriter.EndArray;
+        end;
+      tkClass, tkRecord, tkMRecord, tkInterface:
+        begin
+          AWriter.StartObject;
+          if Assigned(AStack.Fields) then
+          begin
+            for I := 0 to High(AStack.Fields.Fields) do
+            begin
+              WriteField(AStack.Instance, AStack.Fields.Fields[I]);
+            end;
+          end;
+          AWriter.EndObject;
+        end;
+      tkWChar:
+        AWriter.WriteValue(UnicodeString(PWideChar(AStack.Instance)^));
+      tkLString:
+        AWriter.WriteValue(UnicodeString(PAnsiString(AStack.Instance)^));
+      tkWString:
+        AWriter.WriteValue(PWideString(AStack.Instance)^);
+      tkVariant:
+        WriteVarValue(PVariant(AStack.Instance)^);
+      tkArray:
+        begin
+          AWriter.StartArray;
+          try
+            WriteFixedArrayItems(AStack.Instance, AStack.Fields.TypeData);
+          finally
+            AWriter.EndArray;
+          end;
+        end;
+      tkInt64:
+        begin
+          if AStack.TypeInfo.TypeData.MinInt64Value > AStack.TypeInfo.TypeData.MaxInt64Value
+          then
+            AWriter.WriteValue(PUInt64(AStack.Instance)^)
+          else
+            AWriter.WriteValue(PInt64(AStack.Instance)^);
+        end;
+      tkDynArray:
+        begin
+          AWriter.StartArray;
+          try
+            WriteDynArrayItems(PPointer(AStack.Instance)^,
+              AStack.Fields.TypeData);
+          finally
+            AWriter.EndArray;
+          end;
+        end;
+      tkUString:
+        AWriter.WriteValue(PUnicodeString(AStack.Instance)^);
+      tkClassRef:
+        begin
+          // 类
+          if Assigned(PPointer(AStack.Instance)^) then
+          begin
+            S := TClass(PPointer(AStack.Instance)^).ClassName;
+            if S.StartsWith('T') then
+              S := S.Substring(1);
+            AWriter.WriteValue(S);
+          end;
+        end;
     end;
   end;
 
 begin
-  case AType.Kind of
-    tkInteger:
-      begin
-        case AType.TypeData.OrdType of
-          otSByte:
-            AWriter.WriteValue(PShortInt(AInstance)^);
-          otUByte:
-            AWriter.WriteValue(PByte(AInstance)^);
-          otSWord:
-            AWriter.WriteValue(PSmallint(AInstance)^);
-          otUWord:
-            AWriter.WriteValue(PWord(AInstance)^);
-          otSLong:
-            AWriter.WriteValue(PInteger(AInstance)^);
-          otULong:
-            AWriter.WriteValue(PCardinal(AInstance)^);
-        end;
-      end;
-    tkChar:
-      AWriter.WriteValue(UnicodeString(WideChar(PByte(AInstance)^)));
-    tkEnumeration:
-      DoWriteEnumValue;
-    tkFloat:
-      begin
-        case AType.TypeData.FloatType of
-          ftSingle:
-            AWriter.WriteValue(PSingle(AInstance)^);
-          ftDouble:
-            AWriter.WriteValue(PDouble(AInstance)^);
-          ftExtended:
-            AWriter.WriteValue(PExtended(AInstance)^);
-          ftComp:
-            AWriter.WriteValue(PInt64(AInstance)^);
-          ftCurr:
-            AWriter.WriteValue(PCurrency(AInstance)^);
-        end;
-      end;
-    tkString:
-      AWriter.WriteValue(UnicodeString(PShortString(AInstance)^));
-    tkSet:
-      DoWriteSetValue;
-    tkClass, tkRecord, tkMRecord, tkInterface:
-      begin
-        AWriter.StartObject;
-        for AFieldIndex := 0 to High(AFields.Fields) do
-        begin
-          WriteField(AFields.Fields[AFieldIndex]);
-        end;
-        AWriter.EndObject;
-      end;
-    tkWChar:
-      AWriter.WriteValue(UnicodeString(PWideChar(AInstance)^));
-    tkLString:
-      AWriter.WriteValue(UnicodeString(PAnsiString(AInstance)^));
-    tkWString:
-      AWriter.WriteValue(PWideString(AInstance)^);
-    tkVariant:
-      begin
-        // Todo:Write values
-      end;
-    tkArray:
-      begin
-        // Todo:Write values
-      end;
-    tkInt64:
-      begin
-        if AType.TypeData.MinInt64Value > AType.TypeData.MaxInt64Value then
-          AWriter.WriteValue(PUInt64(AInstance)^)
-        else
-          AWriter.WriteValue(PInt64(AInstance)^);
-      end;
-    tkDynArray:
-      begin
-        // Todo:Write values
-      end;
-    tkUString:
-      AWriter.WriteValue(PUnicodeString(AInstance)^);
-    tkClassRef:
-      begin
-        // 类
-        if Assigned(PPointer(AInstance)^) then
-        begin
-          S := TClass(PPointer(AInstance)^).ClassName;
-          if S.StartsWith('T') then
-            S := S.Substring(1);
-          AWriter.WriteValue(S);
-        end;
-      end;
-  end;
+  if not Assigned(AStack.Instance) then
+    Exit;
+  WriteValue;
 end;
 
 function TQSerializer.Find(AType: PTypeInfo): PQSerializeFields;
@@ -648,17 +1189,144 @@ begin
   TMonitor.Enter(Self);
   try
     if not FCachedTypes.TryGetValue(AType, Result) then
-      Result := InternalRegisterType(AType);
+    begin
+      Result := DoRegister(AType);
+    end;
   finally
     TMonitor.Exit(Self);
   end;
 end;
 
-class procedure TQSerializer.FromRtti<T>(AWriter: IQSerializeWriter;
-  const AInstance: T);
+class function TQSerializer.FormatName(const S: UnicodeString;
+const AFormat: TSerializeNameFormat): UnicodeString;
+var
+  p, ps, pd: PWideChar;
 begin
-  Current.DoSerialize(AWriter, @AInstance, TypeInfo(T),
-    Current.RegisterType(TypeInfo(T)));
+  case AFormat of
+    Normal:
+      Result := S;
+    LowerCamel:
+      begin
+        Result := S;
+        UniqueString(Result);
+        p := PWideChar(Result);
+        pd := p;
+        while p^ <> #0 do
+        begin
+          case p^ of
+            'A' .. 'Z':
+              pd^ := Char(Word(pd^) xor $0020)
+          else
+            pd^ := p^;
+          end;
+          Inc(p);
+          pd := p;
+          while p^ <> #0 do
+          begin
+            if p^ = '_' then
+            begin
+              while p^ = '_' do
+                Inc(p);
+              break;
+            end
+            else
+            begin
+              pd^ := p^;
+              Inc(pd);
+              Inc(p);
+            end;
+          end;
+        end;
+        SetLength(Result, pd - PWideChar(Result));
+      end;
+    UpperCamel:
+      begin
+        Result := S;
+        UniqueString(Result);
+        p := PWideChar(S);
+        pd := p;
+        while p^ <> #0 do
+        begin
+          case p^ of
+            'a' .. 'z':
+              pd^ := Char(Word(pd^) or $0020)
+          else
+            pd^ := p^;
+          end;
+          Inc(p);
+          pd := p;
+          while p^ <> #0 do
+          begin
+            if p^ = '_' then
+            begin
+              while p^ = '_' do
+                Inc(p);
+              break;
+            end
+            else
+            begin
+              pd^ := p^;
+              Inc(pd);
+              Inc(p);
+            end;
+          end;
+        end;
+        SetLength(Result, pd - PWideChar(Result));
+      end;
+    Underline:
+      begin
+        SetLength(Result, Length(S) shl 1);
+        p := PWideChar(S);
+        ps := p;
+        pd := PWideChar(Result);
+        while p^ <> #0 do
+        begin
+          case p^ of
+            'A' .. 'Z':
+              begin
+                if p > ps then
+                begin
+                  pd^ := '_';
+                  Inc(pd);
+                end;
+                pd^ := Char(Word(pd^) xor $0020);
+              end
+          else
+            pd^ := p^;
+          end;
+          Inc(p);
+          pd := p;
+          while (p^ <> #0) and ((p^ <= 'A') or (p^ >= 'Z')) do
+          begin
+            if p^ = '_' then
+            begin
+              while p^ = '_' do
+                Inc(p);
+              break;
+            end
+            else
+            begin
+              pd^ := p^;
+              Inc(pd);
+              Inc(p);
+            end;
+          end;
+        end;
+        SetLength(Result, pd - PWideChar(Result));
+      end;
+  end;
+end;
+
+class procedure TQSerializer.FromRtti<T>(AWriter: IQSerializeWriter;
+const AInstance: T);
+var
+  AStack: TQSerializeStackItem;
+begin
+  AStack.Instance := @AInstance;
+  AStack.TypeInfo := TypeInfo(T);
+  AStack.Fields := Current.Find(AStack.TypeInfo);
+  AStack.Prior := nil;
+  Current.DoSerialize(AWriter, AStack);
 end;
 
 class function TQSerializer.GetCurrent: TQSerializer;
@@ -683,34 +1351,57 @@ var
   ARttiType: TRttiType;
   ARttiFields: TArray<TRttiField>;
   Attrs: TArray<TCustomAttribute>;
+  Attr: TCustomAttribute;
+  ASerializeFields: PQSerializeFields;
   AExcludeFields: TArray<UnicodeString>;
-  ANameFormat: TSerializeNameFormat;
-  p, ps, pd: PWideChar;
   AFieldIndex, AttrIndex, ACount: Integer;
   AIncludeProps: Boolean;
 
+  function GetBaseType(AType: PTypeInfo): PTypeInfo;
+  var
+    ATypeData: PTypeData;
+  begin
+    Result := AType;
+    if AType.Kind = tkEnumeration then
+    begin
+      repeat
+        ATypeData := GetTypeData(Result);
+        if Assigned(ATypeData.BaseType) and Assigned(ATypeData.BaseType^) and
+          (Result <> ATypeData.BaseType^) then
+          Result := ATypeData.BaseType^
+        else
+          break;
+      until 1 > 2;
+    end;
+  end;
+
+  procedure DelayIfNest(AChildType: PTypeInfo; var AFields: PQSerializeFields);
+  begin
+    if not FCachedTypes.TryGetValue(AChildType, AFields) then
+      AFields := InternalRegisterType(AChildType);
+  end;
+
   function AddRttiField(var AResult: TQSerializeField;
-    AField: TRttiDataMember): Boolean;
+  AField: TRttiDataMember): Boolean;
   var
     I: Integer;
-    AElementType: PPTypeInfo;
     AFieldType: TRttiType;
-
   begin
     Result := false;
     if AField is TRttiField then
     begin
-      AResult.IsProp := false;
+      AResult.TypeData.PropInfo := nil;
       AFieldType := TRttiField(AField).FieldType;
-      AResult.TypeInfo := AFieldType.Handle;
     end
     else if AField is TRttiProperty then
     begin
-      AResult.IsProp := true;
-      AResult.PropInfo := TRttiProperty(AField).Handle;
+      AResult.TypeData.PropInfo := TRttiProperty(AField).Handle;
       AFieldType := TRttiProperty(AField).PropertyType;
     end
     else
+      Exit;
+    // 如果找不到对应的成员类型信息，如 TOrderFlags=set of 0..5 这种定义，TypeInfo(TOrderFlags) 找不到，我们忽略
+    if not Assigned(AFieldType) then
       Exit;
     if (AField.IsWritable) and
       (not(AFieldType.TypeKind in [tkUnknown, tkMethod, tkPointer, tkProcedure]))
@@ -724,174 +1415,138 @@ var
       Attrs := AField.GetAttributes;
       for I := 0 to High(Attrs) do
       begin
-        if Attrs[I] is AliasAttribute then
+        Attr := Attrs[I];
+        if Attr is AliasAttribute then
         begin
-          AResult.Names := AResult.Names + AliasAttribute(Attrs[I]).Values;
+          AResult.Names := AResult.Names + AliasAttribute(Attr).Values;
         end
-        else if Attrs[I] is PathAttribute then
+        else if Attr is PathAttribute then
         begin
-          AResult.Pathes := AResult.Pathes + [PathAttribute(Attrs[I]).Path];
+          AResult.Pathes := AResult.Pathes + [PathAttribute(Attr).Path];
         end
-        else if Attrs[I] is IncludePropsAttribute then
+        else if Attr is IncludePropsAttribute then
           AIncludeProps := true
-        else if Attrs[I] is DateTimeFormatAttribute then
-          AResult.DateTimeFormat := DateTimeFormatAttribute(Attrs[I]).FFormat
-        else if Attrs[I] is PrefixAttribute then
-          AResult.Prefix := PrefixAttribute(Attrs[I]).FPrefix
-        else if Attrs[I] is ExcludeAttribute then
+        else if Attr is DateTimeFormatAttribute then
+        begin
+          AResult.TypeData.DateTimeFormat :=
+            DateTimeFormatAttribute(Attr).Format;
+          AResult.TypeData.FormatText := DateTimeFormatAttribute(Attr)
+            .FormatText;
+          case AResult.TypeData.DateTimeFormat of
+            AutoDetect:
+              ;
+            DateTimeString:
+              begin
+                if Length(AResult.TypeData.FormatText) = 0 then
+                  AResult.TypeData.FormatText := 'yyyy-mm-dd hh:nn:ss';
+              end;
+            UnixTimeStamp:
+              ;
+            DateString:
+              begin
+                if Length(AResult.TypeData.FormatText) = 0 then
+                  AResult.TypeData.FormatText := 'yyyy-mm-dd';
+              end;
+            TimeString:
+              begin
+                if Length(AResult.TypeData.FormatText) = 0 then
+                  AResult.TypeData.FormatText := 'hh:nn:ss';
+              end;
+          end;
+        end
+        else if Attr is FloatFormatAttribute then
+          AResult.TypeData.FormatText := FloatFormatAttribute(Attr).FormatText
+        else if Attr is PrefixAttribute then
+          AResult.TypeData.Prefix := PrefixAttribute(Attr).Prefix
+        else if Attr is EnumAsIntAttribute then
+          AResult.TypeData.EnumAsInt := true
+        else if Attr is IdentMapAttribute then
+        begin
+          AResult.KVMap := AResult.KVMap +
+            [TStringPair.Create(IdentMapAttribute(Attr).Key,
+            IdentMapAttribute(Attr).Value)];
+        end
+        else if Attr is ExcludeAttribute then
           Exit;
       end;
       case AFieldType.TypeKind of
         tkClass, tkRecord, tkMRecord, tkInterface:
-          begin
-            if not FCachedTypes.ContainsKey(AFieldType.Handle) then
-            begin
-              AResult.Fields := InternalRegisterType(AFieldType.Handle);
-              if not Assigned(AResult.Fields) then
-                Exit;
-            end;
-          end;
+          DelayIfNest(AFieldType.Handle, AResult.Fields);
         tkArray:
           begin
-            AElementType := GetTypeData(AFieldType.Handle).elType;
-            if Assigned(AElementType) and Assigned(AElementType^) and
-              (not FCachedTypes.ContainsKey(AType)) then
-            begin
-              if InternalRegisterType(AElementType^) = nil then
-                Exit;
-            end;
+            if not Assigned(AResult.TypeData.BaseTypeData.elType) then
+              AResult.TypeData.ElementType :=
+                AResult.TypeData.BaseTypeData.elType^
+            else
+              AResult.TypeData.ElementType :=
+                AResult.TypeData.BaseTypeData.elType2^;
+            if Assigned(AResult.TypeData.ElementType) then
+              DelayIfNest(AResult.TypeData.ElementType,
+                AResult.TypeData.ElementFields);
           end;
         tkDynArray:
           begin
-            AElementType :=
-              GetTypeData(ARttiFields[AFieldIndex].FieldType.Handle)
-              .DynArrElType;
-            if Assigned(AElementType) and Assigned(AElementType^) and
-              (not FCachedTypes.ContainsKey(AType)) then
-            begin
-              if InternalRegisterType(AElementType^) = nil then
-                Exit;
-            end;
+            AResult.TypeData.ElementType := GetTypeData(AFieldType.Handle)
+              .DynArrElType^;
+            if Assigned(AResult.TypeData.ElementType) then
+              DelayIfNest(AResult.TypeData.ElementType,
+                AResult.TypeData.ElementFields);
           end;
       end;
-      AResult.IsProp := false;
-      if not AResult.IsProp then
+      if not Assigned(AResult.TypeData.PropInfo) then
         AResult.Offset := TRttiField(AField).Offset;
       AResult.Size := AFieldType.TypeSize;
-      AResult.FormatedName := AField.Name;
+      AResult.FormatedName := FormatName(AField.Name,
+        ASerializeFields.TypeData.NameFormat);
       AResult.Names := [AField.Name];
-      case ANameFormat of
-        LowerCamel:
-          begin
-            p := PWideChar(AResult.FormatedName);
-            pd := p;
-            while p^ <> #0 do
-            begin
-              case p^ of
-                'A' .. 'Z':
-                  pd^ := Char(Word(pd^) xor $0020)
-              else
-                pd^ := p^;
-              end;
-              Inc(p);
-              pd := p;
-              while p^ <> #0 do
-              begin
-                if p^ = '_' then
-                begin
-                  while p^ = '_' do
-                    Inc(p);
-                  break;
-                end
-                else
-                begin
-                  pd^ := p^;
-                  Inc(pd);
-                  Inc(p);
-                end;
-              end;
-            end;
-            SetLength(AResult.FormatedName,
-              pd - PWideChar(AResult.FormatedName));
-          end;
-        UpperCamel:
-          begin
-            p := PWideChar(AResult.FormatedName);
-            pd := p;
-            while p^ <> #0 do
-            begin
-              case p^ of
-                'a' .. 'z':
-                  pd^ := Char(Word(pd^) or $0020)
-              else
-                pd^ := p^;
-              end;
-              Inc(p);
-              pd := p;
-              while p^ <> #0 do
-              begin
-                if p^ = '_' then
-                begin
-                  while p^ = '_' do
-                    Inc(p);
-                  break;
-                end
-                else
-                begin
-                  pd^ := p^;
-                  Inc(pd);
-                  Inc(p);
-                end;
-              end;
-            end;
-            SetLength(AResult.FormatedName,
-              pd - PWideChar(AResult.FormatedName));
-          end;
-        Underline:
-          begin
-            SetLength(AResult.FormatedName, Length(AField.Name) shl 1);
-            p := PWideChar(AField.Name);
-            ps := p;
-            pd := PWideChar(AResult.FormatedName);
-            while p^ <> #0 do
-            begin
-              case p^ of
-                'A' .. 'Z':
-                  begin
-                    if p > ps then
-                    begin
-                      pd^ := '_';
-                      Inc(pd);
-                    end;
-                    pd^ := Char(Word(pd^) xor $0020);
-                  end
-              else
-                pd^ := p^;
-              end;
-              Inc(p);
-              pd := p;
-              while (p^ <> #0) and ((p^ <= 'A') or (p^ >= 'Z')) do
-              begin
-                if p^ = '_' then
-                begin
-                  while p^ = '_' do
-                    Inc(p);
-                  break;
-                end
-                else
-                begin
-                  pd^ := p^;
-                  Inc(pd);
-                  Inc(p);
-                end;
-              end;
-            end;
-            SetLength(AResult.FormatedName,
-              pd - PWideChar(AResult.FormatedName));
-          end;
-      end;
       if AResult.FormatedName <> AField.Name then
         AResult.Names := [AResult.FormatedName] + AResult.Names;
+      AResult.TypeData.TypeInfo := AFieldType.Handle;
+      AResult.TypeData.TypeData := GetTypeData(AResult.TypeData.TypeInfo);
+      case AResult.TypeData.TypeInfo.Kind of
+        tkEnumeration:
+          begin
+            AResult.TypeData.BaseType := GetBaseType(AResult.TypeData.TypeInfo);
+            AResult.TypeData.BaseTypeData :=
+              GetTypeData(AResult.TypeData.BaseType);
+          end;
+        tkSet:
+          begin
+            if Assigned(AResult.TypeData.TypeData.CompType) then
+            begin
+              AResult.TypeData.EnumType := AResult.TypeData.TypeData.CompType^;
+              if Assigned(AResult.TypeData.EnumType) then
+              begin
+                AResult.TypeData.EnumTypeData :=
+                  GetTypeData(AResult.TypeData.EnumType);
+                DelayIfNest(AResult.TypeData.EnumType,
+                  AResult.TypeData.ElementFields);
+              end;
+            end;
+          end
+      else
+        begin
+          if not(AFieldType.Handle.Kind in [tkArray, tkDynArray]) then
+          begin
+            AResult.TypeData.BaseType := AResult.TypeData.TypeInfo;
+            AResult.TypeData.BaseTypeData := AResult.TypeData.TypeData;
+            if (AResult.TypeData.TypeInfo.Kind = tkInteger) and
+              (AResult.TypeData.TypeInfo <> TypeInfo(Integer)) then
+            begin
+              AResult.TypeData.IdentToInt :=
+                FindIdentToInt(AResult.TypeData.TypeInfo);
+              AResult.TypeData.IntToIdent :=
+                FindIntToIdent(AResult.TypeData.TypeInfo);
+            end
+          end;
+        end;
+      end;
+      if Length(AResult.KVMap) > 0 then
+      begin
+        AResult.VKMap := Copy(AResult.KVMap);
+        TArray.Sort<TStringPair>(AResult.KVMap, FKeyComparer);
+        TArray.Sort<TStringPair>(AResult.KVMap, FValueComparer);
+      end;
       Result := true;
     end;
   end;
@@ -913,62 +1568,115 @@ var
 begin
   if not Assigned(AType) then
     Exit(nil);
-  case AType.Kind of
-    tkClass, tkInterface, tkRecord, tkMRecord:
-      begin
-        New(Result);
-        Result.TypeInfo := AType;
-      end;
-    tkArray:
-      begin
-        InternalRegisterType(GetTypeData(AType).elType^);
-        Exit(nil);
-      end;
-    tkDynArray:
-      begin
-        InternalRegisterType(GetTypeData(AType).DynArrElType^);
-        Exit(nil);
-      end
-  else
-    Exit(nil);
-  end;
-  ARttiType := TRttiContext.Create.GetType(AType);
-  if not Assigned(ARttiType) then
-    Exit(nil);
-  AIncludeProps := ARttiType.TypeKind in [tkClass, tkInterface];
-  Attrs := ARttiType.GetAttributes;
-  for AttrIndex := 0 to High(Attrs) do
+  if (AType.Kind in [tkClass, tkInterface, tkRecord, tkMRecord, tkArray,
+    tkDynArray, tkSet, tkEnumeration]) or
+    ((AType.Kind = tkInteger) and (AType <> TypeInfo(Integer))) then
   begin
-    if Attrs[AttrIndex] is NameFormatAttribute then
-      ANameFormat := NameFormatAttribute(Attrs[AttrIndex]).NameFormat
-    else if Attrs[AttrIndex] is ExcludeFieldsAttribute then
-      // 记录排除的字段
-      AExcludeFields := ExcludeFieldsAttribute(Attrs[AttrIndex]).FFields
-    else if Attrs[AttrIndex] is IncludePropsAttribute then
-      AIncludeProps := true;
-  end;
-  Result.NameFormat := ANameFormat;
-  ACount := 0;
-  if ARttiType.TypeKind in [tkRecord, tkMRecord] then
-  // 记录类型,直接操作数据成员
-  begin
-    ARttiFields := ARttiType.GetFields;
-    SetLength(Result.Fields, Length(ARttiFields));
-    for AFieldIndex := 0 to High(ARttiFields) do
+    New(Result);
+    FillChar(Result^, sizeof(TQSerializeFields), 0);
+    Result.TypeData.TypeInfo := AType;
+    Result.TypeData.TypeData := GetTypeData(AType);
+    if AType.Kind = tkEnumeration then
     begin
-      if AddRttiField(Result.Fields[ACount], ARttiFields[AFieldIndex]) then
-        Inc(ACount);
+      Result.TypeData.BaseType := GetBaseType(AType);
+      Result.TypeData.BaseTypeData := GetTypeData(Result.TypeData.BaseType);
+    end
+    else
+    begin
+      Result.TypeData.BaseType := AType;
+      Result.TypeData.BaseTypeData := Result.TypeData.TypeData;
     end;
+    Result.TypeData.PropInfo := nil;
+    FCachedTypes.Add(AType, Result);
+    if AType.Kind = tkArray then
+    begin
+      if Assigned(Result.TypeData.BaseTypeData.elType) and
+        Assigned(Result.TypeData.BaseTypeData.elType^) then
+        Result.TypeData.ElementType := Result.TypeData.BaseTypeData.elType^
+      else if Assigned(Result.TypeData.TypeData.elType2) and
+        Assigned(Result.TypeData.BaseTypeData.elType2^) then
+        Result.TypeData.ElementType := Result.TypeData.BaseTypeData.elType2^
+      else
+        Exit;
+      Result.TypeData.ElementTypeData :=
+        GetTypeData(Result.TypeData.ElementType);
+      DelayIfNest(Result.TypeData.ElementType, Result.TypeData.ElementFields);
+    end
+    else if AType.Kind = tkDynArray then
+    begin
+      if Result.TypeData.TypeData.DynArrElType <> nil then
+        Result.TypeData.ElementType := Result.TypeData.TypeData.DynArrElType^;
+      if Assigned(Result.TypeData.ElementType) then
+      begin
+        Result.TypeData.ElementTypeData :=
+          GetTypeData(Result.TypeData.ElementType);
+        DelayIfNest(Result.TypeData.ElementType, Result.TypeData.ElementFields);
+      end;
+    end
+    else if AType.Kind = tkSet then
+    begin
+      if Assigned(Result.TypeData.TypeData.CompType) then
+        Result.TypeData.EnumType := Result.TypeData.TypeData.CompType^
+      else
+        Result.TypeData.EnumType := nil;
+      if Assigned(Result.TypeData.EnumType) then
+      begin
+        Result.TypeData.EnumTypeData := GetTypeData(Result.TypeData.EnumType);
+        DelayIfNest(Result.TypeData.TypeInfo, Result.TypeData.ElementFields);
+      end;
+    end
+    else if AType.Kind = tkInteger then
+    begin
+      Result.TypeData.IdentToInt := FindIdentToInt(AType);
+      Result.TypeData.IntToIdent := FindIntToIdent(AType);
+    end;
+    ARttiType := TRttiContext.Create.GetType(AType);
+    if not Assigned(ARttiType) then
+      Exit(nil);
+    ASerializeFields := Result;
+    AIncludeProps := ARttiType.TypeKind in [tkClass, tkInterface];
+    Attrs := ARttiType.GetAttributes;
+    for AttrIndex := 0 to High(Attrs) do
+    begin
+      Attr := Attrs[AttrIndex];
+      if Attr is NameFormatAttribute then
+        Result.TypeData.NameFormat := NameFormatAttribute(Attr).NameFormat
+      else if Attr is ExcludeFieldsAttribute then
+        // 记录排除的字段
+        AExcludeFields := ExcludeFieldsAttribute(Attr).Values
+      else if Attr is IncludePropsAttribute then
+        AIncludeProps := true
+      else if Attr is PrefixAttribute then
+        Result.TypeData.Prefix := PrefixAttribute(Attr).Prefix
+      else if Attr is EnumAsIntAttribute then
+        Result.TypeData.EnumAsInt := true
+      else if Attr is IdentFormatAttribute then
+        Result.TypeData.IdentFormat := NameFormatAttribute(Attr).NameFormat;
+    end;
+    ACount := 0;
+    if ARttiType.TypeKind in [tkRecord, tkMRecord] then
+    // 记录类型,直接操作数据成员
+    begin
+      ARttiFields := ARttiType.GetFields;
+      SetLength(Result.Fields, Length(ARttiFields));
+      for AFieldIndex := 0 to High(ARttiFields) do
+      begin
+        if AddRttiField(Result.Fields[ACount], ARttiFields[AFieldIndex]) then
+        begin
+          Result.Fields[ACount].Parent := Result;
+          Inc(ACount);
+        end;
+      end;
+    end;
+    if AIncludeProps then
+      AddProps;
+    // 如果是记录，默认不检查属性
+    SetLength(Result.Fields, ACount);
   end;
-  if AIncludeProps then
-    AddProps;
-  // 如果是记录，默认不检查属性
-  SetLength(Result.Fields, ACount);
-  FCachedTypes.Add(AType, Result);
 end;
 
 procedure TQSerializer.Register(AType: PTypeInfo;
-  const AFields: TQSerializeFields);
+const AFields: TQSerializeFields);
 var
   AExists: PQSerializeFields;
 begin
@@ -990,20 +1698,20 @@ begin
   TMonitor.Enter(Self);
   try
     if not FCachedTypes.TryGetValue(AType, Result) then
-      Result := InternalRegisterType(AType);
+      Result := DoRegister(AType);
   finally
     TMonitor.Exit(Self);
   end;
 end;
 
 class procedure TQSerializer.SerializeChildren<T>(AReader: IQSerializeReader;
-  var AInstance: T);
+var AInstance: T);
 begin
 
 end;
 
 class procedure TQSerializer.ToRtti<T>(AReader: IQSerializeReader;
-  var AInstance: T);
+var AInstance: T);
 begin
 
 end;
@@ -1092,7 +1800,7 @@ begin
 end;
 
 function TQValueCaches<TItemType>.GetBucketIndex(const Key: TItemType;
-  HashCode: Integer): NativeInt;
+HashCode: Integer): NativeInt;
 var
   L: NativeInt;
   hc: Integer;
@@ -1283,7 +1991,7 @@ begin
 end;
 
 function TQPageBuffers.Append(const p: PWideChar;
-  const AOffset, ACount: NativeInt): PQPageBuffers;
+const AOffset, ACount: NativeInt): PQPageBuffers;
 begin
   Result := RawAppend(p, AOffset * 2, ACount * 2);
 end;
@@ -1363,7 +2071,7 @@ begin
 end;
 
 function TQPageBuffers.RawAppend(const p: Pointer;
-  const AOffset, ACount: NativeInt): PQPageBuffers;
+const AOffset, ACount: NativeInt): PQPageBuffers;
 var
   L, ADelta: Integer;
   ps: PByte;
@@ -1387,7 +2095,7 @@ begin
 end;
 
 function TQPageBuffers.RawAppend(const ABytes: TBytes;
-  const AOffset, ACount: NativeInt): PQPageBuffers;
+const AOffset, ACount: NativeInt): PQPageBuffers;
 begin
   Result := RawAppend(@ABytes[0], AOffset, ACount);
 end;
@@ -1452,37 +2160,16 @@ begin
   Result := NextByte - PByte(@Data);
 end;
 
-{ NameKindAttribute }
+{ TQSerializeFieldHelper }
 
-constructor NameFormatAttribute.Create(AFormat: TSerializeNameFormat);
+function TQSerializeFieldHelper.FieldInstance<TPointer>(const AParent: Pointer)
+  : TPointer;
+var
+  ARef: PByte absolute Result;
 begin
-  inherited Create;
-  FNameFormat := AFormat;
-end;
-
-{ ExcludeFieldsAttribute }
-
-constructor ExcludeFieldsAttribute.Create(const AFields: TArray<UnicodeString>);
-begin
-  inherited Create;
-  FFields := Copy(AFields);
-end;
-
-{ DateTimeFormatAttribute }
-
-constructor DateTimeFormatAttribute.Create(const AFormat
-  : TSerializeDateTimeFormat);
-begin
-  inherited Create;
-  FFormat := AFormat;
-end;
-
-{ PrefixAttribute }
-
-constructor PrefixAttribute.Create(const APrefix: UnicodeString);
-begin
-  inherited Create;
-  FPrefix := APrefix;
+  Assert(not Assigned(TypeData.PropInfo));
+  ARef := AParent;
+  Inc(ARef, Offset);
 end;
 
 end.
