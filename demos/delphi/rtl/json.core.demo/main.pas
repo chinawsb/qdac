@@ -4,7 +4,7 @@ interface
 
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
-  System.Generics.Collections,
+  System.Generics.Collections, Data.FMTBcd,
   System.Classes, Vcl.Graphics, System.JSON, System.Diagnostics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, qdac.attribute, qdac.serialize.core,
   qdac.JSON.core,
@@ -68,6 +68,7 @@ type
     Flags: TOrderFlags;
     [Prefix('cl'), IdentFormatAttribute(LowerCamel)]
     Color: TColor;
+    AsBcd: TBcd;
     Items: TArray<TSubscribeItem>;
     // IncludeProps 声明包含属性，但下面的 Exclude 排除 Count 属性，所以 Count 属性最终不会保存
     [Exclude]
@@ -257,6 +258,7 @@ begin
     AOrders[I].Bookmarks := [obRefund, obVip];
     AOrders[I].Flags := [0, 4];
     AOrders[I].Color := KnownColors[random(6)];
+    AOrders[I].AsBcd := random(MaxInt);
     SetLength(AOrders[I].Items, 1 + random(10));
     for var J := 0 to High(AOrders[I].Items) do
     begin
