@@ -4305,4 +4305,21 @@ begin
   Result := FCurrent;
 end;
 
+procedure CreateDefaultWriter(AStream: TStream; var AWriter: IQSerializeWriter);
+begin
+  AWriter := TQJsonEncoder.Create(AStream, false, TQJsonEncoder.DefaultFormat,
+    TEncoding.UTF8, 8192);
+end;
+
+procedure CreateDefaultReader(AStream: TStream; var AReader: IQSerializeReader);
+begin
+  // Unsupport now
+  AReader := nil;
+end;
+
+initialization
+
+TQSerializer.Current.RegisterCodec('json', CreateDefaultReader,
+  CreateDefaultWriter);
+
 end.
