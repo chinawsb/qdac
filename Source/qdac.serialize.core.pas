@@ -935,7 +935,10 @@ var
         WriteArrayValue(AInstance, AField);
       tkRecord:
         begin
-          if Assigned(AField.Fields) then
+          if AField.TypeData.TypeInfo = TypeInfo(TBcd) then
+            AWriter.WritePair(AField.FormatedName,
+              AField.FieldInstance<PBcd>(AInstance)^)
+          else if Assigned(AField.Fields) then
           begin
             AWriter.StartObjectPair(AField.FormatedName);
             try
@@ -1131,15 +1134,20 @@ var
         end;
       tkClass, tkRecord, tkMRecord, tkInterface:
         begin
-          AWriter.StartObject;
-          if Assigned(AStack.Fields) then
+          if AStack.TypeInfo = TypeInfo(TBcd) then
+            AWriter.WriteValue(PBcd(AStack.Instance)^)
+          else
           begin
-            for I := 0 to High(AStack.Fields.Fields) do
+            AWriter.StartObject;
+            if Assigned(AStack.Fields) then
             begin
-              WriteField(AStack.Instance, AStack.Fields.Fields[I]);
+              for I := 0 to High(AStack.Fields.Fields) do
+              begin
+                WriteField(AStack.Instance, AStack.Fields.Fields[I]);
+              end;
             end;
+            AWriter.EndObject;
           end;
-          AWriter.EndObject;
         end;
       tkWChar:
         AWriter.WriteValue(UnicodeString(PWideChar(AStack.Instance)^));
@@ -1389,7 +1397,8 @@ var
     end;
   end;
 
-  procedure DelayIfNest(AChildType: PTypeInfo; var AFields: PQSerializeFields);
+  procedure RegisterIfNeeded(AChildType: PTypeInfo;
+  var AFields: PQSerializeFields);
   begin
     if not FCachedTypes.TryGetValue(AChildType, AFields) then
       AFields := InternalRegisterType(AChildType);
@@ -1485,7 +1494,10 @@ var
       end;
       case AFieldType.TypeKind of
         tkClass, tkRecord, tkMRecord, tkInterface:
-          DelayIfNest(AFieldType.Handle, AResult.Fields);
+          begin
+            if AFieldType.Handle <> TypeInfo(TBcd) then // Bcd不需要处理
+              RegisterIfNeeded(AFieldType.Handle, AResult.Fields);
+          end;
         tkArray:
           begin
             if not Assigned(AResult.TypeData.BaseTypeData.elType) then
@@ -1495,7 +1507,7 @@ var
               AResult.TypeData.ElementType :=
                 AResult.TypeData.BaseTypeData.elType2^;
             if Assigned(AResult.TypeData.ElementType) then
-              DelayIfNest(AResult.TypeData.ElementType,
+              RegisterIfNeeded(AResult.TypeData.ElementType,
                 AResult.TypeData.ElementFields);
           end;
         tkDynArray:
@@ -1503,7 +1515,7 @@ var
             AResult.TypeData.ElementType := GetTypeData(AFieldType.Handle)
               .DynArrElType^;
             if Assigned(AResult.TypeData.ElementType) then
-              DelayIfNest(AResult.TypeData.ElementType,
+              RegisterIfNeeded(AResult.TypeData.ElementType,
                 AResult.TypeData.ElementFields);
           end;
       end;
@@ -1533,7 +1545,7 @@ var
               begin
                 AResult.TypeData.EnumTypeData :=
                   GetTypeData(AResult.TypeData.EnumType);
-                DelayIfNest(AResult.TypeData.EnumType,
+                RegisterIfNeeded(AResult.TypeData.EnumType,
                   AResult.TypeData.ElementFields);
               end;
             end;
@@ -1614,7 +1626,8 @@ begin
         Exit;
       Result.TypeData.ElementTypeData :=
         GetTypeData(Result.TypeData.ElementType);
-      DelayIfNest(Result.TypeData.ElementType, Result.TypeData.ElementFields);
+      RegisterIfNeeded(Result.TypeData.ElementType,
+        Result.TypeData.ElementFields);
     end
     else if AType.Kind = tkDynArray then
     begin
@@ -1624,7 +1637,8 @@ begin
       begin
         Result.TypeData.ElementTypeData :=
           GetTypeData(Result.TypeData.ElementType);
-        DelayIfNest(Result.TypeData.ElementType, Result.TypeData.ElementFields);
+        RegisterIfNeeded(Result.TypeData.ElementType,
+          Result.TypeData.ElementFields);
       end;
     end
     else if AType.Kind = tkSet then
@@ -1636,7 +1650,8 @@ begin
       if Assigned(Result.TypeData.EnumType) then
       begin
         Result.TypeData.EnumTypeData := GetTypeData(Result.TypeData.EnumType);
-        DelayIfNest(Result.TypeData.TypeInfo, Result.TypeData.ElementFields);
+        RegisterIfNeeded(Result.TypeData.TypeInfo,
+          Result.TypeData.ElementFields);
       end;
     end
     else if AType.Kind = tkInteger then
