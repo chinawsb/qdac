@@ -437,11 +437,14 @@ type
     procedure EndArray;
     procedure WriteValue(const V: UnicodeString); overload;
     procedure WriteValue(const V: Int64; AIsSign: Boolean = true); overload;
-    procedure WriteValue(const V: Extended); overload;
+    procedure WriteValue(const V: UInt64); overload;
+    procedure WriteValue(const V: Extended;
+      const AFormat: String = ''); overload;
     procedure WriteValue(const V: TBcd); overload;
     procedure WriteValue(const V: Boolean); overload;
     procedure WriteValue(const V: TDateTime); overload;
-    procedure WriteValue(const V: Currency); overload;
+    procedure WriteValue(const V: Currency;
+      const AFormat: String = ''); overload;
     procedure WriteValue(const V: TBytes); overload;
     procedure WriteNull; overload;
     //
@@ -452,14 +455,14 @@ type
       const V: UnicodeString); overload;
     procedure WritePair(const AName: UnicodeString; const V: Int64;
       AIsSign: Boolean = true); overload;
-    procedure WritePair(const AName: UnicodeString; const V: Extended);
-      overload;
+    procedure WritePair(const AName: UnicodeString; const V: Extended;
+      const AFormat: UnicodeString = ''); overload;
     procedure WritePair(const AName: UnicodeString; const V: TBcd); overload;
     procedure WritePair(const AName: UnicodeString; const V: Boolean); overload;
     procedure WritePair(const AName: UnicodeString;
       const V: TDateTime); overload;
-    procedure WritePair(const AName: UnicodeString; const V: Currency);
-      overload;
+    procedure WritePair(const AName: UnicodeString; const V: Currency;
+      const AFormat: UnicodeString = ''); overload;
     procedure WritePair(const AName: UnicodeString; const V: TBytes); overload;
     procedure WritePair(const AName: UnicodeString); overload;
     //
@@ -3860,7 +3863,9 @@ begin
   WriteString(']', false);
   FCurrent := FCurrent.Prior;
   if not Assigned(FCurrent) then // Write done
-    Flush;
+    Flush
+  else
+    Inc(FCurrent.Count);
 end;
 
 procedure TQJsonEncoder.EndObject;
@@ -3870,7 +3875,9 @@ begin
   WriteString('}', false);
   FCurrent := FCurrent.Prior;
   if not Assigned(FCurrent) then // Write done
-    Flush;
+    Flush
+  else
+    Inc(FCurrent.Count);
 end;
 
 procedure TQJsonEncoder.Flush;
@@ -3941,6 +3948,7 @@ end;
 
 procedure TQJsonEncoder.StartArray;
 begin
+  WritePrefix;
   WriteString('[', false);
   NextType(jdtArray);
   FCurrent.Stage := wsValue;
@@ -3955,6 +3963,7 @@ end;
 
 procedure TQJsonEncoder.StartObject;
 begin
+  WritePrefix;
   WriteString('{', false);
   NextType(jdtObject);
   FCurrent.Stage := wsName;
@@ -4062,10 +4071,19 @@ begin
   InternalWritePair(AName, BcdToStr(V), false);
 end;
 
-procedure TQJsonEncoder.WritePair(const AName: UnicodeString;
-const V: Extended);
+procedure TQJsonEncoder.WritePair(const AName: UnicodeString; const V: Extended;
+const AFormat: UnicodeString);
+var
+  AValue: UnicodeString;
+  ADummy: Extended;
 begin
-  InternalWritePair(AName, FloatToStr(V), false);
+  if Length(AFormat) > 0 then
+  begin
+    AValue := FormatFloat(AFormat, V);
+    InternalWritePair(AName, AValue, not TryStrToFloat(AValue, ADummy))
+  end
+  else
+    InternalWritePair(AName, FloatToStr(V), false);
 end;
 
 procedure TQJsonEncoder.WritePair(const AName: UnicodeString; const V: Int64;
@@ -4099,7 +4117,7 @@ end;
 
 procedure TQJsonEncoder.WritePrefix(AIsLast: Boolean);
 begin
-  if (FCurrent.Count > 0) and (not AIsLast) then
+  if Assigned(FCurrent) and (FCurrent.Count > 0) and (not AIsLast) then
     WriteString(',', false);
   if jesDoFormat in FFormat.Settings then
   begin
@@ -4113,10 +4131,19 @@ begin
   InternalWritePair(AName, TNetEncoding.Base64.EncodeBytesToString(V), true);
 end;
 
-procedure TQJsonEncoder.WritePair(const AName: UnicodeString;
-const V: Currency);
+procedure TQJsonEncoder.WritePair(const AName: UnicodeString; const V: Currency;
+const AFormat: UnicodeString);
+var
+  AValue: UnicodeString;
+  ADummy: Extended;
 begin
-  InternalWritePair(AName, FloatToStr(V), false);
+  if Length(AFormat) > 0 then
+  begin
+    AValue := FormatFloat(AFormat, V);
+    InternalWritePair(AName, AValue, not TryStrToFloat(AValue, ADummy))
+  end
+  else
+    InternalWritePair(AName, CurrToStr(V), false);
 end;
 
 procedure TQJsonEncoder.WritePair(const AName: UnicodeString;
@@ -4177,9 +4204,19 @@ begin
     DoWrite(AValue);
 end;
 
-procedure TQJsonEncoder.WriteValue(const V: Extended);
+procedure TQJsonEncoder.WriteValue(const V: Extended;
+const AFormat: UnicodeString);
+var
+  AValue: UnicodeString;
+  ADummy: Extended;
 begin
-  InternalWriteValue(FloatToStr(V), false);
+  if Length(AFormat) > 0 then
+  begin
+    AValue := FormatFloat(AFormat, V);
+    InternalWriteValue(AValue, not TryStrToFloat(AValue, ADummy))
+  end
+  else
+    InternalWriteValue(FloatToStr(V), false);
 end;
 
 procedure TQJsonEncoder.WriteValue(const V: Int64; AIsSign: Boolean);
@@ -4205,9 +4242,24 @@ begin
   InternalWriteValue(TNetEncoding.Base64.EncodeBytesToString(V), true);
 end;
 
-procedure TQJsonEncoder.WriteValue(const V: Currency);
+procedure TQJsonEncoder.WriteValue(const V: UInt64);
 begin
-  InternalWriteValue(FloatToStr(V), false);
+  InternalWriteValue(SysUtils.UIntToStr(V), false);
+end;
+
+procedure TQJsonEncoder.WriteValue(const V: Currency;
+const AFormat: UnicodeString);
+var
+  AValue: UnicodeString;
+  ADummy: Extended;
+begin
+  if Length(AFormat) > 0 then
+  begin
+    AValue := FormatFloat(AFormat, V);
+    InternalWriteValue(AValue, not TryStrToFloat(AValue, ADummy))
+  end
+  else
+    InternalWriteValue(FloatToStr(V), false);
 end;
 
 procedure TQJsonEncoder.WriteValue(const V: TDateTime);
