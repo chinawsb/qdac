@@ -110,17 +110,13 @@ type
     procedure WritePair(const AName: UnicodeString); overload;
   end;
 
-  // 从流中序列化实例，如果是从JSONL一类的格式中序列化子项，使用 SerializeChildren 来执行，它会在解析到根部数组后，开始挨项序列化（再考虑） ？？？
+  // 从流中反序列化实例
   IQSerializeReader = interface
     ['{F65DB855-C751-4C84-AD91-346ADC335D62}']
-    procedure SetUserData(const V: Pointer);
-    function GetUserData: Pointer;
-    procedure StartObject;
-    procedure EndObject;
-    procedure StartArray;
-    procedure EndArray;
-    procedure EndItem(const AName: String; const AValue: Pointer;
-      const AValueType: PTypeInfo);
+    // 此接口需要考虑三种场景：
+    // 1.一次性完整序列化整个实例（全部缓存到内存）
+    // 2.只序列化一个对象（类JSONL处理）
+    // 3.只序列化一级元素（快速只进模式，只实例化一级元素）
   end;
 
   PQSerializeStackItem = ^TQSerializeStackItem;
@@ -133,19 +129,25 @@ type
     Prior: PQSerializeStackItem;
   end;
 
+  TQSerializeWriterCreateProc = procedure(AStream: TStream;
+    var AWriter: IQSerializeWriter);
+  TQSerializeReaderCreateProc = procedure(AStream: TStream;
+    var AWriter: IQSerializeReader);
+
+  TQSerializeFormatCodec = record
+    Reader: TQSerializeReaderCreateProc;
+    Writer: TQSerializeWriterCreateProc;
+  end;
+
   TQSerializer = class sealed
   private
-  class
-
-    var
-    FCurrent: TQSerializer;
-    FKeyComparer, FValueComparer: IComparer<TStringPair>;
-
-  var
-    FCachedTypes: TDictionary<PTypeInfo, PQSerializeFields>;
-
-    class function GetCurrent: TQSerializer; static;
+    class var FCurrent: TQSerializer;
   protected
+  var
+    FKeyComparer, FValueComparer: IComparer<TStringPair>;
+    FCodecs: TDictionary<UnicodeString, TQSerializeFormatCodec>;
+    FCachedTypes: TDictionary<PTypeInfo, PQSerializeFields>;
+    class function GetCurrent: TQSerializer; static;
     function InternalRegisterType(AType: PTypeInfo): PQSerializeFields;
     class procedure DoSerialize(AWriter: IQSerializeWriter;
       const AStack: TQSerializeStackItem); static;
@@ -157,13 +159,23 @@ type
     procedure Register(AType: PTypeInfo; const AFields: TQSerializeFields);
     function Find(AType: PTypeInfo): PQSerializeFields;
     procedure Clear;
+    // Codec
+    procedure RegisterCodec(const ACode: UnicodeString;
+      AReader: TQSerializeReaderCreateProc;
+      AWriter: TQSerializeWriterCreateProc);
+    procedure SaveToStream<T>(AInstance: T; AStream: TStream;
+      const AFormat: UnicodeString = 'json');
+    procedure SaveToFile<T>(AInstance: T; AFileName: UnicodeString;
+      const AFormat: UnicodeString = 'json');
+    procedure LoadFromStream<T>(AInstance: T; AStream: TStream;
+      const AFormat: UnicodeString = 'json');
+    procedure LoadFromFile<T>(AInstance: T; AFileName: UnicodeString;
+      const AFormat: UnicodeString = 'json');
     class function FormatName(const S: UnicodeString;
       const AFormat: TSerializeNameFormat): UnicodeString;
     class procedure FromRtti<T>(AWriter: IQSerializeWriter;
       const AInstance: T); static;
     class procedure ToRtti<T>(AReader: IQSerializeReader;
-      var AInstance: T); static;
-    class procedure SerializeChildren<T>(AReader: IQSerializeReader;
       var AInstance: T); static;
     class property Current: TQSerializer read GetCurrent;
   end;
@@ -297,6 +309,7 @@ constructor TQSerializer.Create;
 begin
   inherited;
   FCachedTypes := TDictionary<PTypeInfo, PQSerializeFields>.Create;
+  FCodecs := TDictionary<UnicodeString, TQSerializeFormatCodec>.Create;
   FKeyComparer := TComparer<TStringPair>.Construct(
     function(const L, R: TStringPair): Integer
     begin
@@ -313,6 +326,7 @@ destructor TQSerializer.Destroy;
 begin
   Clear;
   FreeAndNil(FCachedTypes);
+  FreeAndNil(FCodecs);
   inherited;
 end;
 
@@ -783,7 +797,7 @@ var
   begin
     APair.Key := AKey;
     Result := TArray.BinarySearch<TStringPair>(AValues, APair, AIndex,
-      FKeyComparer);
+      Current.FKeyComparer);
     if Result then
       AValue := AValues[AIndex].Value;
   end;
@@ -1675,6 +1689,38 @@ begin
   end;
 end;
 
+procedure TQSerializer.LoadFromFile<T>(AInstance: T; AFileName: UnicodeString;
+const AFormat: UnicodeString);
+var
+  AStream: TFileStream;
+begin
+  AStream := TFileStream.Create(AFileName, fmOpenRead or fmShareDenyWrite);
+  try
+    LoadFromStream(AInstance, AStream, AFormat);
+  finally
+    FreeAndNil(AStream);
+  end;
+end;
+
+procedure TQSerializer.LoadFromStream<T>(AInstance: T; AStream: TStream;
+const AFormat: UnicodeString);
+var
+  AReader: IQSerializeReader;
+  ACodec: TQSerializeFormatCodec;
+begin
+  AReader := nil;
+  System.TMonitor.Enter(Self);
+  try
+    if FCodecs.TryGetValue(AFormat, ACodec) and Assigned(ACodec.Reader) then
+      ACodec.Reader(AStream, AReader);
+  finally
+    System.TMonitor.Exit(Self);
+  end;
+  if not Assigned(AReader) then
+    raise Exception.CreateFmt(SSerializeFormatNotSupport, [AFormat]);
+  ToRtti(AReader, AInstance);
+end;
+
 procedure TQSerializer.Register(AType: PTypeInfo;
 const AFields: TQSerializeFields);
 var
@@ -1693,6 +1739,16 @@ begin
   end;
 end;
 
+procedure TQSerializer.RegisterCodec(const ACode: UnicodeString;
+AReader: TQSerializeReaderCreateProc; AWriter: TQSerializeWriterCreateProc);
+var
+  AValue: TQSerializeFormatCodec;
+begin
+  AValue.Reader := AReader;
+  AValue.Writer := AWriter;
+  FCodecs.AddOrSetValue(ACode, AValue);
+end;
+
 function TQSerializer.RegisterType(AType: PTypeInfo): PQSerializeFields;
 begin
   TMonitor.Enter(Self);
@@ -1704,10 +1760,36 @@ begin
   end;
 end;
 
-class procedure TQSerializer.SerializeChildren<T>(AReader: IQSerializeReader;
-var AInstance: T);
+procedure TQSerializer.SaveToFile<T>(AInstance: T; AFileName: UnicodeString;
+const AFormat: UnicodeString);
+var
+  AStream: TFileStream;
 begin
+  AStream := TFileStream.Create(AFileName, fmCreate);
+  try
+    SaveToStream(AInstance, AStream, AFormat);
+  finally
+    FreeAndNil(AStream);
+  end;
+end;
 
+procedure TQSerializer.SaveToStream<T>(AInstance: T; AStream: TStream;
+const AFormat: UnicodeString);
+var
+  AWriter: IQSerializeWriter;
+  ACodec: TQSerializeFormatCodec;
+begin
+  AWriter := nil;
+  System.TMonitor.Enter(Self);
+  try
+    if FCodecs.TryGetValue(AFormat, ACodec) and Assigned(ACodec.Writer) then
+      ACodec.Writer(AStream, AWriter);
+  finally
+    System.TMonitor.Exit(Self);
+  end;
+  if not Assigned(AWriter) then
+    raise Exception.CreateFmt(SSerializeFormatNotSupport, [AFormat]);
+  FromRtti(AWriter, AInstance);
 end;
 
 class procedure TQSerializer.ToRtti<T>(AReader: IQSerializeReader;
