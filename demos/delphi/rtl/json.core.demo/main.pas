@@ -6,7 +6,8 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
   System.Generics.Collections,
   System.Classes, Vcl.Graphics, System.JSON, System.Diagnostics,
-  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, qdac.serialize.core, qdac.JSON.core,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, qdac.attribute, qdac.serialize.core,
+  qdac.JSON.core,
   Vcl.StdCtrls,
   Vcl.Buttons, Vcl.ExtCtrls;
 
@@ -32,6 +33,10 @@ type
 
   TOrderStatus = (osUnknown, osBeforePay, osAfterPay, osPrinted, osSent,
     osSigned, osReject);
+  [Prefix('ob')]
+  TOrderBookmark = (obStep, obVip, obRefund, obBlocked);
+  TOrderBookmarks = set of TOrderBookmark;
+  TOrderFlags = set of 0 .. 5;
 
   [NameFormat(LowerCamel)]
   TSubscribeItem = record
@@ -49,6 +54,7 @@ type
     Tid: String;
     Price: Currency;
     PackageWeight: Double;
+    [FloatFormat('0.###')]
     PackageVolume: Single;
     CreateTime: TDateTime;
     [DateTimeFormat(UnixTimeStamp)]
@@ -56,7 +62,14 @@ type
     [Prefix('os')]
     Status: TOrderStatus;
     Paid: Boolean;
+    [Alias('orderBookmarks')]
+    Bookmarks: TOrderBookmarks;
+    // Flags 这种定义不存在类型信息，序列化时会被忽略掉
+    Flags: TOrderFlags;
+    [Prefix('cl'), IdentFormatAttribute(LowerCamel)]
+    Color: TColor;
     Items: TArray<TSubscribeItem>;
+    //IncludeProps 声明包含属性，但下面的 Exclude 排除 Count 属性，所以 Count 属性最终不会保存
     [Exclude]
     property Count: Integer read GetCount write SetCount;
   end;
@@ -222,7 +235,9 @@ procedure TForm1.Button4Click(Sender: TObject);
 var
   AOrders: TArray<TSubscribeOrder>;
   ATime: TDateTime;
-  AJson: TQJsonNode;
+const
+  KnownColors: array [0 .. 5] of TColor = (clBlack, clRed, clYellow, clPurple,
+    clBlue, clWhite);
 begin
   SetLength(AOrders, 10);
   ATime := Now;
@@ -239,6 +254,9 @@ begin
       random(100) / 100;
     AOrders[I].Status := TOrderStatus(random(Ord(High(TOrderStatus)) + 1));
     AOrders[I].Paid := AOrders[I].Status >= TOrderStatus.osAfterPay;
+    AOrders[I].Bookmarks := [obRefund, obVip];
+    AOrders[I].Flags := [0, 4];
+    AOrders[I].Color := KnownColors[random(6)];
     SetLength(AOrders[I].Items, 1 + random(10));
     for var J := 0 to High(AOrders[I].Items) do
     begin
@@ -248,9 +266,12 @@ begin
   end;
   var
   AStream := TBytesStream.Create;
+  var
+  AEncoder := TQJsonEncoder.Create(AStream, true, TQJsonEncoder.DefaultFormat,
+    TEncoding.Utf8, 0);
+  Caption := Length(AOrders).ToString;
   TQSerializer.Current.FromRtti < TArray < TSubscribeOrder >>
-    (TQJsonEncoder.Create(AStream, true, TQJsonEncoder.DefaultFormat,
-    TEncoding.Utf8, 0), AOrders);
+    (AEncoder, AOrders);
   AStream.Position := 0;
   Memo1.Lines.Add(TEncoding.Utf8.GetString(AStream.Bytes));
   FreeAndNil(AStream);
