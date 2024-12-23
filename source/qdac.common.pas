@@ -16,6 +16,8 @@ const
   {$ELSE}
   STRING_FIRST_INDEX=1;
   {$ENDIF}
+resourcestring
+  SSerializeFormatNotSupport='不支持序列化为 %s 格式';
 implementation
 
 end.
