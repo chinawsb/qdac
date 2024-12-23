@@ -69,7 +69,7 @@ type
     [Prefix('cl'), IdentFormatAttribute(LowerCamel)]
     Color: TColor;
     Items: TArray<TSubscribeItem>;
-    //IncludeProps 声明包含属性，但下面的 Exclude 排除 Count 属性，所以 Count 属性最终不会保存
+    // IncludeProps 声明包含属性，但下面的 Exclude 排除 Count 属性，所以 Count 属性最终不会保存
     [Exclude]
     property Count: Integer read GetCount write SetCount;
   end;
@@ -266,12 +266,16 @@ begin
   end;
   var
   AStream := TBytesStream.Create;
-  var
-  AEncoder := TQJsonEncoder.Create(AStream, true, TQJsonEncoder.DefaultFormat,
-    TEncoding.Utf8, 0);
-  Caption := Length(AOrders).ToString;
-  TQSerializer.Current.FromRtti < TArray < TSubscribeOrder >>
-    (AEncoder, AOrders);
+  // Use default format settings
+  TQSerializer.Current.SaveToStream < TArray < TSubscribeOrder >>
+    (AOrders, AStream, 'json');
+  // More settings create new encoder and setup properties
+  // var
+  // AEncoder := TQJsonEncoder.Create(AStream, true, TQJsonEncoder.DefaultFormat,
+  // TEncoding.Utf8, 0);
+  // Caption := Length(AOrders).ToString;
+  // TQSerializer.Current.FromRtti < TArray < TSubscribeOrder >>
+  // (AEncoder, AOrders);
   AStream.Position := 0;
   Memo1.Lines.Add(TEncoding.Utf8.GetString(AStream.Bytes));
   FreeAndNil(AStream);
