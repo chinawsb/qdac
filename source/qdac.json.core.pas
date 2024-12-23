@@ -67,9 +67,12 @@ type
   /// <item>
   /// <term>jesWithComment</term><description>编码时包含注释</description>
   /// </item>
+  /// <term>jesForceAsString</term><description>输出时，数字、布尔、null全部输出为字符串</description>
+  /// </item>
   /// </list>
   TQJsonEncodeSetting = (jesIgnoreNull, jesIgnoreDefault, jesDoFormat,
-    jesDoEscape, jesEscapeQuoterOnly, jesNullAsString, jesWithComment);
+    jesDoEscape, jesEscapeQuoterOnly, jesNullAsString, jesWithComment,
+    jesForceAsString);
   TQJsonEncodeSettings = set of TQJsonEncodeSetting;
   TQJsonDateTimeKind = (tkFormatedText, tkUnixTimeStamp);
 
@@ -3904,7 +3907,7 @@ ADoQuote: Boolean);
 begin
   Assert(FCurrent.Stage = wsValue);
   WritePrefix;
-  WriteString(AValue, ADoQuote);
+  WriteString(AValue, ADoQuote or (jesForceAsString in FFormat.Settings));
   Inc(FCurrent.Count);
   if FCurrent.DataType = jdtObject then
     FCurrent.Stage := wsName;
