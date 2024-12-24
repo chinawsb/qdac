@@ -2,7 +2,7 @@
 
 interface
 
-uses classes, sysutils, typinfo, dateutils, math, ansistrings,
+uses classes, sysutils, typinfo, dateutils, math, ansistrings, Character,
   generics.Collections,
   generics.Defaults, rtti, variants, fmtbcd, qdac.common, qdac.attribute;
 
@@ -1009,54 +1009,66 @@ var
   end;
 
   procedure WriteVarValue(const AValue: Variant);
+  var
+    AObj: TObject;
+    ATypeId: Word;
+    ALo, AHi: Integer;
   begin
-    case VarType(AValue) of
-      varSmallInt:
-        AWriter.WriteValue(PVarData(@AValue).VSmallInt);
-      varInteger:
-        AWriter.WriteValue(PVarData(@AValue).VInteger);
-      varSingle:
-        AWriter.WriteValue(PVarData(@AValue).VSingle);
-      varDouble:
-        AWriter.WriteValue(PVarData(@AValue).VDouble);
-      varCurrency:
-        AWriter.WriteValue(PVarData(@AValue).VCurrency);
-      varDate:
-        AWriter.WriteValue(PVarData(@AValue).VDate);
-      varOleStr:
-        AWriter.WriteValue(PVarData(@AValue).VOleStr);
-      varBoolean:
-        AWriter.WriteValue(PVarData(@AValue).VBoolean);
-      varShortInt:
-        AWriter.WriteValue(PVarData(@AValue).VShortInt);
-      varByte:
-        AWriter.WriteValue(PVarData(@AValue).VByte);
-      varWord:
-        AWriter.WriteValue(PVarData(@AValue).VWord);
-      varUInt32:
-        AWriter.WriteValue(PVarData(@AValue).VUInt32);
-      varInt64:
-        AWriter.WriteValue(PVarData(@AValue).VInt64);
+    ATypeId := VarType(AValue);
+    case ATypeId of
+      varEmpty, varNull:
+        AWriter.WriteNull;
+      varSmallInt, varInteger, varShortInt, varByte, varWord,
+        varUInt32, varInt64:
+        AWriter.WriteValue(Int64(AValue));
       varUInt64:
-        AWriter.WriteValue(PVarData(@AValue).VUInt64);
-      varString:
-        AWriter.WriteValue
-          (UnicodeString(PRawByteString(PVarData(@AValue).VString)^));
-      varArray:
+        AWriter.WriteValue(UInt64(AValue));
+      varSingle, varDouble:
+        AWriter.WriteValue(Extended(AValue));
+      varCurrency:
+        AWriter.WriteValue(Currency(AValue));
+      varDate:
+        AWriter.WriteValue(TDateTime(AValue));
+      varOleStr, varString, varUString:
+        AWriter.WriteValue(VarToStr(AValue));
+      varBoolean:
+        AWriter.WriteValue(Boolean(AValue))
+    else
+      begin
+        if VarIsArray(AValue) then
         begin
-          // AWriter.WriteValue(PVarData(@AValue).VArray: PVarArray);
-        end;
-      varByRef:
-        begin
-          // Todo:
-        end;
-      varUString:
-        AWriter.WriteValue(PUnicodeString(PVarData(@AValue).VUString)^);
-      varRecord:
-        begin
-          // Todo:
-          // (VRecord: TVarRecord);
-        end;
+          AHi := VarArrayHighBound(AValue, 1);
+          AWriter.StartArray;
+          try
+            for ALo := VarArrayLowBound(AValue, 1) to AHi do
+              WriteVarValue(AValue[ALo]);
+          finally
+            AWriter.EndArray;
+          end;
+        end
+        else
+          AWriter.WriteValue(VarToStr(AValue));
+      end;
+
+      // varArray:
+      // begin
+      // // AWriter.WriteValue(TVarData(AValue).VArray: PVarArray);
+      // end;
+      // varByRef:
+      // begin
+      // // Todo:
+      // end;
+      // varRecord:
+      // begin
+      // // Todo:
+      // // (VRecord: TVarRecord);
+      // end;
+      // varObject:
+      // begin
+      //
+      // end
+      // else
+      // AWriter.WriteValue(VarToStr(AValue));
     end;
   end;
 
@@ -1221,121 +1233,281 @@ end;
 
 class function TQSerializer.FormatName(const S: UnicodeString;
 const AFormat: TSerializeNameFormat): UnicodeString;
-var
-  p, ps, pd: PWideChar;
+const
+  LC_UPPER = 1;
+  LC_LOWER = 2;
+  LC_UNDERLINE = 4;
+  LC_OTHER = 8;
+  procedure SkipIfUnderline(var pd, p: PWideChar);
+  begin
+    if p^ = '_' then
+    begin
+      while p^ = '_' do
+        Inc(p);
+      if not p^.IsLetter then
+      begin
+        pd^ := '_';
+        Inc(pd);
+      end;
+    end;
+  end;
+
+  procedure TrimTailUnderline(const ps: PWideChar; var pd: PWideChar);
+  begin
+    while pd > ps do
+    begin
+      Dec(pd);
+      if pd^ <> '_' then
+      begin
+        Inc(pd);
+        break;
+      end;
+    end;
+  end;
+
+  function CharType(c: WideChar): Byte;
+  begin
+    if c.IsUpper then
+      Result := LC_UPPER
+    else if c.IsLower then
+      Result := LC_LOWER
+    else if c = '_' then
+      Result := LC_UNDERLINE
+    else
+      Result := LC_OTHER;
+  end;
+
+  function CopyUntil(var pd, p: PWideChar; AStopBits: Byte): Boolean;
+  begin
+    while (p^ <> #0) and ((CharType(p^) and AStopBits) = 0) do
+    begin
+      pd^ := p^;
+      Inc(pd);
+      if p^ = '_' then
+      begin
+        while p^ = '_' do
+          Inc(p);
+      end
+      else
+        Inc(p);
+    end;
+    Result:=p^<>#0;
+  end;
+
+  function DoLowerCamel: UnicodeString;
+  var
+    p, ps, pd: PWideChar;
+  begin
+    SetLength(Result, Length(S));
+    p := PWideChar(S);
+    pd := PWideChar(Result);
+    SkipIfUnderline(pd, p);
+    if CopyUntil(pd, p, LC_UPPER or LC_LOWER) then
+    begin
+      if p^.IsUpper then
+      begin
+        pd^ := p^.ToLower;
+        Inc(p);
+        Inc(pd);
+      end;
+      while p^ <> #0 do
+      begin
+        if not p^.IsLetter then
+        begin
+          while p^ = '_' do
+            Inc(p);
+          if p^.IsLower then
+          begin
+            pd^ := p^.ToUpper;
+            Inc(pd);
+            Inc(p);
+            continue;
+          end;
+        end;
+        pd^ := p^;
+        Inc(pd);
+        Inc(p);
+      end;
+    end;
+    TrimTailUnderline(PWideChar(Result), pd);
+    SetLength(Result, pd - PWideChar(Result));
+  end;
+
+  function DoUpperCamel: UnicodeString;
+  var
+    p, ps, pd: PWideChar;
+  begin
+    SetLength(Result, Length(S));
+    p := PWideChar(S);
+    pd := PWideChar(Result);
+    SkipIfUnderline(pd, p);
+    if CopyUntil(pd, p, LC_UPPER or LC_LOWER) then
+    begin
+      if p^.IsLower then
+      begin
+        pd^ := p^.ToUpper;
+        Inc(p);
+        Inc(pd);
+      end;
+      while p^ <> #0 do
+      begin
+        if not p^.IsLetter then
+        begin
+          while p^ = '_' do
+            Inc(p);
+          if p^.IsLower then
+          begin
+            pd^ := p^.ToUpper;
+            Inc(pd);
+            Inc(p);
+            continue;
+          end;
+        end;
+        pd^ := p^;
+        Inc(pd);
+        Inc(p);
+      end;
+    end;
+    TrimTailUnderline(PWideChar(Result), pd);
+    SetLength(Result, pd - PWideChar(Result));
+  end;
+
+  procedure CopyOthers(var pd, ps: PWideChar);
+  begin
+    while not(ps^.IsLetter or (ps^ = '_')) do
+    begin
+      pd^ := ps^;
+      Inc(pd);
+      Inc(ps);
+    end;
+  end;
+
+  function DoUnderline: UnicodeString;
+  var
+    p, ps, pd: PWideChar;
+    AFirstType, ALastType: Byte;
+  begin
+    SetLength(Result, Length(S) shl 1);
+    p := PWideChar(S);
+    pd := PWideChar(Result);
+    SkipIfUnderline(pd, p);
+    CopyOthers(pd, p);
+    ps := p;
+    ALastType := CharType(p^);
+    // AbcDef -> Abc_Def,abcDef-> abc_Def, abc___def -> abc_def
+    while p^ <> #0 do
+    begin
+      if p^.IsLetter then
+      begin
+        if p = ps then
+        begin
+          pd^ := p^;
+          Inc(pd);
+          Inc(p);
+          ALastType := CharType(p^);
+          continue;
+        end
+        else if p^.IsUpper and (ALastType = LC_LOWER) then
+        begin
+          pd^ := '_';
+          Inc(pd);
+
+          pd^ := p^;
+          Inc(pd);
+          Inc(p);
+
+          ALastType := CharType(p^);
+          ps := p;
+          continue;
+        end
+        else if p^.IsLower and (ALastType = LC_UPPER) then
+        begin
+          pd^ := '_';
+          Inc(pd);
+
+          pd^ := p^;
+          Inc(pd);
+          Inc(p);
+
+          ALastType := CharType(p^);
+          ps := p;
+          continue;
+        end;
+      end
+      else if p^ = '_' then
+      begin
+        ALastType := LC_UNDERLINE;
+        while p^ = '_' do
+          Inc(p);
+        pd^ := '_';
+        Inc(pd);
+        ps := p;
+        continue;
+      end;
+      pd^ := p^;
+      ALastType := CharType(p^);
+      Inc(pd);
+      Inc(p);
+    end;
+    TrimTailUnderline(PWideChar(Result), pd);
+    SetLength(Result, pd - PWideChar(Result));
+  end;
+
+  function DoUpperUnderline: UnicodeString;
+  begin
+    Result := DoUnderline.ToUpper;
+  end;
+
+  function DoLowerUnderline: UnicodeString;
+  begin
+    Result := DoUnderline.ToLower;
+  end;
+
+  function MergeUnderline(const S: UnicodeString): UnicodeString;
+  var
+    p, pd: PWideChar;
+  begin
+    SetLength(Result, Length(S));
+    p := PWideChar(S);
+    pd := PWideChar(Result);
+    SkipIfUnderline(pd, p);
+    while p^ <> #0 do
+    begin
+      if p^ = '_' then
+      begin
+        while p^ = '_' do
+          Inc(p);
+        pd^ := '_';
+      end
+      else
+      begin
+        pd^ := p^;
+        Inc(p);
+      end;
+      Inc(pd);
+    end;
+    TrimTailUnderline(PWideChar(Result), pd);
+    SetLength(Result, pd - PWideChar(Result));
+  end;
+
 begin
   case AFormat of
-    Normal:
-      Result := S;
     LowerCamel:
-      begin
-        Result := S;
-        UniqueString(Result);
-        p := PWideChar(Result);
-        pd := p;
-        while p^ <> #0 do
-        begin
-          case p^ of
-            'A' .. 'Z':
-              pd^ := Char(Word(pd^) xor $0020)
-          else
-            pd^ := p^;
-          end;
-          Inc(p);
-          pd := p;
-          while p^ <> #0 do
-          begin
-            if p^ = '_' then
-            begin
-              while p^ = '_' do
-                Inc(p);
-              break;
-            end
-            else
-            begin
-              pd^ := p^;
-              Inc(pd);
-              Inc(p);
-            end;
-          end;
-        end;
-        SetLength(Result, pd - PWideChar(Result));
-      end;
+      Result := DoLowerCamel;
     UpperCamel:
-      begin
-        Result := S;
-        UniqueString(Result);
-        p := PWideChar(S);
-        pd := p;
-        while p^ <> #0 do
-        begin
-          case p^ of
-            'a' .. 'z':
-              pd^ := Char(Word(pd^) or $0020)
-          else
-            pd^ := p^;
-          end;
-          Inc(p);
-          pd := p;
-          while p^ <> #0 do
-          begin
-            if p^ = '_' then
-            begin
-              while p^ = '_' do
-                Inc(p);
-              break;
-            end
-            else
-            begin
-              pd^ := p^;
-              Inc(pd);
-              Inc(p);
-            end;
-          end;
-        end;
-        SetLength(Result, pd - PWideChar(Result));
-      end;
+      Result := DoUpperCamel;
     Underline:
-      begin
-        SetLength(Result, Length(S) shl 1);
-        p := PWideChar(S);
-        ps := p;
-        pd := PWideChar(Result);
-        while p^ <> #0 do
-        begin
-          case p^ of
-            'A' .. 'Z':
-              begin
-                if p > ps then
-                begin
-                  pd^ := '_';
-                  Inc(pd);
-                end;
-                pd^ := Char(Word(pd^) xor $0020);
-              end
-          else
-            pd^ := p^;
-          end;
-          Inc(p);
-          pd := p;
-          while (p^ <> #0) and ((p^ <= 'A') or (p^ >= 'Z')) do
-          begin
-            if p^ = '_' then
-            begin
-              while p^ = '_' do
-                Inc(p);
-              break;
-            end
-            else
-            begin
-              pd^ := p^;
-              Inc(pd);
-              Inc(p);
-            end;
-          end;
-        end;
-        SetLength(Result, pd - PWideChar(Result));
-      end;
+      Result := DoUnderline;
+    UpperCase:
+      Result := MergeUnderline(S).ToUpper;
+    LowerCase:
+      Result := MergeUnderline(S).ToLower;
+    UpperCaseUnderline:
+      Result := DoUpperUnderline;
+    LowerCaseUnderline:
+      Result := DoLowerUnderline
+  else
+    Result := S;
   end;
 end;
 
@@ -1489,6 +1661,8 @@ var
             [TStringPair.Create(IdentMapAttribute(Attr).Key,
             IdentMapAttribute(Attr).Value)];
         end
+        else if Attr is NameAttribute then
+          AResult.FormatedName := NameAttribute(Attr).Name
         else if Attr is ExcludeAttribute then
           Exit;
       end;
@@ -1522,8 +1696,9 @@ var
       if not Assigned(AResult.TypeData.PropInfo) then
         AResult.Offset := TRttiField(AField).Offset;
       AResult.Size := AFieldType.TypeSize;
-      AResult.FormatedName := FormatName(AField.Name,
-        ASerializeFields.TypeData.NameFormat);
+      if Length(AResult.FormatedName) = 0 then
+        AResult.FormatedName := FormatName(AField.Name,
+          ASerializeFields.TypeData.NameFormat);
       AResult.Names := [AField.Name];
       if AResult.FormatedName <> AField.Name then
         AResult.Names := [AResult.FormatedName] + AResult.Names;
@@ -1592,11 +1767,10 @@ var
   end;
 
 begin
-  if not Assigned(AType) then
-    Exit(nil);
-  if (AType.Kind in [tkClass, tkInterface, tkRecord, tkMRecord, tkArray,
-    tkDynArray, tkSet, tkEnumeration]) or
-    ((AType.Kind = tkInteger) and (AType <> TypeInfo(Integer))) then
+  if Assigned(AType) and
+    ((AType.Kind in [tkClass, tkInterface, tkRecord, tkMRecord, tkArray,
+    tkDynArray, tkSet, tkEnumeration]) or ((AType.Kind = tkInteger) and
+    (AType <> TypeInfo(Integer)))) then
   begin
     New(Result);
     FillChar(Result^, sizeof(TQSerializeFields), 0);
@@ -1701,7 +1875,9 @@ begin
       AddProps;
     // 如果是记录，默认不检查属性
     SetLength(Result.Fields, ACount);
-  end;
+  end
+  else
+    Result := nil;
 end;
 
 procedure TQSerializer.LoadFromFile<T>(AInstance: T; AFileName: UnicodeString;
