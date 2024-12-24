@@ -3898,7 +3898,7 @@ begin
   WritePrefix;
   WriteString(AName, true);
   WriteString(':', false);
-  WriteString(AValue, ADoQuote);
+  WriteString(AValue, ADoQuote or (jesForceAsString in FFormat.Settings));
   Inc(FCurrent.Count);
 end;
 
@@ -4262,7 +4262,7 @@ begin
     InternalWriteValue(AValue, not TryStrToFloat(AValue, ADummy))
   end
   else
-    InternalWriteValue(FloatToStr(V), false);
+    InternalWriteValue(CurrToStr(V), false);
 end;
 
 procedure TQJsonEncoder.WriteValue(const V: TDateTime);
