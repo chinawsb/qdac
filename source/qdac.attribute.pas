@@ -21,6 +21,12 @@ type
     constructor Create(const AText: UnicodeString); overload;
   end;
 
+  // 名称注解，用于设置序列化的名称，如果设置了，NameFormat 注解将被忽略
+  NameAttribute = class(TQTextAttribute)
+  public
+    property Name: UnicodeString read FText;
+  end;
+
   // 路径注解，用于解析内容到特定的路径上去，路径间分隔使用反斜线“/”，如[Path('/home/swish')]
   PathAttribute = class(TQTextAttribute)
   public
@@ -84,8 +90,13 @@ type
   // - Normal : 正常匹配（默认），字段名要与数据源名称一致(AgeKind->AgeKind)
   // - LowerCamel : 小驼峰匹配，字段名与源的小驼峰命名反转后的值一致(ageKind->AgeKind/FAgeKind)
   // - UpperCamel : 大驼峰匹配，字段名与源的大驼峰命名反转后的值一致(AgeKind->AgeKind/FAgeKind)
-  // - Underline : 下划线匹配，字段名被删除下划线（age_kind->AgeKind/FAgeKind)
-  TSerializeNameFormat = (Normal, LowerCamel, UpperCamel, Underline);
+  // - Underline : 下划线匹配，字段名被删除下划线（Age_Kind->AgeKind/FAgeKind)
+  // - UpperCase : 全大写(AGEKIND -> AgeKind/FAgeKind/age_kind)
+  // - LowerCase : 全小写(agekind ->AgeKind/FAgeKind/age_kind)
+  // - UpperCaseUnderLine : 大写+下划线(AGE_KIND -> AgeKind/FAgeKind/age_kind)
+  // - LowerCaseUnderLine : 小写+下划线(age_kind -> AgeKind/FAgeKind/age_kind)
+  TSerializeNameFormat = (Normal, LowerCamel, UpperCamel, Underline, UpperCase,
+    LowerCase, UpperCaseUnderLine, LowerCaseUnderLine);
 
   // 序列化导出时的命名格式
   NameFormatAttribute = class(TCustomAttribute)
