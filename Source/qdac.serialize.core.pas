@@ -1291,7 +1291,7 @@ const
       else
         Inc(p);
     end;
-    Result:=p^<>#0;
+    Result := p^ <> #0;
   end;
 
   function DoLowerCamel: UnicodeString;
@@ -2444,5 +2444,12 @@ begin
   ARef := AParent;
   Inc(ARef, Offset);
 end;
+
+initialization
+
+finalization
+
+if Assigned(TQSerializer.FCurrent) then
+  FreeAndNil(TQSerializer.FCurrent);
 
 end.
