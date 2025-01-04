@@ -222,7 +222,7 @@ type
     function Add(const AValue: Boolean): PQJsonNode; overload;
     function AddArray: PQJsonNode; overload;
     function AddObject: PQJsonNode; overload;
-    // 添加对象元素改成用 AddKey/AddPair 替换 3.0 的接口，避免原来的歧义
+    // 添加对象元素改成用 AddKey/AddPair 替换 3.0 的接口，避免原来的歧义,原来3.0 Add 对应的重载废弃
     function AddKey(const AName: UnicodeString): PQJsonNode;
     function AddPair(const AName: UnicodeString; AValue: Boolean)
       : PQJsonNode; overload;
@@ -424,8 +424,7 @@ type
     procedure InternalWritePair(const AName, AValue: UnicodeString;
       ADoQuote: Boolean);
     procedure InternalWriteValue(const AValue: UnicodeString;
-      ADoQuote: Boolean); inline;
-    procedure Flush;
+      ADoQuote: Boolean);
   public
     class constructor Create;
     class function JavaEscape(const S: UnicodeString; ADoEscape: Boolean)
@@ -470,6 +469,7 @@ type
     procedure WritePair(const AName: UnicodeString); overload;
     //
     procedure WriteComment(const AComment: UnicodeString);
+    procedure Flush;
     class property DefaultFormat: TQJsonFormatSettings read FDefaultFormat
       write FDefaultFormat;
   end;
@@ -511,6 +511,9 @@ const
     #$0D);
   CNoTokenMin = #$09;
   CNoTokenMax = #$7D;
+  // 兼容 3.0 的接口，但不再推荐，直接从队列
+function AcquireJson: PQJsonNode;
+procedure ReleaseJson(ANode: PQJsonNode);
 
 implementation
 
@@ -522,7 +525,18 @@ type
     function GetHashCode(const Value: UnicodeString): Integer; override;
   end;
 
-  { TQJsonParser }
+function AcquireJson: PQJsonNode;
+begin
+  // 初始版本只为兼容，后面加入页面池缓存支持
+  New(Result);
+  FillChar(Result^, SizeOf(TQJsonNode), 0);
+end;
+
+procedure ReleaseJson(ANode: PQJsonNode);
+begin
+  Dispose(ANode);
+end;
+{ TQJsonParser }
 
 procedure TQJsonParser.AppendAndPeekNextChar;
 begin
@@ -631,10 +645,10 @@ function TQJsonParser.NeedCharBytes(const ACharSize: Cardinal): Boolean;
 begin
   FLastCharSize := ACharSize;
   Result := true;
-  if FEof - FCurrent < ACharSize then
+  if NativeUInt(FEof - FCurrent) < ACharSize then
   begin
     if not Assigned(FBufferReader) or (FBufferReader(Self) = 0) or
-      (FEof - FCurrent < ACharSize) then
+      (NativeUInt(FEof - FCurrent) < ACharSize) then
     begin
       FLastChar := 0;
       if FEof > FCurrent then
@@ -2357,8 +2371,7 @@ end;
 
 function TQJsonNode.InternalAdd: PQJsonNode;
 begin
-  New(Result);
-  FillChar(Result, SizeOf(TQJsonNode), 0);
+  Result:=AcquireJson;
   Result.FParent := @Self;
   Result.FPrior := FValue.Items.Last;
   if Assigned(FValue.Items.Last) then
@@ -3763,6 +3776,7 @@ begin
   SetLength(FBuffer, ABufSize); // 8K
   if AWriteBom then
     AppendBom;
+  FCurrent := @FRoot;
 end;
 
 destructor TQJsonEncoder.Destroy;
