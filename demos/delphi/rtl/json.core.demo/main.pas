@@ -4,7 +4,8 @@ interface
 
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
-  System.Generics.Collections, Data.FMTBcd,
+  System.TypInfo, System.Rtti,
+  System.Generics.Collections, System.DateUtils, System.VarCmplx, Data.FMTBcd,
   System.Classes, Vcl.Graphics, System.JSON, System.Diagnostics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, qdac.attribute, qdac.serialize.core,
   qdac.JSON.core,
@@ -20,11 +21,17 @@ type
     Button3: TButton;
     Button5: TButton;
     Button4: TButton;
+    Button6: TButton;
+    Button7: TButton;
+    Button8: TButton;
     procedure Button1Click(Sender: TObject);
     procedure Button2Click(Sender: TObject);
     procedure Button3Click(Sender: TObject);
     procedure Button5Click(Sender: TObject);
     procedure Button4Click(Sender: TObject);
+    procedure Button7Click(Sender: TObject);
+    procedure Button6Click(Sender: TObject);
+    procedure Button8Click(Sender: TObject);
   private
     { Private declarations }
   public
@@ -74,6 +81,7 @@ type
     [Exclude]
     property Count: Integer read GetCount write SetCount;
   end;
+
 
 var
   Form1: TForm1;
@@ -287,7 +295,6 @@ procedure TForm1.Button5Click(Sender: TObject);
 var
   AStream: TStream;
   AWriter: TQJsonEncoder;
-
 begin
   Memo1.Lines.Clear;
   AStream := TBytesStream.Create;
@@ -321,6 +328,40 @@ begin
     FreeAndNil(AWriter);
     FreeAndNil(AStream);
   end;
+end;
+
+procedure TForm1.Button6Click(Sender: TObject);
+var
+  AStream: TBytesStream;
+  AList: TStringList;
+begin
+  AStream := TBytesStream.Create;
+  AList := TStringList.Create;
+  AList.AddStrings(['abc', 'def']);
+  TQSerializer.Current.SaveToStream<TValue>(AList, AStream, 'json');
+  FreeAndNil(AList);
+  AStream.Position := 0;
+  Memo1.Lines.Add(TEncoding.Utf8.GetString(AStream.Bytes));
+  FreeAndNil(AStream);
+end;
+
+procedure TForm1.Button7Click(Sender: TObject);
+var
+  AStream: TBytesStream;
+  AList: TList<String>;
+begin
+  AStream := TBytesStream.Create;
+  AList := TList<String>.Create(['abc', 'def']);
+  TQSerializer.Current.SaveToStream<TValue>(AList, AStream, 'json');
+  FreeAndNil(AList);
+  AStream.Position := 0;
+  Memo1.Lines.Add(TEncoding.Utf8.GetString(AStream.Bytes));
+  FreeAndNil(AStream);
+end;
+
+procedure TForm1.Button8Click(Sender: TObject);
+begin
+  //
 end;
 
 { TSubscribeOrder }

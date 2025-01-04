@@ -66,6 +66,33 @@ object Form1: TForm1
       TabOrder = 4
       OnClick = Button4Click
     end
+    object Button6: TButton
+      Left = 8
+      Top = 40
+      Width = 100
+      Height = 25
+      Caption = 'TStrings'
+      TabOrder = 5
+      OnClick = Button6Click
+    end
+    object Button7: TButton
+      Left = 130
+      Top = 40
+      Width = 100
+      Height = 25
+      Caption = 'Generics'
+      TabOrder = 6
+      OnClick = Button7Click
+    end
+    object Button8: TButton
+      Left = 253
+      Top = 40
+      Width = 100
+      Height = 25
+      Caption = 'Collection'
+      TabOrder = 7
+      OnClick = Button8Click
+    end
   end
   object Memo1: TMemo
     Left = 0
