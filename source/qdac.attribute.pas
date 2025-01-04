@@ -51,6 +51,10 @@ type
     property Name: String read FText;
   end;
 
+  //强制按字符串处理
+  ForceAsStringAttribute = class(TCustomAttribute)
+
+  end;
   // 令牌类型，如[TokenType('jwt')]
 
   TokenTypeAttribute = class(TQTextAttribute)
