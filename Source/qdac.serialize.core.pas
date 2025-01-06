@@ -623,7 +623,9 @@ const AKind: TTypeKind); forward;
       bp := @AStack;
       while Assigned(bp) do
       begin
-        if bp.Instance = AInstance then
+        if (bp.Instance = AInstance) or
+          ((bp.TypeInfo.Kind = tkClass) and (PPointer(bp.Instance)^ = AInstance))
+        then
           Exit(false);
         bp := bp.Prior;
       end;
@@ -1009,10 +1011,10 @@ const AKind: TTypeKind); forward;
         begin
           if TObject(AChildInstance).ClassType = ACollection.ItemClass then
             DoSerialize(AWriter, NewStack(TObject(AChildInstance).ClassInfo,
-              AChildInstance, ASubFields))
+              @AChildInstance, ASubFields))
           else
             DoSerialize(AWriter, NewStack(TObject(AChildInstance).ClassInfo,
-              AChildInstance, nil));
+              @AChildInstance, nil));
         end;
       end;
     finally
@@ -1024,7 +1026,6 @@ const AKind: TTypeKind); forward;
   AField: PQSerializeField);
   var
     I: Integer;
-    AFieldInstance: Pointer;
   begin
     if AType = TypeInfo(TBcd) then
     begin
@@ -1046,15 +1047,8 @@ const AKind: TTypeKind); forward;
         AWriter.StartObjectPair(AField.FormatedName);
         try
           for I := 0 to High(AField.Fields.Fields) do
-          begin
-            with AField.Fields.Fields[I] do
-            begin
-              AFieldInstance := FieldInstance<Pointer>(AInstance);
-              if CanSerialize(AFieldInstance) then
-                DoSerialize(AWriter, NewStack(TypeData.TypeInfo,
-                  AFieldInstance, Fields));
-            end;
-          end;
+            WriteField(AInstance, AField.Fields.Fields[I],
+              AField.Fields.Fields[I].TypeData.TypeInfo.Kind);
         finally
           AWriter.EndObject;
         end;
@@ -1065,15 +1059,8 @@ const AKind: TTypeKind); forward;
       AWriter.StartObject;
       try
         for I := 0 to High(AStack.Fields.Fields) do
-        begin
-          with AStack.Fields.Fields[I] do
-          begin
-            AFieldInstance := FieldInstance<Pointer>(AInstance);
-            if CanSerialize(AFieldInstance) then
-              DoSerialize(AWriter, NewStack(TypeData.TypeInfo,
-                AFieldInstance, Fields));
-          end;
-        end;
+          WriteField(AInstance, AStack.Fields.Fields[I],
+            AStack.Fields.Fields[I].TypeData.TypeInfo.Kind);
       finally
         AWriter.EndObject;
       end;
@@ -1089,25 +1076,22 @@ const AKind: TTypeKind); forward;
     begin
       if AObject is TStrings then
       begin
-        if AField.ForceAsString then
+        if Assigned(AField) then
         begin
-          if Assigned(AField) then
-            AWriter.WritePair(AField.FormatedName,TStrings(AObject).Text)
-          else
-            AWriter.WriteValue(TStrings(AObject).Text);
+          if AField.ForceAsString then
+          begin
+            AWriter.WritePair(AField.FormatedName, TStrings(AObject).Text);
+            Exit;
+          end;
+          AWriter.StartArrayPair(AField.FormatedName);
         end
         else
-        begin
-          if Assigned(AField) then
-            AWriter.StartArrayPair(AField.FormatedName)
-          else
-            AWriter.StartArray;
-          try
-            for I := 0 to TStrings(AObject).Count - 1 do
-              AWriter.WriteValue(TStrings(AObject).Strings[I]);
-          finally
-            AWriter.EndArray;
-          end;
+          AWriter.StartArray;
+        try
+          for I := 0 to TStrings(AObject).Count - 1 do
+            AWriter.WriteValue(TStrings(AObject).Strings[I]);
+        finally
+          AWriter.EndArray;
         end;
       end
       else if AObject is TCollection then
@@ -1119,7 +1103,7 @@ const AKind: TTypeKind); forward;
         begin
           for I := 0 to High(AStack.Fields.Fields) do
           begin
-            WriteField(AStack.Instance, AStack.Fields.Fields[I],
+            WriteField(AObject, AStack.Fields.Fields[I],
               AStack.Fields.Fields[I].TypeData.TypeInfo.Kind);
           end;
         end;
@@ -1159,6 +1143,8 @@ const AKind: TTypeKind); forward;
 
   procedure WriteField(AInstance: Pointer; const AField: TQSerializeField;
   const AKind: TTypeKind);
+  var
+    AFieldInstance: Pointer;
   begin
     case AKind of
       tkInteger:
@@ -1199,18 +1185,30 @@ const AKind: TTypeKind); forward;
       tkSet:
         WriteSetValue(AInstance, AField);
       tkClass:
-        WriteObject(GetObjectValue(AInstance, AField), @AField);
+        begin
+          AFieldInstance := GetObjectValue(AInstance, AField);
+          if CanSerialize(AFieldInstance) then
+            WriteObject(AFieldInstance, @AField);
+        end;
       tkVariant:
         WriteVarPair(AField.FormatedName,
           AField.FieldInstance<PVariant>(AInstance)^);
       tkArray, tkDynArray:
         WriteArrayValue(AInstance, AField);
       tkRecord:
-        WriteRecord(AField.FieldInstance<Pointer>(AInstance),
-          AField.TypeData.TypeInfo, @AField);
+        begin
+          AFieldInstance := AField.FieldInstance<Pointer>(AInstance);
+          if CanSerialize(AFieldInstance) then
+            WriteRecord(AFieldInstance, AField.TypeData.TypeInfo, @AField);
+        end;
       tkInterface:
-        WriteInterface(GetInterfaceProp(AInstance,
-          AField.TypeData.PropInfo), @AField);
+        begin
+          AFieldInstance := nil;
+          IInterface(AFieldInstance) := GetInterfaceProp(AInstance,
+            AField.TypeData.PropInfo);
+          if CanSerialize(AFieldInstance) then
+            WriteInterface(IInterface(AFieldInstance), @AField);
+        end;
       tkInt64:
         AWriter.WritePair(AField.FormatedName, GetIntValue(AInstance, AField),
           AField.TypeData.BaseTypeData.MinInt64Value >
@@ -1741,9 +1739,9 @@ var
       AResult.TypeData.PropInfo := nil;
       AFieldType := TRttiField(AField).FieldType;
     end
-    else if AField is TRttiProperty then
+    else if AField is TRttiInstanceProperty then
     begin
-      AResult.TypeData.PropInfo := TRttiProperty(AField).Handle;
+      AResult.TypeData.PropInfo := TRttiInstanceProperty(AField).PropInfo;
       AFieldType := TRttiProperty(AField).PropertyType;
     end
     else
