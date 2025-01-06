@@ -5669,9 +5669,9 @@ end;
 
 function StrDupX(const S: PQCharW; ACount: Integer): QStringW;
 begin
-  Result := Copy(S, 0, ACount);
-  // SetLength(Result, ACount);
-  // Move(S^, PQCharW(Result)^, ACount shl 1);
+//  Result := Copy(S, 0, ACount);
+   SetLength(Result, ACount);
+   Move(S^, PQCharW(Result)^, ACount shl 1);
 end;
 
 function StrDupW(const S: PQCharW; AOffset: Integer; const ACount: Integer)
