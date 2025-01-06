@@ -68,11 +68,49 @@ type
   class var
     FEnabled: Boolean;
     FFileName: String;
+
+  type
+    TQThreadProfileHelper = class(TInterfacedObject, IUnknown, IQProfileHelper)
+    protected
+      FRoot: TQProfileStack;
+      FCurrent: PQProfileStack;
+      FThreadId: TThreadId;
+      FThreadName: String;
+    private
+    public
+      constructor Create; overload;
+      destructor Destroy; override;
+      function Push(const AName: String; AStackRef: PQProfileStack)
+        : PQProfileStack; inline;
+      function _Release: Integer; overload; stdcall;
+      property ThreadId: TThreadId read FThreadId;
+      property ThreadName: String read FThreadName;
+    end;
+
+    TQThreadHelperSet = class sealed
+    protected
+    class var
+      FHelpers: TArray<TQThreadProfileHelper>;
+      FCount: Integer;
+    public
+      class constructor Create;
+      class procedure NeedHelper(const AThreadId: TThreadId;
+        const AName: String; AStackRef: PQProfileStack;
+        var AResult: TQProfileCalcResult);
+    end;
+
+    TQProfileStackHelper = record helper for TQProfileStack
+      function Push(const AName: String; AStackRef: PQProfileStack)
+        : PQProfileStack;
+      function Pop: PQProfileStack;
+      function ThreadHelper: TQProfile.TQThreadProfileHelper;
+    end;
+
   protected
     class procedure SaveProfiles;
+    class procedure Cleanup;
   public
     class constructor Create;
-    class destructor Destroy;
     class function AsString: String;
     class procedure SaveDegrams(const AFileName: String);
     class function Calc(const AName: String; AStackRef: PQProfileStack = nil)
@@ -85,45 +123,9 @@ type
 
 implementation
 
-type
-
-  TQThreadProfileHelper = class(TInterfacedObject, IUnknown, IQProfileHelper)
-  protected
-    FRoot: TQProfileStack;
-    FCurrent: PQProfileStack;
-    FThreadId: TThreadId;
-    FThreadName: String;
-  private
-  public
-    constructor Create; overload;
-    destructor Destroy; override;
-    function Push(const AName: String; AStackRef: PQProfileStack)
-      : PQProfileStack; inline;
-    function _Release: Integer; overload; stdcall;
-    property ThreadId: TThreadId read FThreadId;
-    property ThreadName: String read FThreadName;
-  end;
-
-  TQThreadHelperSet = class sealed
-  protected
-  class var
-    FHelpers: TArray<TQThreadProfileHelper>;
-    FCount: Integer;
-  public
-    class constructor Create;
-    class function NeedHelper(const AThreadId: TThreadId)
-      : TQThreadProfileHelper;
-  end;
-
-  TQProfileStackHelper = record helper for TQProfileStack
-    function Push(const AName: String; AStackRef: PQProfileStack)
-      : PQProfileStack;
-    function Pop: PQProfileStack;
-    function ThreadHelper: TQThreadProfileHelper;
-  end;
-
 {$IFDEF MSWINDOWS}
 
+type
   TGetThreadDescription = function(hThread: THandle;
     var ppszThreadDescription: PWideChar): HRESULT;
 
@@ -136,16 +138,10 @@ function OpenThread(dwDesiredAccess: DWORD; bInheritHandle: BOOL;
 
 class function TQProfile.Calc(const AName: String; AStackRef: PQProfileStack)
   : TQProfileCalcResult;
-const
-  FLAG_HELPER_INITED: Int64 = $5555555555555555;
 begin
   if Enabled then
-  begin
-    var
-    AHelper := TQThreadHelperSet.NeedHelper(TThread.Current.ThreadId);
-    Result.Counter := AHelper;
-    Result.Stack := AHelper.Push(AName, AStackRef);
-  end
+    TQThreadHelperSet.NeedHelper(TThread.Current.ThreadId, AName,
+      AStackRef, Result)
   else
   begin
     Result.Counter := nil;
@@ -153,14 +149,8 @@ begin
   end;
 end;
 
-class constructor TQProfile.Create;
-begin
-  FEnabled := {$IFDEF DEBUG}true{$ELSE}false{$ENDIF};
-  FFileName := ExtractFilePath(ParamStr(0)) + 'profiles.json';
-end;
-
-class destructor TQProfile.Destroy;
-  procedure Cleanup(AStack: PQProfileStack);
+class procedure TQProfile.Cleanup;
+  procedure DoCleanup(AStack: PQProfileStack);
   var
     AChild, ANext: PQProfileStack;
     ARef, ANextRef: PQProfileReference;
@@ -178,11 +168,9 @@ class destructor TQProfile.Destroy;
         ARef := ANextRef;
       end;
       if Assigned(AChild.FirstChild) then
-        Cleanup(AChild);
+        DoCleanup(AChild);
       if Assigned(AChild.Parent) then
-        Dispose(AChild)
-      else // Release on Calc create addref
-        AChild.ThreadHelper._Release;
+        Dispose(AChild);
       AChild := ANext;
     end;
   end;
@@ -193,14 +181,23 @@ begin
   for I := 0 to High(TQThreadHelperSet.FHelpers) do
   begin
     if Assigned(TQThreadHelperSet.FHelpers[I]) then
-      Cleanup(@TQThreadHelperSet.FHelpers[I].FRoot);
+    begin
+      DoCleanup(@TQThreadHelperSet.FHelpers[I].FRoot);
+      TQThreadHelperSet.FHelpers[I]._Release;
+    end;
   end;
   SetLength(TQThreadHelperSet.FHelpers, 0);
 end;
 
+class constructor TQProfile.Create;
+begin
+  FEnabled := {$IFDEF DEBUG}true{$ELSE}false{$ENDIF};
+  FFileName := ExtractFilePath(ParamStr(0)) + 'profiles.json';
+end;
+
 class procedure TQProfile.SaveDegrams(const AFileName: String);
 begin
-  //Todo:生成 mermaid 兼容格式的流程图
+  // Todo:生成 mermaid 兼容格式的流程图
 end;
 
 class procedure TQProfile.SaveProfiles;
@@ -217,7 +214,6 @@ begin
     end;
   end;
 end;
-
 
 class function TQProfile.AsString: String;
 var
@@ -348,7 +344,7 @@ end;
 
 { TQThreadProfileHelper }
 
-constructor TQThreadProfileHelper.Create;
+constructor TQProfile.TQThreadProfileHelper.Create;
 var
   pName: PWideChar;
 {$IFDEF MSWINDOWS}
@@ -401,20 +397,20 @@ begin
   FCurrent.NestLevel := 1;
 end;
 
-destructor TQThreadProfileHelper.Destroy;
+destructor TQProfile.TQThreadProfileHelper.Destroy;
 begin
 
   inherited;
 end;
 
-function TQThreadProfileHelper.Push(const AName: String;
+function TQProfile.TQThreadProfileHelper.Push(const AName: String;
   AStackRef: PQProfileStack): PQProfileStack;
 begin
   FCurrent := FCurrent.Push(AName, AStackRef);
   Result := FCurrent;
 end;
 
-function TQThreadProfileHelper._Release: Integer;
+function TQProfile.TQThreadProfileHelper._Release: Integer;
 begin
   Result := inherited _Release;
   if Result > 0 then
@@ -433,7 +429,7 @@ end;
 
 { TQProfileStackHelper }
 
-function TQProfileStackHelper.Pop: PQProfileStack;
+function TQProfile.TQProfileStackHelper.Pop: PQProfileStack;
 var
   ADelta: Int64;
 begin
@@ -453,7 +449,7 @@ begin
   Inc(Runs);
 end;
 
-function TQProfileStackHelper.Push(const AName: String;
+function TQProfile.TQProfileStackHelper.Push(const AName: String;
   AStackRef: PQProfileStack): PQProfileStack;
 var
   AChild: PQProfileStack;
@@ -541,7 +537,8 @@ begin
   end;
 end;
 
-function TQProfileStackHelper.ThreadHelper: TQThreadProfileHelper;
+function TQProfile.TQProfileStackHelper.ThreadHelper
+  : TQProfile.TQThreadProfileHelper;
 var
   ARoot: PQProfileStack;
 begin
@@ -549,20 +546,21 @@ begin
   Result := nil;
   while Assigned(ARoot.Parent) do
     ARoot := ARoot.Parent;
-  Result := TQThreadProfileHelper(IntPtr(ARoot) -
-    (IntPtr(@Result.FRoot) - IntPtr(Result)));
+  Result := TQProfile.TQThreadProfileHelper
+    (IntPtr(ARoot) - (IntPtr(@Result.FRoot) - IntPtr(Result)));
 end;
 
 { TQThreadHelperSet }
 
-class constructor TQThreadHelperSet.Create;
+class constructor TQProfile.TQThreadHelperSet.Create;
 begin
   FCount := 0;
   FHelpers := [];
 end;
 
-class function TQThreadHelperSet.NeedHelper(const AThreadId: TThreadId)
-  : TQThreadProfileHelper;
+class procedure TQProfile.TQThreadHelperSet.NeedHelper(const AThreadId
+  : TThreadId; const AName: String; AStackRef: PQProfileStack;
+  var AResult: TQProfileCalcResult);
 const
   BUCKET_MASK = Integer($80000000);
   BUCKET_INDEX_MASK = Integer($7FFFFFFF);
@@ -676,15 +674,20 @@ const
     end;
   end;
 
+var
+  AHelper: TQThreadProfileHelper;
 begin
-  Result := FindExists;
-  if not Assigned(Result) then
-    Result := InsertHelper;
+  AHelper := FindExists;
+  if not Assigned(AHelper) then
+    AHelper := InsertHelper;
+  AResult.Counter := AHelper;
+  AResult.Stack := AHelper.Push(AName, AStackRef);
 end;
 
 initialization
+
 {$IFNDEF DEBUG}
-TQProfile.Enabled:=FindCmdlineSwitch('EnableProfile');
+  TQProfile.Enabled := FindCmdlineSwitch('EnableProfile');
 {$ENDIF}
 GetThreadDescription := GetProcAddress(GetModuleHandle(kernel32),
   'GetThreadDescription');
@@ -692,5 +695,6 @@ GetThreadDescription := GetProcAddress(GetModuleHandle(kernel32),
 finalization
 
 TQProfile.SaveProfiles;
+TQProfile.Cleanup;
 
 end.
