@@ -82,4 +82,8 @@ begin
   TThread.NameThreadForDebugging('MainThread');
 end;
 
+initialization
+
+ReportMemoryLeaksOnShutdown := true;
+
 end.

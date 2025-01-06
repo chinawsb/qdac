@@ -20,10 +20,6 @@ object Form1: TForm1
     Height = 394
     Align = alClient
     TabOrder = 0
-    ExplicitLeft = 8
-    ExplicitTop = 48
-    ExplicitWidth = 609
-    ExplicitHeight = 385
   end
   object Panel1: TPanel
     Left = 0
@@ -34,9 +30,6 @@ object Form1: TForm1
     BevelOuter = bvNone
     ShowCaption = False
     TabOrder = 1
-    ExplicitLeft = 368
-    ExplicitTop = 24
-    ExplicitWidth = 185
     object Button1: TButton
       Left = 8
       Top = 8
