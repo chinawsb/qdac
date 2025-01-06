@@ -82,6 +82,18 @@ type
     property Count: Integer read GetCount write SetCount;
   end;
 
+  [IncludeProps]
+  TDemoCollectionItem = class(TCollectionItem)
+  private
+    FName: String;
+  public
+    property Name: String read FName write FName;
+  end;
+
+  TDemoCollection = class(TOwnedCollection)
+  public
+    constructor Create(AOwner: TPersistent; ItemClass: TCollectionItemClass);
+  end;
 
 var
   Form1: TForm1;
@@ -338,7 +350,7 @@ begin
   AStream := TBytesStream.Create;
   AList := TStringList.Create;
   AList.AddStrings(['abc', 'def']);
-  TQSerializer.Current.SaveToStream<TValue>(AList, AStream, 'json');
+  TQSerializer.Current.SaveToStream<TStrings>(AList, AStream, 'json');
   FreeAndNil(AList);
   AStream.Position := 0;
   Memo1.Lines.Add(TEncoding.Utf8.GetString(AStream.Bytes));
@@ -352,7 +364,8 @@ var
 begin
   AStream := TBytesStream.Create;
   AList := TList<String>.Create(['abc', 'def']);
-  TQSerializer.Current.SaveToStream<TValue>(AList, AStream, 'json');
+  TQSerializer.Current.SaveToStream < TList < String >>
+    (AList, AStream, 'json');
   FreeAndNil(AList);
   AStream.Position := 0;
   Memo1.Lines.Add(TEncoding.Utf8.GetString(AStream.Bytes));
@@ -360,8 +373,20 @@ begin
 end;
 
 procedure TForm1.Button8Click(Sender: TObject);
+var
+  ACollection: TDemoCollection;
+  AStream: TBytesStream;
 begin
-  //
+  AStream := TBytesStream.Create;
+  ACollection := TDemoCollection.Create(Self, TDemoCollectionItem);
+  (ACollection.Add as TDemoCollectionItem).Name := 'abc';
+  (ACollection.Add as TDemoCollectionItem).Name := 'def';
+  TQSerializer.Current.SaveToStream<TDemoCollection>(ACollection,
+    AStream, 'json');
+  FreeAndNil(ACollection);
+  AStream.Position := 0;
+  Memo1.Lines.Add(TEncoding.Utf8.GetString(AStream.Bytes));
+  FreeAndNil(AStream);
 end;
 
 { TSubscribeOrder }
@@ -374,6 +399,14 @@ end;
 procedure TSubscribeOrder.SetCount(const Value: Integer);
 begin
   SetLength(Items, Value);
+end;
+
+{ TDemoCollection }
+
+constructor TDemoCollection.Create(AOwner: TPersistent;
+  ItemClass: TCollectionItemClass);
+begin
+  inherited;
 end;
 
 end.
