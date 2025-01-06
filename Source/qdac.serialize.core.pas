@@ -684,12 +684,12 @@ const AKind: TTypeKind); forward;
 
   procedure WriteArrayValue(AInstance: Pointer; const AField: TQSerializeField);
   begin
-    if AField.TypeData.BaseType.Kind = tkDynArray then
+    if AField.TypeData.TypeInfo.Kind = tkDynArray then
     begin
       if Assigned(AField.TypeData.PropInfo) then
         AInstance := GetDynArrayProp(AInstance, AField.TypeData.PropInfo)
       else
-        AInstance := AField.FieldInstance<Pointer>(AInstance);
+        AInstance := AField.FieldInstance<PPointer>(AInstance)^;
       AWriter.StartArrayPair(AField.FormatedName);
       try
         WriteDynArrayItems(AInstance, AField.TypeData);
@@ -697,7 +697,7 @@ const AKind: TTypeKind); forward;
         AWriter.EndArray;
       end;
     end
-    else if AField.TypeData.BaseType.Kind = tkArray then
+    else if AField.TypeData.TypeInfo.Kind = tkArray then
     begin
       AWriter.StartArrayPair(AField.FormatedName);
       try
@@ -1835,16 +1835,24 @@ var
               AResult.TypeData.ElementType :=
                 AResult.TypeData.BaseTypeData.elType2^;
             if Assigned(AResult.TypeData.ElementType) then
+            begin
               RegisterIfNeeded(AResult.TypeData.ElementType,
                 AResult.TypeData.ElementFields);
+              AResult.TypeData.ElementTypeData :=
+                GetTypeData(AResult.TypeData.ElementType);
+            end;
           end;
         tkDynArray:
           begin
             AResult.TypeData.ElementType := GetTypeData(AFieldType.Handle)
               .DynArrElType^;
             if Assigned(AResult.TypeData.ElementType) then
+            begin
               RegisterIfNeeded(AResult.TypeData.ElementType,
                 AResult.TypeData.ElementFields);
+              AResult.TypeData.ElementTypeData :=
+                GetTypeData(AResult.TypeData.ElementType);
+            end;
           end;
       end;
       if not Assigned(AResult.TypeData.PropInfo) then
