@@ -44,9 +44,11 @@ type
   TOrderBookmark = (obStep, obVip, obRefund, obBlocked);
   TOrderBookmarks = set of TOrderBookmark;
   TOrderFlags = set of 0 .. 5;
+  PSubscribeOrder = ^TSubscribeOrder;
 
   [NameFormat(LowerCamel)]
   TSubscribeItem = record
+    Master: PSubscribeOrder;
     Code: String;
     Quantity: Integer;
   end;
@@ -282,6 +284,7 @@ begin
     SetLength(AOrders[I].Items, 1 + random(10));
     for var J := 0 to High(AOrders[I].Items) do
     begin
+      AOrders[I].Items[J].Master := @AOrders[I];
       AOrders[I].Items[J].Code := 'C' + Char(Ord('A') + random(25));
       AOrders[I].Items[J].Quantity := 1 + random(10);
     end;
