@@ -3,9 +3,12 @@ unit Unit1;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
+  Winapi.Windows, Winapi.Messages, Winapi.ShellAPI, System.SysUtils,
+  System.Variants,
   System.Classes, Vcl.Graphics,
-  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls;
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls, IdContext,
+  IdCustomHTTPServer, IdBaseComponent, IdComponent, IdCustomTCPServer,
+  IdHTTPServer;
 
 type
   TForm1 = class(TForm)
@@ -16,12 +19,17 @@ type
     Button3: TButton;
     Button4: TButton;
     Button5: TButton;
+    Button6: TButton;
+    IdHTTPServer1: TIdHTTPServer;
     procedure Button1Click(Sender: TObject);
     procedure Button2Click(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure Button3Click(Sender: TObject);
     procedure Button4Click(Sender: TObject);
     procedure Button5Click(Sender: TObject);
+    procedure Button6Click(Sender: TObject);
+    procedure IdHTTPServer1CommandGet(AContext: TIdContext;
+      ARequestInfo: TIdHTTPRequestInfo; AResponseInfo: TIdHTTPResponseInfo);
   private
     { Private declarations }
     procedure DoProfile(ALevel: Integer);
@@ -73,7 +81,6 @@ end;
 
 procedure TForm1.Button5Click(Sender: TObject);
 begin
-  // 定义一个局部变量缓存当前栈信息，以便 TThread.ForceQueue 中能够记录引用信息，如果不需要，刚可以忽略返回值
   TQProfile.Calc('TForm1.Button5Click');
   DoProfile(0);
   TThread.ForceQueue(nil,
@@ -82,6 +89,14 @@ begin
       TQProfile.Calc('TForm1.Button5Click.ForceQueue#TForm1.Button5Click');
       ShowMessage('Queued clicked');
     end);
+end;
+
+procedure TForm1.Button6Click(Sender: TObject);
+begin
+  IdHTTPServer1.Active := true;
+  ShellExecute(Handle, 'open',
+    PChar('http://localhost:' + IntToStr(IdHTTPServer1.DefaultPort)), nil, nil,
+    SW_SHOWNORMAL);
 end;
 
 procedure TForm1.DoProfile(ALevel: Integer);
@@ -95,6 +110,65 @@ end;
 procedure TForm1.FormCreate(Sender: TObject);
 begin
   TQProfile.Enabled := true;
+end;
+
+procedure TForm1.IdHTTPServer1CommandGet(AContext: TIdContext;
+ARequestInfo: TIdHTTPRequestInfo; AResponseInfo: TIdHTTPResponseInfo);
+  function ExtractJsFileName(const S:String):String;
+  var
+    AList:TArray<String>;
+  begin
+    AList:=S.Split(['/','\']);
+    Result:=AList[High(AList)];
+  end;
+  procedure LoadJs;
+  var
+    AJsStream: TStringStream;
+    AFileName: String;
+  begin
+    if ARequestInfo.Document.StartsWith
+      ('/mermaid.esm.min/chunks/mermaid.esm.min/') then
+      AFileName := '../../mermaid.esm.min/chunks/' +
+        ExtractJsFileName(ARequestInfo.Document)
+    else
+      AFileName := '../../mermaid.esm.min/' +
+        ExtractJsFileName(ARequestInfo.Document);
+    if FileExists(AFileName) then
+    begin
+      AResponseInfo.ContentType := 'application/javascript;charset=utf-8';
+      AJsStream := TStringStream.Create('',TEncoding.Utf8);
+      try
+        AJsStream.LoadFromFile(AFileName);
+        AResponseInfo.ContentText := AJsStream.DataString;
+      finally
+        FreeAndNil(AJsStream);
+      end;
+    end
+    else
+      AResponseInfo.ResponseNo := 404;
+  end;
+
+begin
+  if ARequestInfo.Document.StartsWith('/mermaid.esm.min') then
+    LoadJs
+  else if ARequestInfo.Document = '/' then
+  begin
+    AResponseInfo.ContentText := '<html>' + SLineBreak + //
+      '<body>' + SLineBreak + //
+      '<pre class="mermaid">' + SLineBreak + //
+      TQProfile.AsDiagrams + SLineBreak + //
+      '</pre>' + SLineBreak + //
+      '<script type="module">' + SLineBreak + //
+      'import mermaid from "/mermaid.esm.min/mermaid.esm.min.mjs"' +
+      SLineBreak + //
+      'mermaid.initialize({ startOnLoad: true });' + SLineBreak + //
+      '</script>' + SLineBreak + //
+      '</body>' + SLineBreak + //
+      '</html>'; //
+    AResponseInfo.ContentType := 'text/html;charset=utf-8';
+  end
+  else
+    AResponseInfo.ResponseNo := 404;
 end;
 
 initialization
