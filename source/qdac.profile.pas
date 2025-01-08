@@ -224,14 +224,17 @@ var
     ANextIndent, AChildIndent: String;
     AItem: PQProfileStack;
     ARef: PQProfileReference;
+    ANameArray: TArray<String>;
+    I: Integer;
   begin
     ANextIndent := AIndent + '  ';
     if Assigned(AStack.Parent) then
     begin
       // 我们以JSON格式来保存
       ABuilder.Append(AIndent).Append('{').Append(SLineBreak);
+      ANameArray := AStack.Name.Split(['#']);
       ABuilder.Append(ANextIndent).Append('"name":').Append('"')
-        .Append(AStack.Name).Append('",').Append(SLineBreak);
+        .Append(ANameArray[0]).Append('",').Append(SLineBreak);
       ABuilder.Append(ANextIndent).Append('"maxNestLevel":')
         .Append(AStack.MaxNestLevel).Append(',').Append(SLineBreak);
       ABuilder.Append(ANextIndent).Append('"runs":').Append(AStack.Runs)
@@ -262,11 +265,20 @@ var
         ABuilder.Append(ANextIndent).Append(']');
       end;
       // 关联引用
-      if Assigned(AStack.FirstRef) then
+      if Assigned(AStack.FirstRef) or (Length(ANameArray) > 1) then
       begin
         ABuilder.Append(',').Append(SLineBreak);
         ABuilder.Append(ANextIndent).Append('"refs":[').Append(SLineBreak);
         AChildIndent := ANextIndent + '  ';
+        for I := 1 to High(ANameArray) do
+        begin
+          ABuilder.Append(AChildIndent).Append('"').Append(ANameArray[I])
+            .Append('"');
+          if (I < High(ANameArray)) or Assigned(AStack.FirstRef) then
+            ABuilder.Append(',').Append(SLineBreak)
+          else
+            ABuilder.Append(SLineBreak);
+        end;
         ARef := AStack.FirstRef;
         while Assigned(ARef) do
         begin
