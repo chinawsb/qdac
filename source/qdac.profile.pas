@@ -112,7 +112,8 @@ type
   public
     class constructor Create;
     class function AsString: String;
-    class procedure SaveDegrams(const AFileName: String);
+    class function AsDiagrams: String;
+    class procedure SaveDiagrams(const AFileName: String);
     class function Calc(const AName: String; AStackRef: PQProfileStack = nil)
       : TQProfileCalcResult;
     class property Enabled: Boolean read FEnabled write FEnabled;
@@ -195,9 +196,16 @@ begin
   FFileName := ExtractFilePath(ParamStr(0)) + 'profiles.json';
 end;
 
-class procedure TQProfile.SaveDegrams(const AFileName: String);
+class procedure TQProfile.SaveDiagrams(const AFileName: String);
+var
+  AStream: TStringStream;
 begin
-  // Todo:生成 mermaid 兼容格式的流程图
+  AStream := TStringStream.Create(AsDiagrams, TEncoding.UTF8);
+  try
+    AStream.SaveToFile(AFileName);
+  finally
+    FreeAndNil(AStream);
+  end;
 end;
 
 class procedure TQProfile.SaveProfiles;
@@ -213,6 +221,117 @@ begin
       FreeAndNil(AStream);
     end;
   end;
+end;
+
+class function TQProfile.AsDiagrams: String;
+var
+  ABuilder: TStringBuilder;
+  I: Integer;
+  ANameList: TStringList;
+  procedure AppendDiagram(AStack: PQProfileStack; AParentId: Integer);
+  var
+    ANameArray: TArray<String>;
+    ARef: PQProfileReference;
+    AItem: PQProfileStack;
+    ASourceIdx, ATargetIdx, I: Integer;
+    AFound: Boolean;
+  begin
+    ATargetIdx := 0;
+    if Assigned(AStack.Parent) then
+    begin
+      // 我们以JSON格式来保存
+      ANameArray := AStack.Name.Split(['#']);
+      if ANameList.Find(ANameArray[0], ATargetIdx) then
+      begin
+        ABuilder.Append('fn').Append(AParentId).Append('-->fn')
+          .Append(ATargetIdx + 1).Append(SLineBreak);
+        for I := 1 to High(ANameArray) do
+        begin
+          if ANameList.Find(ANameArray[I], ASourceIdx) then
+            ABuilder.Append('fn').Append(ASourceIdx + 1).Append('-.->fn')
+              .Append(ATargetIdx + 1).Append(SLineBreak);
+        end;
+      end;
+      ARef := AStack.FirstRef;
+      while Assigned(ARef) do
+      begin
+        if Length(ANameArray) > 1 then
+        begin
+          AFound := false;
+          for I := 1 to High(ANameArray) do
+          begin
+            if ANameArray[I] = ARef.Ref.Name then
+            begin
+              AFound := true;
+              break;
+            end;
+          end;
+          if AFound then
+            continue;
+        end;
+        if ANameList.Find(ARef.Ref.Name, ASourceIdx) then
+          ABuilder.Append('fn').Append(ASourceIdx + 1).Append('-.->fn')
+            .Append(ATargetIdx + 1).Append(SLineBreak);
+        ARef := ARef.Next;
+      end;
+    end;
+    AItem := AStack.FirstChild;
+    while Assigned(AItem) do
+    begin
+      if Assigned(AStack.Parent) then
+        AppendDiagram(AItem, ATargetIdx + 1)
+      else
+        AppendDiagram(AItem, 0);
+      AItem := AItem.Next;
+    end;
+  end;
+
+  procedure BuildNameList(AStack: PQProfileStack);
+  var
+    AItem: PQProfileStack;
+    ANameArray: TArray<String>;
+    I, J: Integer;
+  begin
+    AItem := AStack.FirstChild;
+    while Assigned(AItem) do
+    begin
+      ANameArray := AItem.Name.Split(['#']);
+      for I := 0 to High(ANameArray) do
+      begin
+        if not ANameList.Find(ANameArray[I], J) then
+          ANameList.Insert(J, ANameArray[I]);
+      end;
+      BuildNameList(AItem);
+      AItem := AItem.Next;
+    end;
+  end;
+
+begin
+  ANameList := TStringList.Create;
+  ABuilder := TStringBuilder.Create;
+  try
+    ABuilder.Append('flowchart TB').Append(SLineBreak);
+    for I := 0 to High(TQThreadHelperSet.FHelpers) do
+    begin
+      if Assigned(TQThreadHelperSet.FHelpers[I]) then
+        BuildNameList(@TQThreadHelperSet.FHelpers[I].FRoot);
+    end;
+    ABuilder.Append('fn0(("start"))').Append(SLineBreak);
+    for I := 0 to ANameList.Count - 1 do
+      ABuilder.Append('fn').Append(I + 1).Append('(')
+        .Append(AnsiQuotedStr(ANameList[I], '"')).Append(')')
+        .Append(SLineBreak);
+    for I := 0 to High(TQThreadHelperSet.FHelpers) do
+    begin
+      if Assigned(TQThreadHelperSet.FHelpers[I]) then
+        AppendDiagram(@TQThreadHelperSet.FHelpers[I].FRoot, -1);
+    end;
+    Result := ABuilder.ToString;
+  finally
+    FreeAndNil(ABuilder);
+    FreeAndNil(ANameList);
+  end;
+
 end;
 
 class function TQProfile.AsString: String;
@@ -447,7 +566,8 @@ var
 begin
   if Assigned(Parent) then
     Result := Parent
-  else // 匿名函数引用会增加额外的计数，造成统计不准，后面研究处理
+  else
+    // 匿名函数引用会增加额外的计数，造成统计不准，后面研究处理
     Result := @Self;
   LastStopTime := TStopWatch.GetTimeStamp;
   ADelta := LastStopTime - LastStartTime;
