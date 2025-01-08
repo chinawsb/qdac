@@ -15,11 +15,13 @@ type
     Panel1: TPanel;
     Button3: TButton;
     Button4: TButton;
+    Button5: TButton;
     procedure Button1Click(Sender: TObject);
     procedure Button2Click(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure Button3Click(Sender: TObject);
     procedure Button4Click(Sender: TObject);
+    procedure Button5Click(Sender: TObject);
   private
     { Private declarations }
     procedure DoProfile(ALevel: Integer);
@@ -44,7 +46,7 @@ begin
   TThread.ForceQueue(nil,
     procedure
     begin
-      TQProfile.Calc('TForm1.Button1Click.ForceQueue#1', AProfile.Stack);
+      TQProfile.Calc('TForm1.Button1Click.ForceQueue', AProfile.Stack);
       ShowMessage('Queued clicked');
     end);
 end;
@@ -66,7 +68,20 @@ end;
 
 procedure TForm1.Button4Click(Sender: TObject);
 begin
-  TQProfile.Calc('PerfCost');
+  TQProfile.Calc('DoCost');
+end;
+
+procedure TForm1.Button5Click(Sender: TObject);
+begin
+  // 定义一个局部变量缓存当前栈信息，以便 TThread.ForceQueue 中能够记录引用信息，如果不需要，刚可以忽略返回值
+  TQProfile.Calc('TForm1.Button5Click');
+  DoProfile(0);
+  TThread.ForceQueue(nil,
+    procedure
+    begin
+      TQProfile.Calc('TForm1.Button5Click.ForceQueue#TForm1.Button5Click');
+      ShowMessage('Queued clicked');
+    end);
 end;
 
 procedure TForm1.DoProfile(ALevel: Integer);
@@ -79,7 +94,7 @@ end;
 
 procedure TForm1.FormCreate(Sender: TObject);
 begin
-  TThread.NameThreadForDebugging('MainThread');
+  TQProfile.Enabled := true;
 end;
 
 initialization
