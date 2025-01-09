@@ -14,6 +14,8 @@ type
   TQSerializeProc = procedure(AField: PQSerializeField; ASourceType: PTypeInfo;
     ASource, ATarget: Pointer) of object;
   PQSerializeFields = ^TQSerializeFields;
+  IQSerializeWriter = interface;
+  IQSerializeReader = interface;
 
   TQSerializeTypeData = record
     Prefix: UnicodeString; // 名称前缀
@@ -69,8 +71,28 @@ type
     function FieldInstance<TPointer>(const AParent: Pointer): TPointer; inline;
   end;
 
+  PQSerializeStackItem = ^TQSerializeStackItem;
+
+  // 使用它以避免递归序列化，如 A 里引用了自身，或者 A 引用了B，B里又引用了A
+  TQSerializeStackItem = record
+    Instance: Pointer;
+    TypeInfo: PTypeInfo;
+    Fields: PQSerializeFields;
+    Prior: PQSerializeStackItem;
+  end;
+
+  // 用户定义的类型序列化
+  IQCustomSerializer = interface
+    ['{51BE1847-BD95-4C2D-A642-7BAE41B9BBC3}']
+    procedure Write(AWriter: IQSerializeWriter; AStack: PQSerializeStackItem;
+      AField: PQSerializeField);
+    procedure Read(AReader: IQSerializeReader; AStack: PQSerializeStackItem;
+      AField: PQSerializeField);
+  end;
+
   TQSerializeFields = record
     TypeData: TQSerializeTypeData;
+    CustomSerializer: IQCustomSerializer;
     Fields: TArray<TQSerializeField>;
   end;
 
@@ -122,16 +144,6 @@ type
     // 3.只序列化一级元素（快速只进模式，只实例化一级元素）
   end;
 
-  PQSerializeStackItem = ^TQSerializeStackItem;
-
-  // 使用它以避免递归序列化，如 A 里引用了自身，或者 A 引用了B，B里又引用了A
-  TQSerializeStackItem = record
-    Instance: Pointer;
-    TypeInfo: PTypeInfo;
-    Fields: PQSerializeFields;
-    Prior: PQSerializeStackItem;
-  end;
-
   TQSerializeWriterCreateProc = procedure(AStream: TStream;
     var AWriter: IQSerializeWriter);
   TQSerializeReaderCreateProc = procedure(AStream: TStream;
@@ -158,7 +170,8 @@ type
   public
     constructor Create; overload;
     destructor Destroy; override;
-    function RegisterType(AType: PTypeInfo): PQSerializeFields;
+    function RegisterType(AType: PTypeInfo;
+      const ACustomSerializer: IQCustomSerializer = nil): PQSerializeFields;
     procedure Register(AType: PTypeInfo; const AFields: TQSerializeFields);
     function Find(AType: PTypeInfo): PQSerializeFields;
     procedure Clear;
@@ -1034,6 +1047,13 @@ const AKind: TTypeKind); forward;
       else
         AWriter.WriteValue(PBcd(AInstance)^);
     end
+    else if AType = TypeInfo(TGuid) then
+    begin
+      if Assigned(AField) then
+        AWriter.WritePair(AField.FormatedName, GuidToString(PGuid(AInstance)^))
+      else
+        AWriter.WriteValue(GuidToString(PGuid(AInstance)^));
+    end
     else if AType = TypeInfo(TValue) then
     begin
       if Assigned(AField) then
@@ -1237,128 +1257,133 @@ const AKind: TTypeKind); forward;
 
   procedure WriteValue;
   begin
-    case AStack.TypeInfo.Kind of
-      tkInteger:
-        AWriter.WriteValue(GetOrdInstanceValue(AStack.Instance,
-          AStack.Fields.TypeData.BaseTypeData.OrdType));
-      tkChar:
-        AWriter.WriteValue(UnicodeString(WideChar(PByte(AStack.Instance)^)));
-      tkEnumeration:
-        begin
-          if Assigned(AStack.Fields) then
+    if Assigned(AStack.Fields) and Assigned(AStack.Fields.CustomSerializer) then
+      AStack.Fields.CustomSerializer.Write(AWriter, @AStack, nil)
+    else
+    begin
+      case AStack.TypeInfo.Kind of
+        tkInteger:
+          AWriter.WriteValue(GetOrdInstanceValue(AStack.Instance,
+            AStack.Fields.TypeData.BaseTypeData.OrdType));
+        tkChar:
+          AWriter.WriteValue(UnicodeString(WideChar(PByte(AStack.Instance)^)));
+        tkEnumeration:
           begin
-            if IsBoolType(AStack.Fields.TypeData.TypeInfo) then
-              AWriter.WriteValue(GetOrdInstanceValue(AStack.Instance,
-                AStack.Fields.TypeData.TypeData.OrdType))
-            else if AStack.Fields.TypeData.EnumAsInt then
-              AWriter.WriteValue(GetOrdInstanceValue(AStack.Instance,
-                AStack.Fields.TypeData.BaseTypeData.OrdType))
+            if Assigned(AStack.Fields) then
+            begin
+              if IsBoolType(AStack.Fields.TypeData.TypeInfo) then
+                AWriter.WriteValue(GetOrdInstanceValue(AStack.Instance,
+                  AStack.Fields.TypeData.TypeData.OrdType))
+              else if AStack.Fields.TypeData.EnumAsInt then
+                AWriter.WriteValue(GetOrdInstanceValue(AStack.Instance,
+                  AStack.Fields.TypeData.BaseTypeData.OrdType))
+              else
+                AWriter.WriteValue(RemovePrefix(GetEnumName(AStack.TypeInfo,
+                  GetOrdInstanceValue(AStack.Instance,
+                  AStack.Fields.TypeData.BaseTypeData.OrdType)),
+                  AStack.Fields.TypeData.Prefix,
+                  AStack.Fields.TypeData.IdentFormat));
+            end
             else
-              AWriter.WriteValue(RemovePrefix(GetEnumName(AStack.TypeInfo,
+              AWriter.WriteValue(GetEnumName(AStack.TypeInfo,
                 GetOrdInstanceValue(AStack.Instance,
-                AStack.Fields.TypeData.BaseTypeData.OrdType)),
-                AStack.Fields.TypeData.Prefix,
-                AStack.Fields.TypeData.IdentFormat));
-          end
-          else
-            AWriter.WriteValue(GetEnumName(AStack.TypeInfo,
-              GetOrdInstanceValue(AStack.Instance,
-              AStack.Fields.TypeData.BaseTypeData.OrdType)));
-        end;
-      tkFloat:
-        begin
-          if (AStack.TypeInfo = TypeInfo(TDateTime)) or
-            (AStack.TypeInfo = TypeInfo(TDate)) or
-            (AStack.TypeInfo = TypeInfo(TTime)) then
-            WriteDateTimeValue(PDateTime(AStack.Instance)^,
-              AStack.Fields.TypeData)
-          else
+                AStack.Fields.TypeData.BaseTypeData.OrdType)));
+          end;
+        tkFloat:
           begin
-            case AStack.Fields.TypeData.BaseTypeData.FloatType of
-              ftSingle:
-                AWriter.WriteValue(PSingle(AStack.Instance)^,
-                  AStack.Fields.TypeData.FormatText);
-              ftDouble:
-                AWriter.WriteValue(PDouble(AStack.Instance)^,
-                  AStack.Fields.TypeData.FormatText);
-              ftExtended:
-                AWriter.WriteValue(PExtended(AStack.Instance)^,
-                  AStack.Fields.TypeData.FormatText);
-              ftComp:
-                AWriter.WriteValue(Extended(PComp(AStack.Instance)^),
-                  AStack.Fields.TypeData.FormatText);
-              ftCurr:
-                AWriter.WriteValue(PCurrency(AStack.Instance)^,
-                  AStack.Fields.TypeData.FormatText);
+            if (AStack.TypeInfo = TypeInfo(TDateTime)) or
+              (AStack.TypeInfo = TypeInfo(TDate)) or
+              (AStack.TypeInfo = TypeInfo(TTime)) then
+              WriteDateTimeValue(PDateTime(AStack.Instance)^,
+                AStack.Fields.TypeData)
+            else
+            begin
+              case AStack.Fields.TypeData.BaseTypeData.FloatType of
+                ftSingle:
+                  AWriter.WriteValue(PSingle(AStack.Instance)^,
+                    AStack.Fields.TypeData.FormatText);
+                ftDouble:
+                  AWriter.WriteValue(PDouble(AStack.Instance)^,
+                    AStack.Fields.TypeData.FormatText);
+                ftExtended:
+                  AWriter.WriteValue(PExtended(AStack.Instance)^,
+                    AStack.Fields.TypeData.FormatText);
+                ftComp:
+                  AWriter.WriteValue(Extended(PComp(AStack.Instance)^),
+                    AStack.Fields.TypeData.FormatText);
+                ftCurr:
+                  AWriter.WriteValue(PCurrency(AStack.Instance)^,
+                    AStack.Fields.TypeData.FormatText);
+              end;
             end;
           end;
-        end;
-      tkString:
-        AWriter.WriteValue(UnicodeString(PShortString(AStack.Instance)^));
-      tkSet:
-        begin
-          AWriter.StartArray;
-          if Assigned(AStack.Fields) then
-            WriteSetItems(PLargestSet(AStack.Instance),
-              AStack.Fields.TypeData.TypeInfo, AStack.Fields.TypeData.EnumType,
-              AStack.Fields.TypeData.Prefix,
-              AStack.Fields.TypeData.IdentFormat);
-          AWriter.EndArray;
-        end;
-      tkRecord, tkMRecord:
-        WriteRecord(AStack.Instance, AStack.TypeInfo, nil);
-      tkClass:
-        WriteObject(TObject(PPointer(AStack.Instance)^), nil);
-      tkInterface:
-        WriteInterface(IInterface(AStack.Instance), nil);
-      tkWChar:
-        AWriter.WriteValue(UnicodeString(PWideChar(AStack.Instance)^));
-      tkLString:
-        AWriter.WriteValue(UnicodeString(PAnsiString(AStack.Instance)^));
-      tkWString:
-        AWriter.WriteValue(PWideString(AStack.Instance)^);
-      tkVariant:
-        WriteVarValue(PVariant(AStack.Instance)^);
-      tkArray:
-        begin
-          AWriter.StartArray;
-          try
-            WriteFixedArrayItems(AStack.Instance, AStack.Fields.TypeData);
-          finally
-            AWriter.EndArray;
-          end;
-        end;
-      tkInt64:
-        begin
-          if AStack.TypeInfo.TypeData.MinInt64Value > AStack.TypeInfo.TypeData.MaxInt64Value
-          then
-            AWriter.WriteValue(PUInt64(AStack.Instance)^)
-          else
-            AWriter.WriteValue(PInt64(AStack.Instance)^);
-        end;
-      tkDynArray:
-        begin
-          AWriter.StartArray;
-          try
-            WriteDynArrayItems(PPointer(AStack.Instance)^,
-              AStack.Fields.TypeData);
-          finally
-            AWriter.EndArray;
-          end;
-        end;
-      tkUString:
-        AWriter.WriteValue(PUnicodeString(AStack.Instance)^);
-      tkClassRef:
-        begin
-          // 类
-          if Assigned(PPointer(AStack.Instance)^) then
+        tkString:
+          AWriter.WriteValue(UnicodeString(PShortString(AStack.Instance)^));
+        tkSet:
           begin
-            S := TClass(PPointer(AStack.Instance)^).ClassName;
-            if S.StartsWith('T') then
-              S := S.Substring(1);
-            AWriter.WriteValue(S);
+            AWriter.StartArray;
+            if Assigned(AStack.Fields) then
+              WriteSetItems(PLargestSet(AStack.Instance),
+                AStack.Fields.TypeData.TypeInfo,
+                AStack.Fields.TypeData.EnumType, AStack.Fields.TypeData.Prefix,
+                AStack.Fields.TypeData.IdentFormat);
+            AWriter.EndArray;
           end;
-        end;
+        tkRecord, tkMRecord:
+          WriteRecord(AStack.Instance, AStack.TypeInfo, nil);
+        tkClass:
+          WriteObject(TObject(PPointer(AStack.Instance)^), nil);
+        tkInterface:
+          WriteInterface(IInterface(AStack.Instance), nil);
+        tkWChar:
+          AWriter.WriteValue(UnicodeString(PWideChar(AStack.Instance)^));
+        tkLString:
+          AWriter.WriteValue(UnicodeString(PAnsiString(AStack.Instance)^));
+        tkWString:
+          AWriter.WriteValue(PWideString(AStack.Instance)^);
+        tkVariant:
+          WriteVarValue(PVariant(AStack.Instance)^);
+        tkArray:
+          begin
+            AWriter.StartArray;
+            try
+              WriteFixedArrayItems(AStack.Instance, AStack.Fields.TypeData);
+            finally
+              AWriter.EndArray;
+            end;
+          end;
+        tkInt64:
+          begin
+            if AStack.TypeInfo.TypeData.MinInt64Value >
+              AStack.TypeInfo.TypeData.MaxInt64Value then
+              AWriter.WriteValue(PUInt64(AStack.Instance)^)
+            else
+              AWriter.WriteValue(PInt64(AStack.Instance)^);
+          end;
+        tkDynArray:
+          begin
+            AWriter.StartArray;
+            try
+              WriteDynArrayItems(PPointer(AStack.Instance)^,
+                AStack.Fields.TypeData);
+            finally
+              AWriter.EndArray;
+            end;
+          end;
+        tkUString:
+          AWriter.WriteValue(PUnicodeString(AStack.Instance)^);
+        tkClassRef:
+          begin
+            // 类
+            if Assigned(PPointer(AStack.Instance)^) then
+            begin
+              S := TClass(PPointer(AStack.Instance)^).ClassName;
+              if S.StartsWith('T') then
+                S := S.Substring(1);
+              AWriter.WriteValue(S);
+            end;
+          end;
+      end;
     end;
   end;
 
@@ -1823,7 +1848,8 @@ var
         tkClass, tkRecord, tkMRecord, tkInterface:
           begin
             if (AFieldType.Handle <> TypeInfo(TBcd)) and
-              (AFieldType.Handle <> TypeInfo(TValue)) then // Bcd不需要处理
+              (AFieldType.Handle <> TypeInfo(TValue)) and
+              (AFieldType.Handle <> TypeInfo(TGuid)) then // Bcd不需要处理
               RegisterIfNeeded(AFieldType.Handle, AResult.Fields);
           end;
         tkArray:
@@ -1994,9 +2020,9 @@ begin
     end
     else if AType.Kind in [tkRecord, tkClass, tkInterface, tkMRecord] then
     begin
-      // Reserved types:TBcd as float number,TValue refer to realtype,TStrings treat as string array
+      // Reserved types:TBcd as float number,TValue refer to realtype,TStrings treat as string array,TGuid as string
       if (AType = TypeInfo(TBcd)) or (AType = TypeInfo(TValue)) or
-        (AType = TypeInfo(TStrings)) then
+        (AType = TypeInfo(TGuid)) or (AType = TypeInfo(TStrings)) then
         Exit;
       ARttiType := TRttiContext.Create.GetType(AType);
       if not Assigned(ARttiType) then
@@ -2106,12 +2132,15 @@ begin
   FCodecs.AddOrSetValue(ACode, AValue);
 end;
 
-function TQSerializer.RegisterType(AType: PTypeInfo): PQSerializeFields;
+function TQSerializer.RegisterType(AType: PTypeInfo;
+const ACustomSerializer: IQCustomSerializer): PQSerializeFields;
 begin
   TMonitor.Enter(Self);
   try
     if not FCachedTypes.TryGetValue(AType, Result) then
       Result := DoRegister(AType);
+    if Assigned(ACustomSerializer) then
+      Result.CustomSerializer := ACustomSerializer;
   finally
     TMonitor.Exit(Self);
   end;
