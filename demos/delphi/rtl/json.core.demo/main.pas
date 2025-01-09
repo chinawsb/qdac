@@ -24,6 +24,7 @@ type
     Button6: TButton;
     Button7: TButton;
     Button8: TButton;
+    Button9: TButton;
     procedure Button1Click(Sender: TObject);
     procedure Button2Click(Sender: TObject);
     procedure Button3Click(Sender: TObject);
@@ -32,6 +33,8 @@ type
     procedure Button7Click(Sender: TObject);
     procedure Button6Click(Sender: TObject);
     procedure Button8Click(Sender: TObject);
+    procedure Button9Click(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
   private
     { Private declarations }
   public
@@ -97,12 +100,29 @@ type
     constructor Create(AOwner: TPersistent; ItemClass: TCollectionItemClass);
   end;
 
+  PCustomRecord = ^TCustomRecord;
+
+  TCustomRecord = record
+    Marjor, Minor: Integer;
+    function ToString: String;
+    procedure FromString(const S: String);
+  end;
+
 var
   Form1: TForm1;
 
 implementation
 
 {$R *.dfm}
+
+type
+  TCustomRecordWriter = class(TInterfacedObject, IQCustomSerializer)
+  private
+    procedure Write(AWriter: IQSerializeWriter; AStack: PQSerializeStackItem;
+      AField: PQSerializeField);
+    procedure Read(AReader: IQSerializeReader; AStack: PQSerializeStackItem;
+      AField: PQSerializeField);
+  end;
 
 procedure TForm1.Button1Click(Sender: TObject);
 const
@@ -392,6 +412,27 @@ begin
   FreeAndNil(AStream);
 end;
 
+procedure TForm1.Button9Click(Sender: TObject);
+var
+  ARec: TCustomRecord;
+  AStream: TBytesStream;
+begin
+  ARec.Marjor := Integer($FFEEDDCC);
+  ARec.Minor := Integer($BBAA9988);
+  AStream := TBytesStream.Create;
+  TQSerializer.Current.SaveToStream<TCustomRecord>(ARec, AStream, 'json');
+  AStream.Position := 0;
+  Memo1.Lines.Add(TEncoding.Utf8.GetString(AStream.Bytes));
+  FreeAndNil(AStream);
+end;
+
+procedure TForm1.FormCreate(Sender: TObject);
+begin
+  // 用户自定义读写方法
+  TQSerializer.Current.RegisterType(TypeInfo(TCustomRecord),
+    TCustomRecordWriter.Create);
+end;
+
 { TSubscribeOrder }
 
 function TSubscribeOrder.GetCount: Integer;
@@ -410,6 +451,43 @@ constructor TDemoCollection.Create(AOwner: TPersistent;
   ItemClass: TCollectionItemClass);
 begin
   inherited;
+end;
+
+{ TCustomRecord }
+
+procedure TCustomRecord.FromString(const S: String);
+var
+  AValues: TArray<String>;
+begin
+  AValues := S.Split(['-']);
+  if Length(AValues) = 0 then
+  begin
+    Marjor := StrToIntDef('$' + AValues[0], 0);
+    Minor := StrToIntDef('$' + AValues[1], 0);
+  end;
+end;
+
+function TCustomRecord.ToString: String;
+begin
+  Result := Format('%x-%x', [Marjor, Minor]);
+end;
+
+{ TCustomRecordWriter }
+
+procedure TCustomRecordWriter.Read(AReader: IQSerializeReader;
+  AStack: PQSerializeStackItem; AField: PQSerializeField);
+begin
+  // todo:
+end;
+
+procedure TCustomRecordWriter.Write(AWriter: IQSerializeWriter;
+  AStack: PQSerializeStackItem; AField: PQSerializeField);
+begin
+  if Assigned(AField) then
+    AWriter.WritePair(AField.FormatedName, PCustomRecord(AStack.Instance)
+      ^.ToString)
+  else
+    AWriter.WriteValue(PCustomRecord(AStack.Instance)^.ToString);
 end;
 
 end.

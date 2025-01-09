@@ -10,6 +10,7 @@ object Form1: TForm1
   Font.Height = -12
   Font.Name = 'Segoe UI'
   Font.Style = []
+  OnCreate = FormCreate
   TextHeight = 15
   object Panel1: TPanel
     Left = 0
@@ -92,6 +93,15 @@ object Form1: TForm1
       Caption = 'Collection'
       TabOrder = 7
       OnClick = Button8Click
+    end
+    object Button9: TButton
+      Left = 376
+      Top = 40
+      Width = 100
+      Height = 25
+      Caption = 'Custom Write'
+      TabOrder = 8
+      OnClick = Button9Click
     end
   end
   object Memo1: TMemo
