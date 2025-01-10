@@ -49,12 +49,12 @@ procedure TForm1.Button1Click(Sender: TObject);
 begin
   // 定义一个局部变量缓存当前栈信息，以便 TThread.ForceQueue 中能够记录引用信息，如果不需要，刚可以忽略返回值
   var
-  AProfile := TQProfile.Calc('TForm1.Button1Click');
+  AStack := TQProfile.Calc('TForm1.Button1Click').CurrentStack;
   DoProfile(0);
   TThread.ForceQueue(nil,
     procedure
     begin
-      TQProfile.Calc('TForm1.Button1Click.ForceQueue', AProfile.Stack);
+      TQProfile.Calc('TForm1.Button1Click.ForceQueue', AStack);
       ShowMessage('Queued clicked');
     end);
 end;
@@ -109,9 +109,8 @@ end;
 
 procedure TForm1.FormCreate(Sender: TObject);
 begin
-  TQProfile.Enabled := true;
-  DiagramTranslation.Start := '开始';
-  DiagramTranslation.Thread := '线程';
+  TQProfile.Translation.Start := '开始';
+  TQProfile.Translation.Thread := '线程';
 end;
 
 procedure TForm1.IdHTTPServer1CommandGet(AContext: TIdContext;
