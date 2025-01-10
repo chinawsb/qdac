@@ -540,13 +540,10 @@ var
       begin
         ABuilder.Append(ANextIndent).Append('"threadId":').Append(FThreadId)
           .Append(',').Append(SLineBreak);
-        if FThreadId = MainThreadId then
-        begin
-          ABuilder.Append(ANextIndent).Append('"freq":')
-            .Append(TStopWatch.Frequency).Append(',').Append(SLineBreak);
-          ABuilder.Append(ANextIndent).Append('"mainThread":true,')
-            .Append(SLineBreak);
-        end;
+        ABuilder.Append(ANextIndent).Append('"startTime":')
+          .Append(FirstTime - FStartupTime).Append(',').Append(SLineBreak);
+        ABuilder.Append(ANextIndent).Append('"latestTime":')
+          .Append(LatestTime - FStartupTime).Append(',').Append(SLineBreak);
       end;
       ABuilder.Append(ANextIndent).Append('"chains":[').Append(SLineBreak);
       AChildIndent := ANextIndent + '  ';
@@ -571,7 +568,12 @@ begin
   ACount := 0;
   ABuilder := TStringBuilder.Create;
   try
-    ABuilder.Append('[').Append(SLineBreak);
+    ABuilder.Append('{').Append(SLineBreak);
+    ABuilder.Append('"mainThreadId":').Append(MainThreadId).Append(',')
+      .Append(SLineBreak);
+    ABuilder.Append('"freq":').Append(TStopWatch.Frequency).Append(',')
+      .Append(SLineBreak);
+    ABuilder.Append('"threads":[').Append(SLineBreak);
     for I := 0 to High(TQThreadHelperSet.FHelpers) do
     begin
       if Assigned(TQThreadHelperSet.FHelpers[I]) then
@@ -584,7 +586,8 @@ begin
           ABuilder.Append(SLineBreak);
       end;
     end;
-    ABuilder.Append(']');
+    ABuilder.Append('  ]').Append(SLineBreak);
+    ABuilder.Append('}');
     Result := ABuilder.ToString;
   finally
     FreeAndNil(ABuilder);
