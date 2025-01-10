@@ -648,8 +648,8 @@ begin
   begin
     // 如果是包含了额外的引用，则需要减少对应的计数后才真正移除
     if FCurrent.AddedRefCount > 0 then
-      Dec(FCurrent.AddedRefCount)
-    else
+      Dec(FCurrent.AddedRefCount);
+    if FCurrent.AddedRefCount=0 then
     begin
       Dec(FCurrent.NestLevel);
       if FCurrent.NestLevel = 0 then
