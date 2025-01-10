@@ -110,20 +110,21 @@ end;
 procedure TForm1.FormCreate(Sender: TObject);
 begin
   TQProfile.Enabled := true;
+  DiagramTranslation.Start := '开始';
+  DiagramTranslation.Thread := '线程';
 end;
 
 procedure TForm1.IdHTTPServer1CommandGet(AContext: TIdContext;
 ARequestInfo: TIdHTTPRequestInfo; AResponseInfo: TIdHTTPResponseInfo);
-  function ExtractJsFileName(const S:String):String;
+  function ExtractJsFileName(const S: String): String;
   var
-    AList:TArray<String>;
+    AList: TArray<String>;
   begin
-    AList:=S.Split(['/','\']);
-    Result:=AList[High(AList)];
+    AList := S.Split(['/', '\']);
+    Result := AList[High(AList)];
   end;
   procedure LoadJs;
   var
-    AJsStream: TStringStream;
     AFileName: String;
   begin
     if ARequestInfo.Document.StartsWith
@@ -131,18 +132,12 @@ ARequestInfo: TIdHTTPRequestInfo; AResponseInfo: TIdHTTPResponseInfo);
       AFileName := '../../mermaid.esm.min/chunks/' +
         ExtractJsFileName(ARequestInfo.Document)
     else
-      AFileName := '../../mermaid.esm.min/' +
-        ExtractJsFileName(ARequestInfo.Document);
+      AFileName := '../../mermaid.esm.min/' + ExtractJsFileName
+        (ARequestInfo.Document);
     if FileExists(AFileName) then
     begin
       AResponseInfo.ContentType := 'application/javascript;charset=utf-8';
-      AJsStream := TStringStream.Create('',TEncoding.Utf8);
-      try
-        AJsStream.LoadFromFile(AFileName);
-        AResponseInfo.ContentText := AJsStream.DataString;
-      finally
-        FreeAndNil(AJsStream);
-      end;
+      AResponseInfo.ServeFile(AContext, AFileName);
     end
     else
       AResponseInfo.ResponseNo := 404;
