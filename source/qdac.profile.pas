@@ -13,7 +13,8 @@ interface
   6. 本工具库会为每个线程建立独立的管理对象，并且仅在程序退了时才会释放，所以不建议在发布给用户的版本中，长时间运行性能跟踪库。
 
 }
-uses Classes, Sysutils, System.Diagnostics{$IFDEF MSWINDOWS},
+uses Classes, Sysutils, System.Diagnostics, System.Generics.Defaults,
+  System.Generics.Collections{$IFDEF MSWINDOWS},
   winapi.Windows, winapi.ActiveX, winapi.TlHelp32{$ENDIF};
 
 type
@@ -62,12 +63,32 @@ type
     Stack: PQProfileStack;
   end;
 
+  TQProfileFunctionStatics = record
+    Name: String;
+    Threads: TArray<TThreadId>;
+    MaxNestLevel: Cardinal;
+    Runs: Cardinal;
+    MinTime, MaxTime, TotalTime: UInt64;
+  end;
+
+  TQProfileThreadStatics = record
+    ThreadId: TThreadId;
+    FirstTime, LatestTime: UInt64;
+    Functions: TArray<String>;
+  end;
+
+  TQProfileStatics = record
+    Threads: TArray<TQProfileThreadStatics>;
+    Functions: TArray<TQProfileFunctionStatics>;
+  end;
+
   // 全局类，用于提供性能接口
   TQProfile = class sealed
   private
   class var
     FEnabled: Boolean;
     FFileName: String;
+    FStartupTime: UInt64;
 
   type
     TQThreadProfileHelper = class(TInterfacedObject, IUnknown, IQProfileHelper)
@@ -75,6 +96,7 @@ type
       FRoot: TQProfileStack;
       FCurrent: PQProfileStack;
       FThreadId: TThreadId;
+      FFirstTime, FLatestTime: UInt64;
       FThreadName: String;
     private
     public
@@ -85,6 +107,8 @@ type
       function _Release: Integer; overload; stdcall;
       property ThreadId: TThreadId read FThreadId;
       property ThreadName: String read FThreadName;
+      property FirstTime: UInt64 read FFirstTime;
+      property LatestTime: UInt64 read FLatestTime;
     end;
 
     TQThreadHelperSet = class sealed
@@ -113,6 +137,7 @@ type
     class constructor Create;
     class function AsString: String;
     class function AsDiagrams: String;
+    class function GetStatics: TQProfileStatics;
     class procedure SaveDiagrams(const AFileName: String);
     class function Calc(const AName: String; AStackRef: PQProfileStack = nil)
       : TQProfileCalcResult;
@@ -120,7 +145,13 @@ type
     class property FileName: String read FFileName write FFileName;
   end;
 
+  TQProfileTranslation = record
+    Start, Thread: String;
+  end;
 {$HPPEMIT '#define CalcPerformance() TQProfile::Calc(__FUNC__)' }
+
+var
+  DiagramTranslation: TQProfileTranslation;
 
 implementation
 
@@ -194,6 +225,89 @@ class constructor TQProfile.Create;
 begin
   FEnabled := {$IFDEF DEBUG}true{$ELSE}false{$ENDIF};
   FFileName := ExtractFilePath(ParamStr(0)) + 'profiles.json';
+  FStartupTime := TStopWatch.GetTimeStamp;
+end;
+
+class function TQProfile.GetStatics: TQProfileStatics;
+var
+  I, ACount: Integer;
+  AComparer: IComparer<TQProfileFunctionStatics>;
+
+  procedure DoBuild(AThreadId: TThreadId; AStack: PQProfileStack);
+  var
+    AItem: PQProfileStack;
+    ANameArray: TArray<String>;
+    ATemp: TQProfileFunctionStatics;
+    I, J: Integer;
+  begin
+    AItem := AStack.FirstChild;
+    while Assigned(AItem) do
+    begin
+      ANameArray := AItem.Name.Split(['#']);
+      for I := 0 to High(ANameArray) do
+      begin
+        ATemp.Name := ANameArray[I];
+        if not TArray.BinarySearch<TQProfileFunctionStatics>(Result.Functions,
+          ATemp, J, AComparer) then
+        begin
+          ATemp.Threads := [AThreadId];
+          ATemp.MaxNestLevel := AItem.MaxNestLevel;
+          ATemp.Runs := AItem.Runs;
+          ATemp.MinTime := AItem.MinTime;
+          ATemp.MaxTime := AItem.MaxTime;
+          ATemp.TotalTime := AItem.TotalTime;
+          Insert(ATemp, Result.Functions, J);
+        end
+        else
+        begin
+          with Result.Functions[J] do
+          begin
+            if MaxNestLevel < AItem.MaxNestLevel then
+              MaxNestLevel := AItem.MaxNestLevel;
+            if MinTime > AItem.MinTime then
+              MinTime := AItem.MinTime;
+            if MaxTime < AItem.MaxTime then
+              MaxTime := AItem.MaxTime;
+            Inc(Runs, AItem.Runs);
+            Inc(TotalTime, AItem.TotalTime);
+            if not TArray.BinarySearch<TThreadId>(Threads, AThreadId, J) then
+              Insert(AThreadId, Threads, J);
+          end;
+        end;
+        // 查找线程的函数列表
+        if not TArray.BinarySearch<String>(Result.Threads[ACount].Functions,
+          ATemp.Name, J) then
+          Insert(ATemp.Name, Result.Threads[ACount].Functions, J);
+      end;
+      DoBuild(AThreadId, AItem);
+      AItem := AItem.Next;
+    end;
+  end;
+
+begin
+  SetLength(Result.Functions, 0);
+  SetLength(Result.Threads, Length(TQThreadHelperSet.FHelpers));
+  ACount := 0;
+  AComparer := TComparer<TQProfileFunctionStatics>.Construct(
+    function(const L, R: TQProfileFunctionStatics): Integer
+    begin
+      Result := CompareText(L.Name, R.Name);
+    end);
+  for I := 0 to High(TQThreadHelperSet.FHelpers) do
+  begin
+    if Assigned(TQThreadHelperSet.FHelpers[I]) then
+    begin
+      Result.Threads[ACount].ThreadId := TQThreadHelperSet.FHelpers[I].ThreadId;
+      Result.Threads[ACount].FirstTime := TQThreadHelperSet.FHelpers[I]
+        .FirstTime;
+      Result.Threads[ACount].LatestTime := TQThreadHelperSet.FHelpers[I]
+        .LatestTime;
+      DoBuild(TQThreadHelperSet.FHelpers[I].ThreadId,
+        @TQThreadHelperSet.FHelpers[I].FRoot);
+      Inc(ACount);
+    end;
+  end;
+  SetLength(Result.Threads, ACount);
 end;
 
 class procedure TQProfile.SaveDiagrams(const AFileName: String);
@@ -227,12 +341,14 @@ class function TQProfile.AsDiagrams: String;
 var
   ABuilder: TStringBuilder;
   I: Integer;
-  ANameList: TStringList;
-  procedure AppendDiagram(AStack: PQProfileStack; AParentId: Integer);
+  AStatics: TQProfileStatics;
+  AComparer: IComparer<TQProfileFunctionStatics>;
+  procedure AppendDiagram(AStack: PQProfileStack; AParentName: String);
   var
     ANameArray: TArray<String>;
     ARef: PQProfileReference;
     AItem: PQProfileStack;
+    AFunctionEntry: TQProfileFunctionStatics;
     ASourceIdx, ATargetIdx, I: Integer;
     AFound: Boolean;
   begin
@@ -241,15 +357,19 @@ var
     begin
       // 我们以JSON格式来保存
       ANameArray := AStack.Name.Split(['#']);
-      if ANameList.Find(ANameArray[0], ATargetIdx) then
+      AFunctionEntry.Name := ANameArray[0];
+      if TArray.BinarySearch<TQProfileFunctionStatics>(AStatics.Functions,
+        AFunctionEntry, ATargetIdx, AComparer) then
       begin
-        ABuilder.Append('fn').Append(AParentId).Append('-->fn')
-          .Append(ATargetIdx + 1).Append(SLineBreak);
+        ABuilder.Append(AParentName).Append('-->fn').Append(ATargetIdx)
+          .Append(SLineBreak);
         for I := 1 to High(ANameArray) do
         begin
-          if ANameList.Find(ANameArray[I], ASourceIdx) then
-            ABuilder.Append('fn').Append(ASourceIdx + 1).Append('-.->fn')
-              .Append(ATargetIdx + 1).Append(SLineBreak);
+          AFunctionEntry.Name := ANameArray[I];
+          if TArray.BinarySearch<TQProfileFunctionStatics>(AStatics.Functions,
+            AFunctionEntry, ASourceIdx, AComparer) then
+            ABuilder.Append('fn').Append(ASourceIdx).Append('-.->fn')
+              .Append(ATargetIdx).Append(SLineBreak);
         end;
       end;
       ARef := AStack.FirstRef;
@@ -269,67 +389,65 @@ var
           if AFound then
             continue;
         end;
-        if ANameList.Find(ARef.Ref.Name, ASourceIdx) then
-          ABuilder.Append('fn').Append(ASourceIdx + 1).Append('-.->fn')
-            .Append(ATargetIdx + 1).Append(SLineBreak);
+        AFunctionEntry.Name := ARef.Ref.Name;
+        if TArray.BinarySearch<TQProfileFunctionStatics>(AStatics.Functions,
+          AFunctionEntry, ASourceIdx, AComparer) then
+          ABuilder.Append('fn').Append(ASourceIdx).Append('-.->fn')
+            .Append(ATargetIdx).Append(SLineBreak);
         ARef := ARef.Next;
       end;
+      AParentName := 'fn' + IntToStr(ATargetIdx)
     end;
     AItem := AStack.FirstChild;
     while Assigned(AItem) do
     begin
-      if Assigned(AStack.Parent) then
-        AppendDiagram(AItem, ATargetIdx + 1)
-      else
-        AppendDiagram(AItem, 0);
-      AItem := AItem.Next;
-    end;
-  end;
-
-  procedure BuildNameList(AStack: PQProfileStack);
-  var
-    AItem: PQProfileStack;
-    ANameArray: TArray<String>;
-    I, J: Integer;
-  begin
-    AItem := AStack.FirstChild;
-    while Assigned(AItem) do
-    begin
-      ANameArray := AItem.Name.Split(['#']);
-      for I := 0 to High(ANameArray) do
-      begin
-        if not ANameList.Find(ANameArray[I], J) then
-          ANameList.Insert(J, ANameArray[I]);
-      end;
-      BuildNameList(AItem);
+      AppendDiagram(AItem, AParentName);
       AItem := AItem.Next;
     end;
   end;
 
 begin
-  ANameList := TStringList.Create;
   ABuilder := TStringBuilder.Create;
   try
+    AStatics := GetStatics;
+    AComparer := TComparer<TQProfileFunctionStatics>.Construct(
+      function(const L, R: TQProfileFunctionStatics): Integer
+      begin
+        Result := CompareText(L.Name, R.Name);
+      end);
     ABuilder.Append('flowchart TB').Append(SLineBreak);
-    for I := 0 to High(TQThreadHelperSet.FHelpers) do
+    ABuilder.Append('start(("').Append(DiagramTranslation.Start).Append('"))')
+      .Append(SLineBreak);
+    // 插入线程结点
+    for I := 0 to High(AStatics.Threads) do
     begin
-      if Assigned(TQThreadHelperSet.FHelpers[I]) then
-        BuildNameList(@TQThreadHelperSet.FHelpers[I].FRoot);
-    end;
-    ABuilder.Append('fn0(("start"))').Append(SLineBreak);
-    for I := 0 to ANameList.Count - 1 do
-      ABuilder.Append('fn').Append(I + 1).Append('(')
-        .Append(AnsiQuotedStr(ANameList[I], '"')).Append(')')
+      ABuilder.Append('thread').Append(AStatics.Threads[I].ThreadId)
+        .Append('[["`').Append(DiagramTranslation.Thread).Append(' ')
+        .Append(AStatics.Threads[I].ThreadId).Append(SLineBreak)
+        .Append(AStatics.Threads[I].FirstTime - FStartupTime).Append('->')
+        .Append(AStatics.Threads[I].LatestTime - FStartupTime).Append('`"]]')
         .Append(SLineBreak);
+      ABuilder.Append('start-->thread').Append(AStatics.Threads[I].ThreadId)
+        .Append(SLineBreak);
+    end;
+    // 插入函数名结点
+    for I := 0 to High(AStatics.Functions) do
+    begin
+      ABuilder.Append('fn').Append(I).Append('(')
+        .Append(AnsiQuotedStr(AStatics.Functions[I].Name, '"')).Append(')')
+        .Append(SLineBreak);
+    end;
     for I := 0 to High(TQThreadHelperSet.FHelpers) do
     begin
       if Assigned(TQThreadHelperSet.FHelpers[I]) then
-        AppendDiagram(@TQThreadHelperSet.FHelpers[I].FRoot, -1);
+      begin
+        with TQThreadHelperSet.FHelpers[I] do
+          AppendDiagram(@FRoot, 'thread' + IntToStr(ThreadId));
+      end;
     end;
     Result := ABuilder.ToString;
   finally
     FreeAndNil(ABuilder);
-    FreeAndNil(ANameList);
   end;
 
 end;
@@ -526,6 +644,7 @@ begin
   FCurrent := @FRoot;
   FCurrent.LastStartTime := TStopWatch.GetTimeStamp;
   FCurrent.NestLevel := 1;
+  FFirstTime := FCurrent.LastStartTime;
 end;
 
 destructor TQProfile.TQThreadProfileHelper.Destroy;
@@ -535,7 +654,7 @@ begin
 end;
 
 function TQProfile.TQThreadProfileHelper.Push(const AName: String;
-  AStackRef: PQProfileStack): PQProfileStack;
+AStackRef: PQProfileStack): PQProfileStack;
 begin
   FCurrent := FCurrent.Push(AName, AStackRef);
   Result := FCurrent;
@@ -553,7 +672,10 @@ begin
     begin
       Dec(FCurrent.NestLevel);
       if FCurrent.NestLevel = 0 then
+      begin
         FCurrent := FCurrent.Pop;
+        FLatestTime := TStopWatch.GetTimeStamp;
+      end;
     end;
   end;
 end;
@@ -582,7 +704,7 @@ begin
 end;
 
 function TQProfile.TQProfileStackHelper.Push(const AName: String;
-  AStackRef: PQProfileStack): PQProfileStack;
+AStackRef: PQProfileStack): PQProfileStack;
 var
   AChild: PQProfileStack;
   procedure AddStackRef;
@@ -692,7 +814,7 @@ end;
 
 class procedure TQProfile.TQThreadHelperSet.NeedHelper(const AThreadId
   : TThreadId; const AName: String; AStackRef: PQProfileStack;
-  var AResult: TQProfileCalcResult);
+var AResult: TQProfileCalcResult);
 const
   BUCKET_MASK = Integer($80000000);
   BUCKET_INDEX_MASK = Integer($7FFFFFFF);
@@ -736,7 +858,7 @@ const
   end;
 
   procedure Insert(var AHelpers: TArray<TQThreadProfileHelper>;
-    AHelper: TQThreadProfileHelper);
+  AHelper: TQThreadProfileHelper);
   var
     ABucketIndex: Integer;
   begin
@@ -823,6 +945,8 @@ initialization
 {$ENDIF}
 GetThreadDescription := GetProcAddress(GetModuleHandle(kernel32),
   'GetThreadDescription');
+DiagramTranslation.Start := 'Start';
+DiagramTranslation.Thread := 'Thread';
 
 finalization
 
