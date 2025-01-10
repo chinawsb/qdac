@@ -2,11 +2,11 @@
 
 ### Repsository
 
-Main repository address:http://code.qdac.cc:3000
+Main repository address: https://code.qdac.cc:3000
 
-Mirror address for chinese：https://gitee.com/z-proj/qdac
+Mirror address for chinese: https://gitee.com/z-proj/qdac
 
-Mirror address for other countries：https://github.com/chinawsb/qdac
+Mirror address for other countries: https://github.com/chinawsb/qdac
 
 ### Introduce
 
