@@ -13,26 +13,29 @@ interface
   6. 本工具库会为每个线程建立独立的管理对象，并且仅在程序退了时才会释放，所以不建议在发布给用户的版本中，长时间运行性能跟踪库。
 
 }
-uses Classes, Sysutils, System.Diagnostics, System.Generics.Defaults,
-  System.Generics.Collections{$IFDEF MSWINDOWS},
-  winapi.Windows, winapi.ActiveX, winapi.TlHelp32{$ENDIF};
+uses Classes, Sysutils, Diagnostics, SyncObjs, Generics.Defaults,
+  Generics.Collections;
 
 type
 
   // 这个只是用来增加和减小引用计数使用，用户层调用 TQProfile.Calc 即可
   IQProfileHelper = interface
     ['{177F55CA-2B59-440B-AA81-54AFF6AC5581}']
+    function CurrentStack: Pointer;
   end;
 
   PQProfileStack = ^TQProfileStack;
   PQProfileReference = ^TQProfileReference;
 
+  // 引用信息记录
   TQProfileReference = record
+    // 来源引用
     Ref: PQProfileStack;
-    Times: Cardinal;
+    // 前一个，下一个
     Prior, Next: PQProfileReference;
   end;
 
+  // 调用记录
   TQProfileStack = record
     // 函数名称
     Name: String;
@@ -58,40 +61,61 @@ type
     FirstRef, LastRef: PQProfileReference;
   end;
 
-  TQProfileCalcResult = record
-    Counter: IQProfileHelper;
-    Stack: PQProfileStack;
-  end;
+  PQProfileThreadStatics = ^TQProfileThreadStatics;
 
-  TQProfileFunctionStatics = record
-    Name: String;
-    Threads: TArray<TThreadId>;
-    MaxNestLevel: Cardinal;
-    Runs: Cardinal;
-    MinTime, MaxTime, TotalTime: UInt64;
-  end;
-
+  // TQProfile.GetStatics 函数返回的线程统计信息
   TQProfileThreadStatics = record
+    // 线程ID
     ThreadId: TThreadId;
+    // 首次进入时间，末次结束时间
     FirstTime, LatestTime: UInt64;
+    // 线程关联的函数列表
     Functions: TArray<String>;
   end;
 
+  // TQProfile.GetStatics 函数返回的函数统计信息
+  TQProfileFunctionStatics = record
+    // 函数名称
+    Name: String;
+    // 函数调用来源线程列表
+    Threads: TArray<PQProfileThreadStatics>;
+    // 最大递归调用嵌套层数
+    MaxNestLevel: Cardinal;
+    // 函数运行次数
+    Runs: Cardinal;
+    // 函数运行的最小时长、最大时长和总时长
+    MinTime, MaxTime, TotalTime: UInt64;
+  end;
+
+  // TQProfile.GetStatics的返回值
   TQProfileStatics = record
+    // 线程统计信息
     Threads: TArray<TQProfileThreadStatics>;
+    // 函数统计信息
     Functions: TArray<TQProfileFunctionStatics>;
+  end;
+
+  // 导出图表时的翻译字符串
+  TQProfileTranslation = record
+    Start, Thread: String;
   end;
 
   // 全局类，用于提供性能接口
   TQProfile = class sealed
   private
   class var
+    // 是否启用
     FEnabled: Boolean;
+    // 退出时保存的跟踪记录信息JSON文件名
     FFileName: String;
+    // 程序启动时间戳，用来和各个时间进行运算，以获取相对时间
     FStartupTime: UInt64;
+    // 多线程同步锁
+    FLocker: IReadWriteSync;
 
   type
-    TQThreadProfileHelper = class(TInterfacedObject, IUnknown, IQProfileHelper)
+    TQThreadProfileHelper = class(TInterfacedObject, IInterface,
+      IQProfileHelper)
     protected
       FRoot: TQProfileStack;
       FCurrent: PQProfileStack;
@@ -99,11 +123,10 @@ type
       FFirstTime, FLatestTime: UInt64;
       FThreadName: String;
     private
+      function CurrentStack: Pointer;
     public
       constructor Create; overload;
-      destructor Destroy; override;
-      function Push(const AName: String; AStackRef: PQProfileStack)
-        : PQProfileStack; inline;
+      procedure Push(const AName: String; AStackRef: PQProfileStack); inline;
       function _Release: Integer; overload; stdcall;
       property ThreadId: TThreadId read FThreadId;
       property ThreadName: String read FThreadName;
@@ -118,9 +141,8 @@ type
       FCount: Integer;
     public
       class constructor Create;
-      class procedure NeedHelper(const AThreadId: TThreadId;
-        const AName: String; AStackRef: PQProfileStack;
-        var AResult: TQProfileCalcResult);
+      class function NeedHelper(const AThreadId: TThreadId; const AName: String;
+        AStackRef: PQProfileStack): IQProfileHelper;
     end;
 
     TQProfileStackHelper = record helper for TQProfileStack
@@ -133,52 +155,51 @@ type
   protected
     class procedure SaveProfiles;
     class procedure Cleanup;
+
   public
     class constructor Create;
+    // 将跟踪记录转换为 JSON 字符串格式
     class function AsString: String;
+    // 将跟踪记录转换为 mermaid 流程图格式
     class function AsDiagrams: String;
+    // 对跟踪记录进行统计
     class function GetStatics: TQProfileStatics;
+    // 保存跟踪记录为 mermaid 格式文件
     class procedure SaveDiagrams(const AFileName: String);
+    /// <summary>记录一个锚点</summary>
+    /// <param name="AName">锚点名称参数，一般为函数名</param>
+    /// <param name="AStackRef">参考来源锚点，一般用于异步调用时，指向原始栈记录</param>
+    /// <returns>如果 TQProfile.Enabled 为 true，返回当前线程的 IQProfileHelper 接口实例，否则返回空指针</returns>
     class function Calc(const AName: String; AStackRef: PQProfileStack = nil)
-      : TQProfileCalcResult;
-    class property Enabled: Boolean read FEnabled write FEnabled;
+      : IQProfileHelper;
+    /// 当前是否启用了跟踪，只读，只能通过命令行开关 EnableProfile 修改或者使用默认值
+    class property Enabled: Boolean read FEnabled;
+    /// 要保存的跟踪记录文件名，默认为 profiles.json
     class property FileName: String read FFileName write FFileName;
+  public
+    class var
+    // 流程图中使用的字符串翻译
+      Translation: TQProfileTranslation;
   end;
 
-  TQProfileTranslation = record
-    Start, Thread: String;
-  end;
 {$HPPEMIT '#define CalcPerformance() TQProfile::Calc(__FUNC__)' }
 
-var
-  DiagramTranslation: TQProfileTranslation;
+resourcestring
+  SProfileDiagramStart = 'Start';
+  SProfileDiagramThread = 'Thread';
 
 implementation
 
-{$IFDEF MSWINDOWS}
-
-type
-  TGetThreadDescription = function(hThread: THandle;
-    var ppszThreadDescription: PWideChar): HRESULT;
-
-var
-  GetThreadDescription: TGetThreadDescription;
-function OpenThread(dwDesiredAccess: DWORD; bInheritHandle: BOOL;
-  dwProcessId: DWORD): THandle; external kernel32 name 'OpenThread';
-{$ENDIF}
 { TQProfile }
 
 class function TQProfile.Calc(const AName: String; AStackRef: PQProfileStack)
-  : TQProfileCalcResult;
+  : IQProfileHelper;
 begin
   if Enabled then
-    TQThreadHelperSet.NeedHelper(TThread.Current.ThreadId, AName,
-      AStackRef, Result)
+    Result := TQThreadHelperSet.NeedHelper(TThread.Current.ThreadId, AName,
+      AStackRef)
   else
-  begin
-    Result.Counter := nil;
-    Result.Stack := nil;
-  end;
+    Result := nil;
 end;
 
 class procedure TQProfile.Cleanup;
@@ -223,9 +244,13 @@ end;
 
 class constructor TQProfile.Create;
 begin
-  FEnabled := {$IFDEF DEBUG}true{$ELSE}false{$ENDIF};
+  FEnabled :=
+{$IFDEF DEBUG}true{$ELSE}FindCmdlineSwitch('EnableProfile'){$ENDIF};
+  Translation.Start := SProfileDiagramStart;
+  Translation.Thread := SProfileDiagramThread;
   FFileName := ExtractFilePath(ParamStr(0)) + 'profiles.json';
   FStartupTime := TStopWatch.GetTimeStamp;
+  FLocker := TMREWSync.Create;
 end;
 
 class function TQProfile.GetStatics: TQProfileStatics;
@@ -233,7 +258,7 @@ var
   I, ACount: Integer;
   AComparer: IComparer<TQProfileFunctionStatics>;
 
-  procedure DoBuild(AThreadId: TThreadId; AStack: PQProfileStack);
+  procedure DoBuild(AThread: PQProfileThreadStatics; AStack: PQProfileStack);
   var
     AItem: PQProfileStack;
     ANameArray: TArray<String>;
@@ -250,7 +275,7 @@ var
         if not TArray.BinarySearch<TQProfileFunctionStatics>(Result.Functions,
           ATemp, J, AComparer) then
         begin
-          ATemp.Threads := [AThreadId];
+          ATemp.Threads := [AThread];
           ATemp.MaxNestLevel := AItem.MaxNestLevel;
           ATemp.Runs := AItem.Runs;
           ATemp.MinTime := AItem.MinTime;
@@ -270,8 +295,9 @@ var
               MaxTime := AItem.MaxTime;
             Inc(Runs, AItem.Runs);
             Inc(TotalTime, AItem.TotalTime);
-            if not TArray.BinarySearch<TThreadId>(Threads, AThreadId, J) then
-              Insert(AThreadId, Threads, J);
+            if not TArray.BinarySearch<PQProfileThreadStatics>(Threads,
+              AThread, J) then
+              Insert(AThread, Threads, J);
           end;
         end;
         // 查找线程的函数列表
@@ -279,7 +305,7 @@ var
           ATemp.Name, J) then
           Insert(ATemp.Name, Result.Threads[ACount].Functions, J);
       end;
-      DoBuild(AThreadId, AItem);
+      DoBuild(AThread, AItem);
       AItem := AItem.Next;
     end;
   end;
@@ -302,8 +328,7 @@ begin
         .FirstTime;
       Result.Threads[ACount].LatestTime := TQThreadHelperSet.FHelpers[I]
         .LatestTime;
-      DoBuild(TQThreadHelperSet.FHelpers[I].ThreadId,
-        @TQThreadHelperSet.FHelpers[I].FRoot);
+      DoBuild(@Result.Threads[ACount], @TQThreadHelperSet.FHelpers[I].FRoot);
       Inc(ACount);
     end;
   end;
@@ -416,13 +441,13 @@ begin
         Result := CompareText(L.Name, R.Name);
       end);
     ABuilder.Append('flowchart TB').Append(SLineBreak);
-    ABuilder.Append('start(("').Append(DiagramTranslation.Start).Append('"))')
+    ABuilder.Append('start(("').Append(Translation.Start).Append('"))')
       .Append(SLineBreak);
     // 插入线程结点
     for I := 0 to High(AStatics.Threads) do
     begin
       ABuilder.Append('thread').Append(AStatics.Threads[I].ThreadId)
-        .Append('[["`').Append(DiagramTranslation.Thread).Append(' ')
+        .Append('[["`').Append(Translation.Thread).Append(' ')
         .Append(AStatics.Threads[I].ThreadId).Append(SLineBreak)
         .Append(AStatics.Threads[I].FirstTime - FStartupTime).Append('->')
         .Append(AStatics.Threads[I].LatestTime - FStartupTime).Append('`"]]')
@@ -597,70 +622,23 @@ end;
 { TQThreadProfileHelper }
 
 constructor TQProfile.TQThreadProfileHelper.Create;
-var
-  pName: PWideChar;
-{$IFDEF MSWINDOWS}
-  AHandle: THandle;
-const
-  THREAD_QUERY_INFORMATION = $0040;
-  function EnableDebugPrivilege: Boolean;
-  var
-    ATokenHandle: THandle;
-    APrivileges: TTokenPrivileges;
-    ADummy: DWORD;
-  begin
-    Result := false;
-    if OpenProcessToken(GetCurrentProcess, TOKEN_ADJUST_PRIVILEGES or
-      TOKEN_QUERY, ATokenHandle) then
-    begin
-      if LookupPrivilegeValue(nil, 'SeDebugPrivilege',
-        APrivileges.Privileges[0].Luid) then
-      begin
-        APrivileges.PrivilegeCount := 1;
-        APrivileges.Privileges[0].Attributes := SE_PRIVILEGE_ENABLED;
-        if AdjustTokenPrivileges(ATokenHandle, false, APrivileges,
-          SizeOf(APrivileges), nil, ADummy) then
-          Result := GetLastError = ERROR_SUCCESS;
-      end;
-    end;
-  end;
-{$ENDIF}
-
 begin
   FThreadId := TThread.CurrentThread.ThreadId;
-{$IFDEF MSWINDOWS}
-  pName := nil;
-  if Assigned(GetThreadDescription) and EnableDebugPrivilege then
-  begin
-    AHandle := OpenThread(THREAD_QUERY_INFORMATION, false, FThreadId);
-    if (AHandle <> 0) then
-    begin
-      if Succeeded(GetThreadDescription(AHandle, pName)) then
-      begin
-        FThreadName := pName;
-        LocalFree(pName);
-      end;
-      CloseHandle(AHandle);
-    end;
-  end;
-{$ENDIF}
   FCurrent := @FRoot;
   FCurrent.LastStartTime := TStopWatch.GetTimeStamp;
   FCurrent.NestLevel := 1;
   FFirstTime := FCurrent.LastStartTime;
 end;
 
-destructor TQProfile.TQThreadProfileHelper.Destroy;
+function TQProfile.TQThreadProfileHelper.CurrentStack: Pointer;
 begin
-
-  inherited;
+  Result := FCurrent;
 end;
 
-function TQProfile.TQThreadProfileHelper.Push(const AName: String;
-AStackRef: PQProfileStack): PQProfileStack;
+procedure TQProfile.TQThreadProfileHelper.Push(const AName: String;
+AStackRef: PQProfileStack);
 begin
   FCurrent := FCurrent.Push(AName, AStackRef);
-  Result := FCurrent;
 end;
 
 function TQProfile.TQThreadProfileHelper._Release: Integer;
@@ -719,17 +697,13 @@ var
     while Assigned(ARef) do
     begin
       if ARef.Ref = AStackRef then
-      begin
-        Inc(ARef.Times);
         Exit;
-      end;
       ARef := ARef.Next;
     end;
     New(ARef);
     ARef.Prior := AChild.LastRef;
     ARef.Ref := AStackRef;
     ARef.Next := nil;
-    ARef.Times := 1;
     if Assigned(AChild.LastRef) then
       AChild.LastRef.Next := ARef
     else
@@ -815,24 +789,24 @@ begin
   FHelpers := [];
 end;
 
-class procedure TQProfile.TQThreadHelperSet.NeedHelper(const AThreadId
-  : TThreadId; const AName: String; AStackRef: PQProfileStack;
-var AResult: TQProfileCalcResult);
+class function TQProfile.TQThreadHelperSet.NeedHelper(const AThreadId
+  : TThreadId; const AName: String; AStackRef: PQProfileStack): IQProfileHelper;
 const
   BUCKET_MASK = Integer($80000000);
   BUCKET_INDEX_MASK = Integer($7FFFFFFF);
-  function FindBucketIndex(AThreadId: TThreadId): Integer;
+  function FindBucketIndex(const AHelpers: TArray<TQThreadProfileHelper>;
+  AThreadId: TThreadId): Integer;
   var
     I, AHash: Integer;
     AItem: TQThreadProfileHelper;
   begin
-    if Length(FHelpers) = 0 then
+    if Length(AHelpers) = 0 then
       Exit(BUCKET_MASK);
-    AHash := Integer(AThreadId) mod Length(FHelpers);
+    AHash := Integer(AThreadId) mod Length(AHelpers);
     I := AHash;
-    while I < Length(FHelpers) do
+    while I < Length(AHelpers) do
     begin
-      AItem := FHelpers[I];
+      AItem := AHelpers[I];
       if Assigned(AItem) then
       begin
         if AItem.ThreadId = AThreadId then
@@ -846,7 +820,7 @@ const
     I := 0;
     while I < AHash do
     begin
-      AItem := FHelpers[I];
+      AItem := AHelpers[I];
       if Assigned(AItem) then
       begin
         if AItem.ThreadId = AThreadId then
@@ -860,20 +834,28 @@ const
     Result := I or BUCKET_MASK;
   end;
 
-  procedure Insert(var AHelpers: TArray<TQThreadProfileHelper>;
-  AHelper: TQThreadProfileHelper);
+  function IsPrime(V: Integer): Boolean;
   var
-    ABucketIndex: Integer;
+    I, J: Integer;
   begin
-    ABucketIndex := FindBucketIndex(AHelper.ThreadId);
-    if ABucketIndex < 0 then
-      AHelpers[ABucketIndex and BUCKET_INDEX_MASK] := AHelper;
+    if V > 1 then
+    begin
+      J := Trunc(sqrt(V));
+      for I := 2 to J do
+      begin
+        if V mod I = 0 then
+          Exit(false);
+      end;
+      Result := true;
+    end
+    else
+      Result := false;
   end;
 
   procedure ReallocArray;
   var
     ANew: TArray<TQThreadProfileHelper>;
-    I: Integer;
+    I, L: Integer;
   begin
     case Length(FHelpers) of
       0:
@@ -888,11 +870,24 @@ const
         SetLength(ANew, 1021);
       1021:
         SetLength(ANew, 2039)
-    else // 尽量质数，超过2039个线程就不管了，直接*2
-      SetLength(ANew, Length(ANew) shl 1);
+    else // 尽量质数，超过2039个线程的话，我们翻倍现算
+      begin
+        I := Length(FHelpers) + 1;
+        L := Length(FHelpers) shl 1 - 1;
+        while (L >= I) and (not IsPrime(L)) do
+          Dec(L);
+        if I >= L then
+        begin
+          L := (Length(FHelpers) shl 1) + 1;
+          while not IsPrime(L) do
+            Inc(L);
+        end;
+        SetLength(ANew, L);
+      end;
     end;
     for I := 0 to High(FHelpers) do
-      Insert(ANew, FHelpers[I]);
+      ANew[FindBucketIndex(ANew, FHelpers[I].ThreadId) and BUCKET_INDEX_MASK] :=
+        FHelpers[I];
     FHelpers := ANew;
   end;
 
@@ -901,22 +896,22 @@ const
     ABucketIndex: Integer;
   begin
     Result := nil;
-    GlobalNameSpace.BeginRead;
-    ABucketIndex := FindBucketIndex(AThreadId);
+    FLocker.BeginRead;
+    ABucketIndex := FindBucketIndex(FHelpers, AThreadId);
     if ABucketIndex >= 0 then
       Result := FHelpers[ABucketIndex];
-    GlobalNameSpace.EndRead;
+    FLocker.EndRead;
   end;
 
   function InsertHelper: TQThreadProfileHelper;
   var
     ABucketIndex: Integer;
   begin
-    GlobalNameSpace.BeginWrite;
+    FLocker.BeginWrite;
     try
       if FCount = Length(FHelpers) then
         ReallocArray;
-      ABucketIndex := FindBucketIndex(AThreadId);
+      ABucketIndex := FindBucketIndex(FHelpers, AThreadId);
       if ABucketIndex >= 0 then
         Result := FHelpers[ABucketIndex]
       else
@@ -927,7 +922,7 @@ const
         Inc(FCount);
       end;
     finally
-      GlobalNameSpace.EndWrite;
+      FLocker.EndWrite;
     end;
   end;
 
@@ -937,19 +932,11 @@ begin
   AHelper := FindExists;
   if not Assigned(AHelper) then
     AHelper := InsertHelper;
-  AResult.Counter := AHelper;
-  AResult.Stack := AHelper.Push(AName, AStackRef);
+  AHelper.Push(AName, AStackRef);
+  Result := AHelper;
 end;
 
 initialization
-
-{$IFNDEF DEBUG}
-  TQProfile.Enabled := FindCmdlineSwitch('EnableProfile');
-{$ENDIF}
-GetThreadDescription := GetProcAddress(GetModuleHandle(kernel32),
-  'GetThreadDescription');
-DiagramTranslation.Start := 'Start';
-DiagramTranslation.Thread := 'Thread';
 
 finalization
 
