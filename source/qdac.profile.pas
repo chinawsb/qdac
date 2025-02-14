@@ -39,6 +39,8 @@ type
   TQProfileStack = record
     // 函数名称
     Name: String;
+    // 调用地址
+    InvokeSource: Pointer;
     // 上一级、前一个、下一个
     Parent, Prior, Next: PQProfileStack;
     // 嵌套级别，最大嵌套级别
@@ -100,6 +102,8 @@ type
     Start, Thread: String;
   end;
 
+  TAddressNameProc = function(const Addr: Pointer): String;
+
   // 全局类，用于提供性能接口
   TQProfile = class sealed
   private
@@ -126,7 +130,8 @@ type
       function CurrentStack: Pointer;
     public
       constructor Create; overload;
-      procedure Push(const AName: String; AStackRef: PQProfileStack); inline;
+      procedure Push(const AName: String; AStackRef: PQProfileStack;
+        const Addr: Pointer); inline;
       function _Release: Integer; overload; stdcall;
       property ThreadId: TThreadId read FThreadId;
       property ThreadName: String read FThreadName;
@@ -142,12 +147,12 @@ type
     public
       class constructor Create;
       class function NeedHelper(const AThreadId: TThreadId; const AName: String;
-        AStackRef: PQProfileStack): IQProfileHelper;
+        AStackRef: PQProfileStack; const Addr: Pointer): IQProfileHelper;
     end;
 
     TQProfileStackHelper = record helper for TQProfileStack
-      function Push(const AName: String; AStackRef: PQProfileStack)
-        : PQProfileStack;
+      function Push(const AName: String; AStackRef: PQProfileStack;
+        const Addr: Pointer): PQProfileStack;
       function Pop: PQProfileStack;
       function ThreadHelper: TQProfile.TQThreadProfileHelper;
     end;
@@ -155,7 +160,7 @@ type
   protected
     class procedure SaveProfiles;
     class procedure Cleanup;
-
+    class function StackItemName(AStack: PQProfileStack): String; inline;
   public
     class constructor Create;
     // 将跟踪记录转换为 JSON 字符串格式
@@ -171,15 +176,27 @@ type
     /// <param name="AStackRef">参考来源锚点，一般用于异步调用时，指向原始栈记录</param>
     /// <returns>如果 TQProfile.Enabled 为 true，返回当前线程的 IQProfileHelper 接口实例，否则返回空指针</returns>
     class function Calc(const AName: String; AStackRef: PQProfileStack = nil)
-      : IQProfileHelper;
+      : IQProfileHelper; overload;
+{$IFDEF MSWINDOWS}
+    /// <summary>记录一个锚点</summary>
+    /// <param name="AStackRef">参考来源锚点，一般用于异步调用时，指向原始栈记录</param>
+    /// <returns>如果 TQProfile.Enabled 为 true，返回当前线程的 IQProfileHelper 接口实例，否则返回空指针</returns>
+    /// <remarks>
+    /// 1.此函数仅支持 Windows 操作系统，而且只记录了地址，用户需要关联 AddressName 函数来解决地址与名称的映射问题
+    /// 2.AddressName 可以使用 JclDebug 中的 GetLocationInfo 函数来做简单封装，具体参考示例
+    /// </remarks>
+    class function Calc(AStackRef: PQProfileStack = nil)
+      : IQProfileHelper; overload;
+{$ENDIF}
     /// 当前是否启用了跟踪，只读，只能通过命令行开关 EnableProfile 修改或者使用默认值
     class property Enabled: Boolean read FEnabled;
     /// 要保存的跟踪记录文件名，默认为 profiles.json
     class property FileName: String read FFileName write FFileName;
   public
-    class var
+  class var
     // 流程图中使用的字符串翻译
-      Translation: TQProfileTranslation;
+    Translation: TQProfileTranslation;
+    AddressName: TAddressNameProc;
   end;
 
 {$HPPEMIT '#define CalcPerformance() TQProfile::Calc(__FUNC__)' }
@@ -190,6 +207,13 @@ resourcestring
 
 implementation
 
+{$IFDEF MSWINDOWS}
+
+uses Windows;
+function RtlCaptureStackBackTrace(FramesToSkip, FramesToCapture: DWORD;
+  BackTrace: Pointer; BackTraceHash: PDWORD): Word; stdcall; external kernel32;
+
+{$ENDIF}
 { TQProfile }
 
 class function TQProfile.Calc(const AName: String; AStackRef: PQProfileStack)
@@ -197,10 +221,25 @@ class function TQProfile.Calc(const AName: String; AStackRef: PQProfileStack)
 begin
   if Enabled then
     Result := TQThreadHelperSet.NeedHelper(TThread.Current.ThreadId, AName,
-      AStackRef)
+      AStackRef, nil)
   else
     Result := nil;
 end;
+{$IFDEF MSWINDOWS}
+
+class function TQProfile.Calc(AStackRef: PQProfileStack): IQProfileHelper;
+var
+  Addr: Pointer;
+begin
+  Addr := nil;
+  RtlCaptureStackBackTrace(1, 1, @Addr, nil);
+  if Enabled then
+    Result := TQThreadHelperSet.NeedHelper(TThread.Current.ThreadId, '',
+      AStackRef, Addr)
+  else
+    Result := nil;
+end;
+{$ENDIF}
 
 class procedure TQProfile.Cleanup;
   procedure DoCleanup(AStack: PQProfileStack);
@@ -248,6 +287,7 @@ begin
 {$IFDEF DEBUG}true{$ELSE}FindCmdlineSwitch('EnableProfile'){$ENDIF};
   Translation.Start := SProfileDiagramStart;
   Translation.Thread := SProfileDiagramThread;
+  AddressName := nil;
   FFileName := ExtractFilePath(ParamStr(0)) + 'profiles.json';
   FStartupTime := TStopWatch.GetTimeStamp;
   FLocker := TMREWSync.Create;
@@ -268,7 +308,7 @@ var
     AItem := AStack.FirstChild;
     while Assigned(AItem) do
     begin
-      ANameArray := AItem.Name.Split(['#']);
+      ANameArray := StackItemName(AItem).Split(['#']);
       for I := 0 to High(ANameArray) do
       begin
         ATemp.Name := ANameArray[I];
@@ -317,7 +357,7 @@ begin
   AComparer := TComparer<TQProfileFunctionStatics>.Construct(
     function(const L, R: TQProfileFunctionStatics): Integer
     begin
-      Result := CompareText(L.Name, R.Name);
+      Result := CompareStr(L.Name, R.Name);
     end);
   for I := 0 to High(TQThreadHelperSet.FHelpers) do
   begin
@@ -362,6 +402,18 @@ begin
   end;
 end;
 
+class function TQProfile.StackItemName(AStack: PQProfileStack): String;
+begin
+  if (Length(AStack.Name) = 0) and Assigned(AStack.InvokeSource) then
+  begin
+    if Assigned(AddressName) then
+      AStack.Name := AddressName(AStack.InvokeSource)
+    else
+      AStack.Name := IntToHex(IntPtr(AStack.InvokeSource));
+  end;
+  Result := AStack.Name;
+end;
+
 class function TQProfile.AsDiagrams: String;
 var
   ABuilder: TStringBuilder;
@@ -381,7 +433,7 @@ var
     if Assigned(AStack.Parent) then
     begin
       // 我们以JSON格式来保存
-      ANameArray := AStack.Name.Split(['#']);
+      ANameArray := StackItemName(AStack).Split(['#']);
       AFunctionEntry.Name := ANameArray[0];
       if TArray.BinarySearch<TQProfileFunctionStatics>(AStatics.Functions,
         AFunctionEntry, ATargetIdx, AComparer) then
@@ -494,7 +546,7 @@ var
     begin
       // 我们以JSON格式来保存
       ABuilder.Append(AIndent).Append('{').Append(SLineBreak);
-      ANameArray := AStack.Name.Split(['#']);
+      ANameArray := StackItemName(AStack).Split(['#']);
       ABuilder.Append(ANextIndent).Append('"name":').Append('"')
         .Append(ANameArray[0]).Append('",').Append(SLineBreak);
       ABuilder.Append(ANextIndent).Append('"maxNestLevel":')
@@ -636,9 +688,9 @@ begin
 end;
 
 procedure TQProfile.TQThreadProfileHelper.Push(const AName: String;
-AStackRef: PQProfileStack);
+AStackRef: PQProfileStack; const Addr: Pointer);
 begin
-  FCurrent := FCurrent.Push(AName, AStackRef);
+  FCurrent := FCurrent.Push(AName, AStackRef, Addr);
 end;
 
 function TQProfile.TQThreadProfileHelper._Release: Integer;
@@ -649,7 +701,7 @@ begin
     // 如果是包含了额外的引用，则需要减少对应的计数后才真正移除
     if FCurrent.AddedRefCount > 0 then
       Dec(FCurrent.AddedRefCount);
-    if FCurrent.AddedRefCount=0 then
+    if FCurrent.AddedRefCount = 0 then
     begin
       Dec(FCurrent.NestLevel);
       if FCurrent.NestLevel = 0 then
@@ -685,7 +737,7 @@ begin
 end;
 
 function TQProfile.TQProfileStackHelper.Push(const AName: String;
-AStackRef: PQProfileStack): PQProfileStack;
+AStackRef: PQProfileStack; const Addr: Pointer): PQProfileStack;
 var
   AChild: PQProfileStack;
   procedure AddStackRef;
@@ -711,8 +763,18 @@ var
     AChild.LastRef := ARef;
   end;
 
+  function IsNest: Boolean;
+  begin
+    if Assigned(Addr) and (Addr = InvokeSource) then
+      Exit(true)
+    else if Length(AName) > 0 then
+      Result := CompareStr(Name, AName) = 0
+    else
+      Result := false;
+  end;
+
 begin
-  if CompareText(Name, AName) = 0 then
+  if IsNest then
   begin
     Inc(NestLevel);
     if NestLevel > MaxNestLevel then
@@ -737,6 +799,7 @@ begin
     end;
     New(AChild);
     AChild.Name := AName;
+    AChild.InvokeSource := Addr;
     UniqueString(AChild.Name);
     AChild.Parent := @Self;
     AChild.Prior := LastChild;
@@ -790,7 +853,8 @@ begin
 end;
 
 class function TQProfile.TQThreadHelperSet.NeedHelper(const AThreadId
-  : TThreadId; const AName: String; AStackRef: PQProfileStack): IQProfileHelper;
+  : TThreadId; const AName: String; AStackRef: PQProfileStack;
+const Addr: Pointer): IQProfileHelper;
 const
   BUCKET_MASK = Integer($80000000);
   BUCKET_INDEX_MASK = Integer($7FFFFFFF);
@@ -870,7 +934,8 @@ const
         SetLength(ANew, 1021);
       1021:
         SetLength(ANew, 2039)
-    else // 尽量质数，超过2039个线程的话，我们翻倍现算
+    else
+      // 尽量质数，超过2039个线程的话，我们翻倍现算
       begin
         I := Length(FHelpers) + 1;
         L := Length(FHelpers) shl 1 - 1;
@@ -932,7 +997,7 @@ begin
   AHelper := FindExists;
   if not Assigned(AHelper) then
     AHelper := InsertHelper;
-  AHelper.Push(AName, AStackRef);
+  AHelper.Push(AName, AStackRef, Addr);
   Result := AHelper;
 end;
 
