@@ -177,17 +177,15 @@ type
     /// <returns>如果 TQProfile.Enabled 为 true，返回当前线程的 IQProfileHelper 接口实例，否则返回空指针</returns>
     class function Calc(const AName: String; AStackRef: PQProfileStack = nil)
       : IQProfileHelper; overload;
-{$IFDEF MSWINDOWS}
     /// <summary>记录一个锚点</summary>
     /// <param name="AStackRef">参考来源锚点，一般用于异步调用时，指向原始栈记录</param>
     /// <returns>如果 TQProfile.Enabled 为 true，返回当前线程的 IQProfileHelper 接口实例，否则返回空指针</returns>
     /// <remarks>
-    /// 1.此函数仅支持 Windows 操作系统，而且只记录了地址，用户需要关联 AddressName 函数来解决地址与名称的映射问题
+    /// 1.此函数只记录了地址，用户需要关联 AddressName 函数来解决地址与名称的映射问题
     /// 2.AddressName 可以使用 JclDebug 中的 GetLocationInfo 函数来做简单封装，具体参考示例
     /// </remarks>
     class function Calc(AStackRef: PQProfileStack = nil)
       : IQProfileHelper; overload;
-{$ENDIF}
     /// 当前是否启用了跟踪，只读，只能通过命令行开关 EnableProfile 修改或者使用默认值
     class property Enabled: Boolean read FEnabled;
     /// 要保存的跟踪记录文件名，默认为 profiles.json
@@ -214,6 +212,54 @@ function RtlCaptureStackBackTrace(FramesToSkip, FramesToCapture: DWORD;
   BackTrace: Pointer; BackTraceHash: PDWORD): Word; stdcall; external kernel32;
 
 {$ENDIF}
+{$IFDEF POSIX}
+{$I 'unwind.inc'}
+
+// Posix 系统使用 _Unwind_Backtrace 来获取当前代码的地址
+type
+  TPosixStackItems = record
+    MaxLevel, Skip, Count: Integer;
+    Items: array [0 .. 63] of Pointer;
+  end;
+
+  PPosixStackItems = ^TPosixStackItems;
+
+const
+  _URC_NO_REASON = 1;
+  _URC_NORMAL_STOP = 4;
+
+function PosixTraceCallback(context: PUnwind_Context; p: Pointer)
+  : _Unwind_Reason_Code; cdecl;
+var
+  AStacks: PPosixStackItems;
+begin
+  if AStacks.MaxLevel > 0 then
+  begin
+    Dec(AStacks.MaxLevel);
+    if AStacks.Skip <= AStacks.Count then
+      AStacks.Items[AStacks.Count - AStacks.Skip] := _Unwind_GetIP(context);
+    Inc(AStacks.Count);
+  end;
+  if AStacks.MaxLevel > 0 then
+    Result := _URC_NO_REASON
+  else
+    Result := _URC_NORMAL_STOP;
+end;
+
+// 兼容实现
+function RtlCaptureStackBackTrace(FramesToSkip, FramesToCapture: DWORD;
+  BackTrace: Pointer; BackTraceHash: PDWORD): Word;
+var
+  AItems: TPosixStackItems;
+begin
+  AItems.MaxLevel := FramesToCapture + FramesToSkip;
+  AItems.Skip := FramesToSkip;
+  AItems.Count := 0;
+  FillChar(AItems.Items, sizeof(AItems.Items), 0);
+  _Unwind_Backtrace(PosixTraceCallback, @AItems);
+  Result := AItem.Count;
+end;
+{$ENDIF}
 { TQProfile }
 
 class function TQProfile.Calc(const AName: String; AStackRef: PQProfileStack)
@@ -225,11 +271,11 @@ begin
   else
     Result := nil;
 end;
-{$IFDEF MSWINDOWS}
 
 class function TQProfile.Calc(AStackRef: PQProfileStack): IQProfileHelper;
 var
   Addr: Pointer;
+
 begin
   Addr := nil;
   RtlCaptureStackBackTrace(1, 1, @Addr, nil);
@@ -239,7 +285,6 @@ begin
   else
     Result := nil;
 end;
-{$ENDIF}
 
 class procedure TQProfile.Cleanup;
   procedure DoCleanup(AStack: PQProfileStack);
