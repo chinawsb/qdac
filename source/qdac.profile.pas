@@ -57,8 +57,8 @@ type
     Runs: Cardinal;
     // 单个函数的最小时间、最大时间、总用时，平均时间为TotalTime/Runs的结果
     MinTime, MaxTime, TotalTime: UInt64;
-    // 最后一次的开始和结束时间
-    LastStartTime, LastStopTime: Int64;
+    // 首次开始时间，末次开始时间，末次结束时间
+    FirstStartTime, LastStartTime, LastStopTime: Int64;
     // 使用链表来管理子函数
     // 第一个子函数
     FirstChild: PQProfileStack;
@@ -167,11 +167,12 @@ type
     end;
 
   protected
-    class procedure SaveProfiles;
+    class procedure SaveProfiles; static;
     class procedure Cleanup;
     class function StackItemName(AStack: PQProfileStack): String; inline;
     class function EscapedText(const ADuration: UInt64): String;
     class function EscapedTimeMs(const ADuration: UInt64): Double;
+    class function TickDiff(const AStart, AStop: UInt64): UInt64;inline;
   public
     class constructor Create;
     // 将跟踪记录转换为 JSON 字符串格式
@@ -516,6 +517,14 @@ begin
   Result := AStack.Name;
 end;
 
+class function TQProfile.TickDiff(const AStart, AStop: UInt64): UInt64;
+begin
+  if AStop < AStart then
+    Result := UInt64($7FFFFFFFFFFFFFFF) - AStop + AStart
+  else
+    Result := AStop - AStart;
+end;
+
 class function TQProfile.AsDiagrams: String;
 var
   ABuilder: TStringBuilder;
@@ -603,9 +612,10 @@ begin
       ABuilder.Append('thread').Append(AStatics.Threads[I].ThreadId)
         .Append('[["`').Append(Translation.Thread).Append(' ')
         .Append(AStatics.Threads[I].ThreadId).Append(SLineBreak)
-        .Append(AStatics.Threads[I].FirstTime - FStartupTime).Append('->')
-        .Append(AStatics.Threads[I].LatestTime - FStartupTime).Append('`"]]')
-        .Append(SLineBreak);
+        .Append(EscapedText(TickDiff(FStartupTime,
+        AStatics.Threads[I].FirstTime))).Append('->')
+        .Append(EscapedText(TickDiff(FStartupTime,
+        AStatics.Threads[I].LatestTime))).Append('`"]]').Append(SLineBreak);
       ABuilder.Append('start-->thread').Append(AStatics.Threads[I].ThreadId)
         .Append(SLineBreak);
     end;
@@ -662,7 +672,13 @@ var
       ABuilder.Append(ANextIndent).Append('"totalTime":')
         .Append(EscapedText(AStack.TotalTime)).Append(',').Append(SLineBreak);
       ABuilder.Append(ANextIndent).Append('"avgTime":')
-        .Append(EscapedText(Trunc(AStack.TotalTime / AStack.Runs)));
+        .Append(EscapedText(Trunc(AStack.TotalTime / AStack.Runs))).Append(',')
+        .Append(SLineBreak);
+      ABuilder.Append(ANextIndent).Append('"firstTime":')
+        .Append(EscapedText(TickDiff(FStartupTime,AStack.FirstStartTime))).Append(',')
+        .Append(SLineBreak);
+      ABuilder.Append(ANextIndent).Append('"lastStartTime":')
+        .Append(EscapedText(TickDiff(FStartupTime,AStack.LastStartTime)));
       if Assigned(AStack.FirstChild) then
       begin
         ABuilder.Append(',').Append(SLineBreak);
@@ -720,10 +736,10 @@ var
         ABuilder.Append(ANextIndent).Append('"threadId":').Append(FThreadId)
           .Append(',').Append(SLineBreak);
         ABuilder.Append(ANextIndent).Append('"startTime":')
-          .Append(EscapedText(FirstTime - FStartupTime)).Append(',')
+          .Append(EscapedText(TickDiff(FStartupTime, FirstTime))).Append(',')
           .Append(SLineBreak);
         ABuilder.Append(ANextIndent).Append('"latestTime":')
-          .Append(EscapedText(LatestTime - FStartupTime)).Append(',')
+          .Append(EscapedText(TickDiff(FStartupTime, LatestTime))).Append(',')
           .Append(SLineBreak);
       end;
       ABuilder.Append(ANextIndent).Append('"chains":[').Append(SLineBreak);
@@ -835,20 +851,18 @@ begin
     // 匿名函数引用会增加额外的计数，造成统计不准，后面研究处理
     Result := @Self;
   LastStopTime := TStopWatch.GetTimeStamp;
-  ADelta := LastStopTime - LastStartTime;
-  if ADelta < 0 then
-    ADelta := Int64($7FFFFFFFFFFFFFFF) - LastStartTime + LastStopTime;
-  if Runs=0 then
+  ADelta := TickDiff(LastStartTime, LastStopTime);
+  if Runs = 0 then
   begin
-    MinTime:=ADelta;
-    MaxTime:=ADelta;
+    MinTime := ADelta;
+    MaxTime := ADelta;
   end
   else
   begin
-  if ADelta > MaxTime then
-    MaxTime := ADelta;
-  if ADelta < MinTime then
-    MinTime := ADelta;
+    if ADelta > MaxTime then
+      MaxTime := ADelta;
+    if ADelta < MinTime then
+      MinTime := ADelta;
   end;
   Inc(TotalTime, ADelta);
   Inc(Runs);
@@ -938,7 +952,8 @@ begin
     AChild.MinTime := 0;
     AChild.MaxTime := 0;
     AChild.TotalTime := 0;
-    AChild.LastStartTime := TStopWatch.GetTimeStamp;
+    AChild.FirstStartTime := TStopWatch.GetTimeStamp;
+    AChild.LastStartTime := AChild.FirstStartTime;
     AChild.LastStopTime := 0;
     AChild.FirstChild := nil;
     AChild.LastChild := nil;
@@ -1126,9 +1141,10 @@ end;
 
 initialization
 
+AddExitProc(TQProfile.SaveProfiles);
+
 finalization
 
-TQProfile.SaveProfiles;
 TQProfile.Cleanup;
 
 end.
