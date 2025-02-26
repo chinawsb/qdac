@@ -2,13 +2,23 @@ unit Unit1;
 
 interface
 
+{
+  本示例引用了 JclDebug 来处理调试符号信息，但仅限于 Windows 平台。
+  因为 Delphi 没有 C++ 中类型 __FILE__/__FUNC__/__LINE__ 一类的函数，因此无法通过预定义宏获取当前名称参数，
+  所以这里提供了两种解决方案：
+  -
+  如果你直接传过程名称，可以忽略这一段代码
+  它用于在 Windows 平台下调用 TQProfile.Calc()
+}
+{$DEFINE ENABLE_JCL_DEBUG }
+
 uses
   Winapi.Windows, Winapi.Messages, Winapi.ShellAPI, System.SysUtils,
   System.Variants,
   System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls, IdContext,
   IdCustomHTTPServer, IdBaseComponent, IdComponent, IdCustomTCPServer,
-  IdHTTPServer;
+  IdHTTPServer{$IFDEF ENABLE_JCL_DEBUG}, qdac.profile.win{$ENDIF};
 
 type
   TForm1 = class(TForm)
@@ -21,6 +31,9 @@ type
     Button5: TButton;
     Button6: TButton;
     IdHTTPServer1: TIdHTTPServer;
+    Button7: TButton;
+    Button8: TButton;
+    chkByMs: TCheckBox;
     procedure Button1Click(Sender: TObject);
     procedure Button2Click(Sender: TObject);
     procedure FormCreate(Sender: TObject);
@@ -30,6 +43,9 @@ type
     procedure Button6Click(Sender: TObject);
     procedure IdHTTPServer1CommandGet(AContext: TIdContext;
       ARequestInfo: TIdHTTPRequestInfo; AResponseInfo: TIdHTTPResponseInfo);
+    procedure Button7Click(Sender: TObject);
+    procedure Button8Click(Sender: TObject);
+    procedure chkByMsClick(Sender: TObject);
   private
     { Private declarations }
     procedure DoProfile(ALevel: Integer);
@@ -99,8 +115,37 @@ begin
     SW_SHOWNORMAL);
 end;
 
+procedure TForm1.Button7Click(Sender: TObject);
+begin
+  TQProfile.Calc();
+  ShowMessage('Simple calc');
+end;
+
+procedure TForm1.Button8Click(Sender: TObject);
+var
+  ASleep: Cardinal;
+begin
+  TQProfile.Calc(
+    procedure(const AEscaped: Double)
+    begin
+      Memo1.Lines.Add('Sleep(' + ASleep.ToString + ') 实际用时 ' +
+        AEscaped.ToString + ' 毫秒');
+    end);
+  ASleep := random(50 + random(300));
+  TThread.Sleep(ASleep);
+end;
+
+procedure TForm1.chkByMsClick(Sender: TObject);
+begin
+  if chkByMs.Checked then
+    TQProfile.TimeUnit := tuMilliSecond
+  else
+    TQProfile.TimeUnit := tuDefault;
+end;
+
 procedure TForm1.DoProfile(ALevel: Integer);
 begin
+  // 我们给一个自定义的名称
   TQProfile.Calc('TForm1.DoProfile');
   Inc(ALevel);
   if ALevel < 32 then

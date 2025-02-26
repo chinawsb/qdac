@@ -15,9 +15,9 @@ object Form1: TForm1
   object Memo1: TMemo
     AlignWithMargins = True
     Left = 3
-    Top = 44
+    Top = 76
     Width = 1034
-    Height = 523
+    Height = 491
     Align = alClient
     TabOrder = 0
   end
@@ -25,11 +25,13 @@ object Form1: TForm1
     Left = 0
     Top = 0
     Width = 1040
-    Height = 41
+    Height = 73
     Align = alTop
     BevelOuter = bvNone
     ShowCaption = False
     TabOrder = 1
+    ExplicitLeft = -3
+    ExplicitTop = -3
     object Button1: TButton
       Left = 8
       Top = 8
@@ -40,8 +42,8 @@ object Form1: TForm1
       OnClick = Button1Click
     end
     object Button2: TButton
-      Left = 676
-      Top = 8
+      Left = 175
+      Top = 39
       Width = 150
       Height = 25
       Caption = 'Show Profiles'
@@ -76,13 +78,40 @@ object Form1: TForm1
       OnClick = Button5Click
     end
     object Button6: TButton
-      Left = 844
-      Top = 8
+      Left = 342
+      Top = 39
       Width = 150
       Height = 25
       Caption = 'Show Diagrams'
       TabOrder = 5
       OnClick = Button6Click
+    end
+    object Button7: TButton
+      Left = 8
+      Top = 39
+      Width = 150
+      Height = 25
+      Caption = 'AddressName'
+      TabOrder = 6
+      OnClick = Button7Click
+    end
+    object Button8: TButton
+      Left = 678
+      Top = 8
+      Width = 150
+      Height = 25
+      Caption = 'Monitor escaped time'
+      TabOrder = 7
+      OnClick = Button8Click
+    end
+    object chkByMs: TCheckBox
+      Left = 679
+      Top = 47
+      Width = 226
+      Height = 17
+      Caption = 'Use millisecond as escaped time unit'
+      TabOrder = 8
+      OnClick = chkByMsClick
     end
   end
   object IdHTTPServer1: TIdHTTPServer
