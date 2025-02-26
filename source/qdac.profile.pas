@@ -13,10 +13,13 @@ interface
   6. 本工具库会为每个线程建立独立的管理对象，并且仅在程序退了时才会释放，所以不建议在发布给用户的版本中，长时间运行性能跟踪库。
 
 }
-uses Classes, Sysutils, Diagnostics, SyncObjs, Generics.Defaults,
+uses Classes, Sysutils, TimeSpan, Diagnostics, SyncObjs, Generics.Defaults,
   Generics.Collections;
 
 type
+  // 当退出函数时的计时回调，参数为函数执行所使用的毫秒数
+  TQProfileTimeEscapeCallback = reference to procedure
+    (const ATimeEscapedMs: Double);
 
   // 这个只是用来增加和减小引用计数使用，用户层调用 TQProfile.Calc 即可
   IQProfileHelper = interface
@@ -47,6 +50,8 @@ type
     NestLevel, MaxNestLevel: Cardinal;
     //
     AddedRefCount: Integer;
+    // 回调
+    AfterDone: TQProfileTimeEscapeCallback;
     // 统计信息
     // 运行次数
     Runs: Cardinal;
@@ -104,6 +109,8 @@ type
 
   TAddressNameProc = function(const Addr: Pointer): String;
 
+  TQProfileTimeUnit = (tuDefault, tuMilliSecond);
+
   // 全局类，用于提供性能接口
   TQProfile = class sealed
   private
@@ -116,6 +123,8 @@ type
     FStartupTime: UInt64;
     // 多线程同步锁
     FLocker: IReadWriteSync;
+    // 耗时统计单位
+    FTimeUnit: TQProfileTimeUnit;
 
   type
     TQThreadProfileHelper = class(TInterfacedObject, IInterface,
@@ -161,6 +170,8 @@ type
     class procedure SaveProfiles;
     class procedure Cleanup;
     class function StackItemName(AStack: PQProfileStack): String; inline;
+    class function EscapedText(const ADuration: UInt64): String;
+    class function EscapedTimeMs(const ADuration: UInt64): Double;
   public
     class constructor Create;
     // 将跟踪记录转换为 JSON 字符串格式
@@ -174,22 +185,35 @@ type
     /// <summary>记录一个锚点</summary>
     /// <param name="AName">锚点名称参数，一般为函数名</param>
     /// <param name="AStackRef">参考来源锚点，一般用于异步调用时，指向原始栈记录</param>
+    /// <param name="ACallback">当函数执行完成时的回调，仅当次有效</param>
     /// <returns>如果 TQProfile.Enabled 为 true，返回当前线程的 IQProfileHelper 接口实例，否则返回空指针</returns>
-    class function Calc(const AName: String; AStackRef: PQProfileStack = nil)
-      : IQProfileHelper; overload;
+    class function Calc(const AName: String; AStackRef: PQProfileStack = nil;
+      ACallback: TQProfileTimeEscapeCallback = nil): IQProfileHelper; overload;
     /// <summary>记录一个锚点</summary>
     /// <param name="AStackRef">参考来源锚点，一般用于异步调用时，指向原始栈记录</param>
+    /// <param name="ACallback">当函数执行完成时的回调，仅当次有效</param>
     /// <returns>如果 TQProfile.Enabled 为 true，返回当前线程的 IQProfileHelper 接口实例，否则返回空指针</returns>
     /// <remarks>
     /// 1.此函数只记录了地址，用户需要关联 AddressName 函数来解决地址与名称的映射问题
     /// 2.AddressName 可以使用 JclDebug 中的 GetLocationInfo 函数来做简单封装，具体参考示例
     /// </remarks>
-    class function Calc(AStackRef: PQProfileStack = nil)
-      : IQProfileHelper; overload;
+    class function Calc(AStackRef: PQProfileStack = nil;
+      ACallback: TQProfileTimeEscapeCallback = nil): IQProfileHelper; overload;
+    /// <summary>记录一个锚点</summary>
+    /// <param name="ACallback">当函数执行完成时的回调，仅当次有效</param>
+    /// <returns>如果 TQProfile.Enabled 为 true，返回当前线程的 IQProfileHelper 接口实例，否则返回空指针</returns>
+    /// <remarks>
+    /// 1.此函数只记录了地址，用户需要关联 AddressName 函数来解决地址与名称的映射问题
+    /// 2.AddressName 可以使用 JclDebug 中的 GetLocationInfo 函数来做简单封装，具体参考示例
+    /// </remarks>
+    class function Calc(ACallback: TQProfileTimeEscapeCallback)
+      : IQProfileHelper; overload; inline;
     /// 当前是否启用了跟踪，只读，只能通过命令行开关 EnableProfile 修改或者使用默认值
     class property Enabled: Boolean read FEnabled;
     /// 要保存的跟踪记录文件名，默认为 profiles.json
     class property FileName: String read FFileName write FFileName;
+    // 导出时，函数耗时的计时单位，默认不转换
+    class property TimeUnit: TQProfileTimeUnit read FTimeUnit write FTimeUnit;
   public
   class var
     // 流程图中使用的字符串翻译
@@ -262,28 +286,42 @@ end;
 {$ENDIF}
 { TQProfile }
 
-class function TQProfile.Calc(const AName: String; AStackRef: PQProfileStack)
-  : IQProfileHelper;
+class function TQProfile.Calc(const AName: String; AStackRef: PQProfileStack;
+  ACallback: TQProfileTimeEscapeCallback): IQProfileHelper;
 begin
   if Enabled then
+  begin
     Result := TQThreadHelperSet.NeedHelper(TThread.Current.ThreadId, AName,
-      AStackRef, nil)
+      AStackRef, nil);
+    if Assigned(ACallback) then
+      PQProfileStack(Result.CurrentStack).AfterDone := ACallback;
+  end
   else
     Result := nil;
 end;
 
-class function TQProfile.Calc(AStackRef: PQProfileStack): IQProfileHelper;
+class function TQProfile.Calc(AStackRef: PQProfileStack;
+  ACallback: TQProfileTimeEscapeCallback): IQProfileHelper;
 var
   Addr: Pointer;
-
 begin
   Addr := nil;
   RtlCaptureStackBackTrace(1, 1, @Addr, nil);
   if Enabled then
+  begin
     Result := TQThreadHelperSet.NeedHelper(TThread.Current.ThreadId, '',
-      AStackRef, Addr)
+      AStackRef, Addr);
+    if Assigned(ACallback) then
+      PQProfileStack(Result.CurrentStack).AfterDone := ACallback;
+  end
   else
     Result := nil;
+end;
+
+class function TQProfile.Calc(ACallback: TQProfileTimeEscapeCallback)
+  : IQProfileHelper;
+begin
+  Result := Calc(nil, ACallback);
 end;
 
 class procedure TQProfile.Cleanup;
@@ -336,6 +374,25 @@ begin
   FFileName := ExtractFilePath(ParamStr(0)) + 'profiles.json';
   FStartupTime := TStopWatch.GetTimeStamp;
   FLocker := TMREWSync.Create;
+end;
+
+class function TQProfile.EscapedText(const ADuration: UInt64): String;
+begin
+  case TimeUnit of
+    tuDefault:
+      Result := IntToStr(ADuration);
+    tuMilliSecond:
+      Result := FormatFloat('0.######', EscapedTimeMs(ADuration))
+  end;
+end;
+
+class function TQProfile.EscapedTimeMs(const ADuration: UInt64): Double;
+begin
+  if TStopWatch.IsHighResolution then
+    Result := ADuration * (10000000.0 / TStopWatch.Frequency) /
+      TTimeSpan.TicksPerMillisecond
+  else
+    Result := ADuration / TTimeSpan.TicksPerMillisecond;
 end;
 
 class function TQProfile.GetStatics: TQProfileStatics;
@@ -598,14 +655,14 @@ var
         .Append(AStack.MaxNestLevel).Append(',').Append(SLineBreak);
       ABuilder.Append(ANextIndent).Append('"runs":').Append(AStack.Runs)
         .Append(',').Append(SLineBreak);
-      ABuilder.Append(ANextIndent).Append('"minTime":').Append(AStack.MinTime)
-        .Append(',').Append(SLineBreak);
-      ABuilder.Append(ANextIndent).Append('"maxTime":').Append(AStack.MaxTime)
-        .Append(',').Append(SLineBreak);
+      ABuilder.Append(ANextIndent).Append('"minTime":')
+        .Append(EscapedText(AStack.MinTime)).Append(',').Append(SLineBreak);
+      ABuilder.Append(ANextIndent).Append('"maxTime":')
+        .Append(EscapedText(AStack.MaxTime)).Append(',').Append(SLineBreak);
       ABuilder.Append(ANextIndent).Append('"totalTime":')
-        .Append(AStack.TotalTime).Append(',').Append(SLineBreak);
+        .Append(EscapedText(AStack.TotalTime)).Append(',').Append(SLineBreak);
       ABuilder.Append(ANextIndent).Append('"avgTime":')
-        .Append(FormatFloat('0.##', AStack.TotalTime / AStack.Runs));
+        .Append(EscapedText(Trunc(AStack.TotalTime / AStack.Runs)));
       if Assigned(AStack.FirstChild) then
       begin
         ABuilder.Append(',').Append(SLineBreak);
@@ -663,9 +720,11 @@ var
         ABuilder.Append(ANextIndent).Append('"threadId":').Append(FThreadId)
           .Append(',').Append(SLineBreak);
         ABuilder.Append(ANextIndent).Append('"startTime":')
-          .Append(FirstTime - FStartupTime).Append(',').Append(SLineBreak);
+          .Append(EscapedText(FirstTime - FStartupTime)).Append(',')
+          .Append(SLineBreak);
         ABuilder.Append(ANextIndent).Append('"latestTime":')
-          .Append(LatestTime - FStartupTime).Append(',').Append(SLineBreak);
+          .Append(EscapedText(LatestTime - FStartupTime)).Append(',')
+          .Append(SLineBreak);
       end;
       ABuilder.Append(ANextIndent).Append('"chains":[').Append(SLineBreak);
       AChildIndent := ANextIndent + '  ';
@@ -695,6 +754,12 @@ begin
       .Append(SLineBreak);
     ABuilder.Append('"freq":').Append(TStopWatch.Frequency).Append(',')
       .Append(SLineBreak);
+    case TimeUnit of
+      tuDefault:
+        ABuilder.Append('"timeUnit":"default",').Append(SLineBreak);
+      tuMilliSecond:
+        ABuilder.Append('"timeUnit":"ms",').Append(SLineBreak);
+    end;
     ABuilder.Append('"threads":[').Append(SLineBreak);
     for I := 0 to High(TQThreadHelperSet.FHelpers) do
     begin
@@ -773,12 +838,25 @@ begin
   ADelta := LastStopTime - LastStartTime;
   if ADelta < 0 then
     ADelta := Int64($7FFFFFFFFFFFFFFF) - LastStartTime + LastStopTime;
+  if Runs=0 then
+  begin
+    MinTime:=ADelta;
+    MaxTime:=ADelta;
+  end
+  else
+  begin
   if ADelta > MaxTime then
     MaxTime := ADelta;
   if ADelta < MinTime then
     MinTime := ADelta;
+  end;
   Inc(TotalTime, ADelta);
   Inc(Runs);
+  if Assigned(AfterDone) then
+  begin
+    AfterDone(EscapedTimeMs(ADelta));
+    AfterDone := nil;
+  end;
 end;
 
 function TQProfile.TQProfileStackHelper.Push(const AName: String;
