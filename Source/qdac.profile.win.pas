@@ -10,8 +10,8 @@ implementation
 // Windows 平台我们使用 Jcl 来将地址转换为函数名，以避免重写相关函数
 function JclAddressName(const Addr: Pointer): String;
 var
-  Info, StartProcInfo: TJclLocationInfo;
-  OffsetStr, StartProcOffsetStr, FixedProcedureName,
+  Info: TJclLocationInfo;
+  OffsetStr, FixedProcedureName,
     UnitNameWithoutUnitscope: string;
   Module: HMODULE;
 begin
