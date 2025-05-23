@@ -2,6 +2,7 @@
 
 interface
 
+// 使用中文回复
 { QDAC 4.0 性能测量工具库
   1. 使用方式
   - 在函数的开始部分，增加 TQProfile.Calc('函数名称'); 调用
@@ -18,8 +19,7 @@ uses Classes, Sysutils, TimeSpan, Diagnostics, SyncObjs, Generics.Defaults,
 
 type
   // 当退出函数时的计时回调，参数为函数执行所使用的毫秒数
-  TQProfileTimeEscapeCallback = reference to procedure
-    (const ATimeEscapedMs: Double);
+  TQProfileTimeEscapeCallback = reference to procedure(const ATimeEscapedMs: Double);
 
   // 这个只是用来增加和减小引用计数使用，用户层调用 TQProfile.Calc 即可
   IQProfileHelper = interface
@@ -127,8 +127,7 @@ type
     FTimeUnit: TQProfileTimeUnit;
 
   type
-    TQThreadProfileHelper = class(TInterfacedObject, IInterface,
-      IQProfileHelper)
+    TQThreadProfileHelper = class(TInterfacedObject, IInterface, IQProfileHelper)
     protected
       FRoot: TQProfileStack;
       FCurrent: PQProfileStack;
@@ -139,8 +138,7 @@ type
       function CurrentStack: Pointer;
     public
       constructor Create; overload;
-      procedure Push(const AName: String; AStackRef: PQProfileStack;
-        const Addr: Pointer); inline;
+      procedure Push(const AName: String; AStackRef: PQProfileStack; const Addr: Pointer); inline;
       function _Release: Integer; overload; stdcall;
       property ThreadId: TThreadId read FThreadId;
       property ThreadName: String read FThreadName;
@@ -155,13 +153,12 @@ type
       FCount: Integer;
     public
       class constructor Create;
-      class function NeedHelper(const AThreadId: TThreadId; const AName: String;
-        AStackRef: PQProfileStack; const Addr: Pointer): IQProfileHelper;
+      class function NeedHelper(const AThreadId: TThreadId; const AName: String; AStackRef: PQProfileStack;
+        const Addr: Pointer): IQProfileHelper;
     end;
 
     TQProfileStackHelper = record helper for TQProfileStack
-      function Push(const AName: String; AStackRef: PQProfileStack;
-        const Addr: Pointer): PQProfileStack;
+      function Push(const AName: String; AStackRef: PQProfileStack; const Addr: Pointer): PQProfileStack;
       function Pop: PQProfileStack;
       function ThreadHelper: TQProfile.TQThreadProfileHelper;
     end;
@@ -172,7 +169,7 @@ type
     class function StackItemName(AStack: PQProfileStack): String; inline;
     class function EscapedText(const ADuration: UInt64): String;
     class function EscapedTimeMs(const ADuration: UInt64): Double;
-    class function TickDiff(const AStart, AStop: UInt64): UInt64;inline;
+    class function TickDiff(const AStart, AStop: UInt64): UInt64; inline;
   public
     class constructor Create;
     // 将跟踪记录转换为 JSON 字符串格式
@@ -198,8 +195,8 @@ type
     /// 1.此函数只记录了地址，用户需要关联 AddressName 函数来解决地址与名称的映射问题
     /// 2.AddressName 可以使用 JclDebug 中的 GetLocationInfo 函数来做简单封装，具体参考示例
     /// </remarks>
-    class function Calc(AStackRef: PQProfileStack = nil;
-      ACallback: TQProfileTimeEscapeCallback = nil): IQProfileHelper; overload;
+    class function Calc(AStackRef: PQProfileStack = nil; ACallback: TQProfileTimeEscapeCallback = nil)
+      : IQProfileHelper; overload;
     /// <summary>记录一个锚点</summary>
     /// <param name="ACallback">当函数执行完成时的回调，仅当次有效</param>
     /// <returns>如果 TQProfile.Enabled 为 true，返回当前线程的 IQProfileHelper 接口实例，否则返回空指针</returns>
@@ -207,8 +204,7 @@ type
     /// 1.此函数只记录了地址，用户需要关联 AddressName 函数来解决地址与名称的映射问题
     /// 2.AddressName 可以使用 JclDebug 中的 GetLocationInfo 函数来做简单封装，具体参考示例
     /// </remarks>
-    class function Calc(ACallback: TQProfileTimeEscapeCallback)
-      : IQProfileHelper; overload; inline;
+    class function Calc(ACallback: TQProfileTimeEscapeCallback): IQProfileHelper; overload; inline;
     /// 当前是否启用了跟踪，只读，只能通过命令行开关 EnableProfile 修改或者使用默认值
     class property Enabled: Boolean read FEnabled;
     /// 要保存的跟踪记录文件名，默认为 profiles.json
@@ -233,8 +229,8 @@ implementation
 {$IFDEF MSWINDOWS}
 
 uses Windows;
-function RtlCaptureStackBackTrace(FramesToSkip, FramesToCapture: DWORD;
-  BackTrace: Pointer; BackTraceHash: PDWORD): Word; stdcall; external kernel32;
+function RtlCaptureStackBackTrace(FramesToSkip, FramesToCapture: DWORD; BackTrace: Pointer; BackTraceHash: PDWORD)
+  : Word; stdcall; external kernel32;
 
 {$ENDIF}
 {$IFDEF POSIX}
@@ -253,11 +249,11 @@ const
   _URC_NO_REASON = 1;
   _URC_NORMAL_STOP = 4;
 
-function PosixTraceCallback(context: PUnwind_Context; p: Pointer)
-  : _Unwind_Reason_Code; cdecl;
+function PosixTraceCallback(context: PUnwind_Context; p: Pointer): _Unwind_Reason_Code; cdecl;
 var
   AStacks: PPosixStackItems;
 begin
+  AStacks := PPosixStackItems(p);
   if AStacks.MaxLevel > 0 then
   begin
     Dec(AStacks.MaxLevel);
@@ -272,8 +268,8 @@ begin
 end;
 
 // 兼容实现
-function RtlCaptureStackBackTrace(FramesToSkip, FramesToCapture: DWORD;
-  BackTrace: Pointer; BackTraceHash: PDWORD): Word;
+function RtlCaptureStackBackTrace(FramesToSkip, FramesToCapture: DWORD; BackTrace: Pointer;
+  BackTraceHash: PDWORD): Word;
 var
   AItems: TPosixStackItems;
 begin
@@ -287,13 +283,12 @@ end;
 {$ENDIF}
 { TQProfile }
 
-class function TQProfile.Calc(const AName: String; AStackRef: PQProfileStack;
-  ACallback: TQProfileTimeEscapeCallback): IQProfileHelper;
+class function TQProfile.Calc(const AName: String; AStackRef: PQProfileStack; ACallback: TQProfileTimeEscapeCallback)
+  : IQProfileHelper;
 begin
   if Enabled then
   begin
-    Result := TQThreadHelperSet.NeedHelper(TThread.Current.ThreadId, AName,
-      AStackRef, nil);
+    Result := TQThreadHelperSet.NeedHelper(TThread.Current.ThreadId, AName, AStackRef, nil);
     if Assigned(ACallback) then
       PQProfileStack(Result.CurrentStack).AfterDone := ACallback;
   end
@@ -301,8 +296,7 @@ begin
     Result := nil;
 end;
 
-class function TQProfile.Calc(AStackRef: PQProfileStack;
-  ACallback: TQProfileTimeEscapeCallback): IQProfileHelper;
+class function TQProfile.Calc(AStackRef: PQProfileStack; ACallback: TQProfileTimeEscapeCallback): IQProfileHelper;
 var
   Addr: Pointer;
 begin
@@ -310,8 +304,7 @@ begin
   RtlCaptureStackBackTrace(1, 1, @Addr, nil);
   if Enabled then
   begin
-    Result := TQThreadHelperSet.NeedHelper(TThread.Current.ThreadId, '',
-      AStackRef, Addr);
+    Result := TQThreadHelperSet.NeedHelper(TThread.Current.ThreadId, '', AStackRef, Addr);
     if Assigned(ACallback) then
       PQProfileStack(Result.CurrentStack).AfterDone := ACallback;
   end
@@ -319,8 +312,7 @@ begin
     Result := nil;
 end;
 
-class function TQProfile.Calc(ACallback: TQProfileTimeEscapeCallback)
-  : IQProfileHelper;
+class function TQProfile.Calc(ACallback: TQProfileTimeEscapeCallback): IQProfileHelper;
 begin
   Result := Calc(nil, ACallback);
 end;
@@ -345,8 +337,7 @@ class procedure TQProfile.Cleanup;
       end;
       if Assigned(AChild.FirstChild) then
         DoCleanup(AChild);
-      if Assigned(AChild.Parent) then
-        Dispose(AChild);
+      Dispose(AChild);
       AChild := ANext;
     end;
   end;
@@ -390,8 +381,7 @@ end;
 class function TQProfile.EscapedTimeMs(const ADuration: UInt64): Double;
 begin
   if TStopWatch.IsHighResolution then
-    Result := ADuration * (10000000.0 / TStopWatch.Frequency) /
-      TTimeSpan.TicksPerMillisecond
+    Result := ADuration * (10000000.0 / TStopWatch.Frequency) / TTimeSpan.TicksPerMillisecond
   else
     Result := ADuration / TTimeSpan.TicksPerMillisecond;
 end;
@@ -415,8 +405,7 @@ var
       for I := 0 to High(ANameArray) do
       begin
         ATemp.Name := ANameArray[I];
-        if not TArray.BinarySearch<TQProfileFunctionStatics>(Result.Functions,
-          ATemp, J, AComparer) then
+        if not TArray.BinarySearch<TQProfileFunctionStatics>(Result.Functions, ATemp, J, AComparer) then
         begin
           ATemp.Threads := [AThread];
           ATemp.MaxNestLevel := AItem.MaxNestLevel;
@@ -438,14 +427,12 @@ var
               MaxTime := AItem.MaxTime;
             Inc(Runs, AItem.Runs);
             Inc(TotalTime, AItem.TotalTime);
-            if not TArray.BinarySearch<PQProfileThreadStatics>(Threads,
-              AThread, J) then
+            if not TArray.BinarySearch<PQProfileThreadStatics>(Threads, AThread, J) then
               Insert(AThread, Threads, J);
           end;
         end;
         // 查找线程的函数列表
-        if not TArray.BinarySearch<String>(Result.Threads[ACount].Functions,
-          ATemp.Name, J) then
+        if not TArray.BinarySearch<String>(Result.Threads[ACount].Functions, ATemp.Name, J) then
           Insert(ATemp.Name, Result.Threads[ACount].Functions, J);
       end;
       DoBuild(AThread, AItem);
@@ -467,10 +454,8 @@ begin
     if Assigned(TQThreadHelperSet.FHelpers[I]) then
     begin
       Result.Threads[ACount].ThreadId := TQThreadHelperSet.FHelpers[I].ThreadId;
-      Result.Threads[ACount].FirstTime := TQThreadHelperSet.FHelpers[I]
-        .FirstTime;
-      Result.Threads[ACount].LatestTime := TQThreadHelperSet.FHelpers[I]
-        .LatestTime;
+      Result.Threads[ACount].FirstTime := TQThreadHelperSet.FHelpers[I].FirstTime;
+      Result.Threads[ACount].LatestTime := TQThreadHelperSet.FHelpers[I].LatestTime;
       DoBuild(@Result.Threads[ACount], @TQThreadHelperSet.FHelpers[I].FRoot);
       Inc(ACount);
     end;
@@ -546,18 +531,15 @@ var
       // 我们以JSON格式来保存
       ANameArray := StackItemName(AStack).Split(['#']);
       AFunctionEntry.Name := ANameArray[0];
-      if TArray.BinarySearch<TQProfileFunctionStatics>(AStatics.Functions,
-        AFunctionEntry, ATargetIdx, AComparer) then
+      if TArray.BinarySearch<TQProfileFunctionStatics>(AStatics.Functions, AFunctionEntry, ATargetIdx, AComparer) then
       begin
-        ABuilder.Append(AParentName).Append('-->fn').Append(ATargetIdx)
-          .Append(SLineBreak);
+        ABuilder.Append(AParentName).Append('-->fn').Append(ATargetIdx).Append(SLineBreak);
         for I := 1 to High(ANameArray) do
         begin
           AFunctionEntry.Name := ANameArray[I];
-          if TArray.BinarySearch<TQProfileFunctionStatics>(AStatics.Functions,
-            AFunctionEntry, ASourceIdx, AComparer) then
-            ABuilder.Append('fn').Append(ASourceIdx).Append('-.->fn')
-              .Append(ATargetIdx).Append(SLineBreak);
+          if TArray.BinarySearch<TQProfileFunctionStatics>(AStatics.Functions, AFunctionEntry, ASourceIdx, AComparer)
+          then
+            ABuilder.Append('fn').Append(ASourceIdx).Append('-.->fn').Append(ATargetIdx).Append(SLineBreak);
         end;
       end;
       ARef := AStack.FirstRef;
@@ -578,10 +560,8 @@ var
             continue;
         end;
         AFunctionEntry.Name := ARef.Ref.Name;
-        if TArray.BinarySearch<TQProfileFunctionStatics>(AStatics.Functions,
-          AFunctionEntry, ASourceIdx, AComparer) then
-          ABuilder.Append('fn').Append(ASourceIdx).Append('-.->fn')
-            .Append(ATargetIdx).Append(SLineBreak);
+        if TArray.BinarySearch<TQProfileFunctionStatics>(AStatics.Functions, AFunctionEntry, ASourceIdx, AComparer) then
+          ABuilder.Append('fn').Append(ASourceIdx).Append('-.->fn').Append(ATargetIdx).Append(SLineBreak);
         ARef := ARef.Next;
       end;
       AParentName := 'fn' + IntToStr(ATargetIdx)
@@ -604,26 +584,20 @@ begin
         Result := CompareText(L.Name, R.Name);
       end);
     ABuilder.Append('flowchart TB').Append(SLineBreak);
-    ABuilder.Append('start(("').Append(Translation.Start).Append('"))')
-      .Append(SLineBreak);
+    ABuilder.Append('start(("').Append(Translation.Start).Append('"))').Append(SLineBreak);
     // 插入线程结点
     for I := 0 to High(AStatics.Threads) do
     begin
-      ABuilder.Append('thread').Append(AStatics.Threads[I].ThreadId)
-        .Append('[["`').Append(Translation.Thread).Append(' ')
-        .Append(AStatics.Threads[I].ThreadId).Append(SLineBreak)
-        .Append(EscapedText(TickDiff(FStartupTime,
-        AStatics.Threads[I].FirstTime))).Append('->')
-        .Append(EscapedText(TickDiff(FStartupTime,
-        AStatics.Threads[I].LatestTime))).Append('`"]]').Append(SLineBreak);
-      ABuilder.Append('start-->thread').Append(AStatics.Threads[I].ThreadId)
-        .Append(SLineBreak);
+      ABuilder.Append('thread').Append(AStatics.Threads[I].ThreadId).Append('[["`').Append(Translation.Thread)
+        .Append(' ').Append(AStatics.Threads[I].ThreadId).Append(SLineBreak)
+        .Append(EscapedText(TickDiff(FStartupTime, AStatics.Threads[I].FirstTime))).Append('->')
+        .Append(EscapedText(TickDiff(FStartupTime, AStatics.Threads[I].LatestTime))).Append('`"]]').Append(SLineBreak);
+      ABuilder.Append('start-->thread').Append(AStatics.Threads[I].ThreadId).Append(SLineBreak);
     end;
     // 插入函数名结点
     for I := 0 to High(AStatics.Functions) do
     begin
-      ABuilder.Append('fn').Append(I).Append('(')
-        .Append(AnsiQuotedStr(AStatics.Functions[I].Name, '"')).Append(')')
+      ABuilder.Append('fn').Append(I).Append('(').Append(AnsiQuotedStr(AStatics.Functions[I].Name, '"')).Append(')')
         .Append(SLineBreak);
     end;
     for I := 0 to High(TQThreadHelperSet.FHelpers) do
@@ -659,26 +633,21 @@ var
       // 我们以JSON格式来保存
       ABuilder.Append(AIndent).Append('{').Append(SLineBreak);
       ANameArray := StackItemName(AStack).Split(['#']);
-      ABuilder.Append(ANextIndent).Append('"name":').Append('"')
-        .Append(ANameArray[0]).Append('",').Append(SLineBreak);
-      ABuilder.Append(ANextIndent).Append('"maxNestLevel":')
-        .Append(AStack.MaxNestLevel).Append(',').Append(SLineBreak);
-      ABuilder.Append(ANextIndent).Append('"runs":').Append(AStack.Runs)
+      ABuilder.Append(ANextIndent).Append('"name":').Append('"').Append(ANameArray[0]).Append('",').Append(SLineBreak);
+      ABuilder.Append(ANextIndent).Append('"maxNestLevel":').Append(AStack.MaxNestLevel).Append(',').Append(SLineBreak);
+      ABuilder.Append(ANextIndent).Append('"runs":').Append(AStack.Runs).Append(',').Append(SLineBreak);
+      ABuilder.Append(ANextIndent).Append('"minTime":').Append(EscapedText(AStack.MinTime)).Append(',')
+        .Append(SLineBreak);
+      ABuilder.Append(ANextIndent).Append('"maxTime":').Append(EscapedText(AStack.MaxTime)).Append(',')
+        .Append(SLineBreak);
+      ABuilder.Append(ANextIndent).Append('"totalTime":').Append(EscapedText(AStack.TotalTime)).Append(',')
+        .Append(SLineBreak);
+      ABuilder.Append(ANextIndent).Append('"avgTime":').Append(EscapedText(Trunc(AStack.TotalTime / AStack.Runs)))
         .Append(',').Append(SLineBreak);
-      ABuilder.Append(ANextIndent).Append('"minTime":')
-        .Append(EscapedText(AStack.MinTime)).Append(',').Append(SLineBreak);
-      ABuilder.Append(ANextIndent).Append('"maxTime":')
-        .Append(EscapedText(AStack.MaxTime)).Append(',').Append(SLineBreak);
-      ABuilder.Append(ANextIndent).Append('"totalTime":')
-        .Append(EscapedText(AStack.TotalTime)).Append(',').Append(SLineBreak);
-      ABuilder.Append(ANextIndent).Append('"avgTime":')
-        .Append(EscapedText(Trunc(AStack.TotalTime / AStack.Runs))).Append(',')
-        .Append(SLineBreak);
       ABuilder.Append(ANextIndent).Append('"firstTime":')
-        .Append(EscapedText(TickDiff(FStartupTime,AStack.FirstStartTime))).Append(',')
-        .Append(SLineBreak);
+        .Append(EscapedText(TickDiff(FStartupTime, AStack.FirstStartTime))).Append(',').Append(SLineBreak);
       ABuilder.Append(ANextIndent).Append('"lastStartTime":')
-        .Append(EscapedText(TickDiff(FStartupTime,AStack.LastStartTime)));
+        .Append(EscapedText(TickDiff(FStartupTime, AStack.LastStartTime)));
       if Assigned(AStack.FirstChild) then
       begin
         ABuilder.Append(',').Append(SLineBreak);
@@ -704,8 +673,7 @@ var
         AChildIndent := ANextIndent + '  ';
         for I := 1 to High(ANameArray) do
         begin
-          ABuilder.Append(AChildIndent).Append('"').Append(ANameArray[I])
-            .Append('"');
+          ABuilder.Append(AChildIndent).Append('"').Append(ANameArray[I]).Append('"');
           if (I < High(ANameArray)) or Assigned(AStack.FirstRef) then
             ABuilder.Append(',').Append(SLineBreak)
           else
@@ -714,8 +682,7 @@ var
         ARef := AStack.FirstRef;
         while Assigned(ARef) do
         begin
-          ABuilder.Append(AChildIndent).Append('"').Append(ARef.Ref.Name)
-            .Append('"');
+          ABuilder.Append(AChildIndent).Append('"').Append(ARef.Ref.Name).Append('"');
           ARef := ARef.Next;
           if Assigned(ARef) then
             ABuilder.Append(',').Append(SLineBreak)
@@ -733,14 +700,11 @@ var
       ABuilder.Append(AIndent).Append('{').Append(SLineBreak);
       with AStack.ThreadHelper do
       begin
-        ABuilder.Append(ANextIndent).Append('"threadId":').Append(FThreadId)
+        ABuilder.Append(ANextIndent).Append('"threadId":').Append(FThreadId).Append(',').Append(SLineBreak);
+        ABuilder.Append(ANextIndent).Append('"startTime":').Append(EscapedText(TickDiff(FStartupTime, FirstTime)))
           .Append(',').Append(SLineBreak);
-        ABuilder.Append(ANextIndent).Append('"startTime":')
-          .Append(EscapedText(TickDiff(FStartupTime, FirstTime))).Append(',')
-          .Append(SLineBreak);
-        ABuilder.Append(ANextIndent).Append('"latestTime":')
-          .Append(EscapedText(TickDiff(FStartupTime, LatestTime))).Append(',')
-          .Append(SLineBreak);
+        ABuilder.Append(ANextIndent).Append('"latestTime":').Append(EscapedText(TickDiff(FStartupTime, LatestTime)))
+          .Append(',').Append(SLineBreak);
       end;
       ABuilder.Append(ANextIndent).Append('"chains":[').Append(SLineBreak);
       AChildIndent := ANextIndent + '  ';
@@ -766,10 +730,8 @@ begin
   ABuilder := TStringBuilder.Create;
   try
     ABuilder.Append('{').Append(SLineBreak);
-    ABuilder.Append('"mainThreadId":').Append(MainThreadId).Append(',')
-      .Append(SLineBreak);
-    ABuilder.Append('"freq":').Append(TStopWatch.Frequency).Append(',')
-      .Append(SLineBreak);
+    ABuilder.Append('"mainThreadId":').Append(MainThreadId).Append(',').Append(SLineBreak);
+    ABuilder.Append('"freq":').Append(TStopWatch.Frequency).Append(',').Append(SLineBreak);
     case TimeUnit of
       tuDefault:
         ABuilder.Append('"timeUnit":"default",').Append(SLineBreak);
@@ -813,8 +775,7 @@ begin
   Result := FCurrent;
 end;
 
-procedure TQProfile.TQThreadProfileHelper.Push(const AName: String;
-AStackRef: PQProfileStack; const Addr: Pointer);
+procedure TQProfile.TQThreadProfileHelper.Push(const AName: String; AStackRef: PQProfileStack; const Addr: Pointer);
 begin
   FCurrent := FCurrent.Push(AName, AStackRef, Addr);
 end;
@@ -873,8 +834,8 @@ begin
   end;
 end;
 
-function TQProfile.TQProfileStackHelper.Push(const AName: String;
-AStackRef: PQProfileStack; const Addr: Pointer): PQProfileStack;
+function TQProfile.TQProfileStackHelper.Push(const AName: String; AStackRef: PQProfileStack; const Addr: Pointer)
+  : PQProfileStack;
 var
   AChild: PQProfileStack;
   procedure AddStackRef;
@@ -923,7 +884,7 @@ begin
     AChild := FirstChild;
     while Assigned(AChild) do
     begin
-      if CompareText(AChild.Name, AName) = 0 then
+      if AChild.InvokeSource = Addr then
       begin
         Inc(AChild.NestLevel);
         AChild.LastStartTime := TStopWatch.GetTimeStamp;
@@ -969,8 +930,7 @@ begin
   end;
 end;
 
-function TQProfile.TQProfileStackHelper.ThreadHelper
-  : TQProfile.TQThreadProfileHelper;
+function TQProfile.TQProfileStackHelper.ThreadHelper: TQProfile.TQThreadProfileHelper;
 var
   ARoot: PQProfileStack;
 begin
@@ -978,8 +938,7 @@ begin
   Result := nil;
   while Assigned(ARoot.Parent) do
     ARoot := ARoot.Parent;
-  Result := TQProfile.TQThreadProfileHelper
-    (IntPtr(ARoot) - (IntPtr(@Result.FRoot) - IntPtr(Result)));
+  Result := TQProfile.TQThreadProfileHelper(IntPtr(ARoot) - (IntPtr(@Result.FRoot) - IntPtr(Result)));
 end;
 
 { TQThreadHelperSet }
@@ -990,14 +949,12 @@ begin
   FHelpers := [];
 end;
 
-class function TQProfile.TQThreadHelperSet.NeedHelper(const AThreadId
-  : TThreadId; const AName: String; AStackRef: PQProfileStack;
-const Addr: Pointer): IQProfileHelper;
+class function TQProfile.TQThreadHelperSet.NeedHelper(const AThreadId: TThreadId; const AName: String;
+AStackRef: PQProfileStack; const Addr: Pointer): IQProfileHelper;
 const
   BUCKET_MASK = Integer($80000000);
   BUCKET_INDEX_MASK = Integer($7FFFFFFF);
-  function FindBucketIndex(const AHelpers: TArray<TQThreadProfileHelper>;
-  AThreadId: TThreadId): Integer;
+  function FindBucketIndex(const AHelpers: TArray<TQThreadProfileHelper>; AThreadId: TThreadId): Integer;
   var
     I, AHash: Integer;
     AItem: TQThreadProfileHelper;
@@ -1040,20 +997,46 @@ const
   var
     I, J: Integer;
   begin
-    if V > 1 then
+    { 判断整数V是否为素数 }
+    if V > 4 then
     begin
-      J := Trunc(sqrt(V));
-      for I := 2 to J do
+      { 初步筛选：排除2和3的倍数 }
+      { 所有素数（除2、3外）均可表示为6k±1形式，因此非素数必被2或3整除 }
+      Result := (V mod 2 <> 0) and (V mod 3 <> 0);
+
+      if Result then
       begin
-        if V mod I = 0 then
-          Exit(false);
+        { 计算最大需检查的因子范围：sqrt(V) }
+        J := Trunc(sqrt(V));
+        I := 5; { 从5开始检查6k±1形式的因子 }
+
+        { 循环检查所有可能的6k±1因子 }
+        { 例如：5(6*1-1)、7(6*1+1)、11(6*2-1)、13(6*2+1)... }
+        while I <= J do
+        begin
+          { 同时检查I和I+2，对应6k-1和6k+1 }
+          if (V mod I = 0) or (V mod (I + 2) = 0) then
+            Exit(false); { 发现因子，直接返回非素数 }
+          Inc(I, 6); { 步长6，跳转到下一组6k±1 }
+        end;
       end;
-      Result := true;
     end
     else
-      Result := false;
+    begin
+      { 处理特殊情况：V ≤ 4 }
+      { 仅有2和3是素数，其余（如4、1、0、负数）均非素数 }
+      Result := V in [2, 3];
+    end;
   end;
+{
+  2. **线程安全问题**
 
+  **问题位置**：`TQThreadHelperSet.NeedHelper`中的`ReallocArray`。
+  **问题描述**：重新分配`FHelpers`数组时，其他线程可能正在读取旧数组，导致访问越界或无效指针。
+
+  **修复建议**：在`ReallocArray`过程中使用写锁（`FLocker.BeginWrite`）确保独占访问，防止并发修改。
+
+}
   procedure ReallocArray;
   var
     ANew: TArray<TQThreadProfileHelper>;
@@ -1073,10 +1056,10 @@ const
       1021:
         SetLength(ANew, 2039)
     else
-      // 尽量质数，超过2039个线程的话，我们翻倍现算
+      // 尽量质数，超过2039个线程的话,我们每次最多只增加 4096 项
       begin
         I := Length(FHelpers) + 1;
-        L := Length(FHelpers) shl 1 - 1;
+        L := Length(FHelpers) + 4096;
         while (L >= I) and (not IsPrime(L)) do
           Dec(L);
         if I >= L then
@@ -1089,8 +1072,7 @@ const
       end;
     end;
     for I := 0 to High(FHelpers) do
-      ANew[FindBucketIndex(ANew, FHelpers[I].ThreadId) and BUCKET_INDEX_MASK] :=
-        FHelpers[I];
+      ANew[FindBucketIndex(ANew, FHelpers[I].ThreadId) and BUCKET_INDEX_MASK] := FHelpers[I];
     FHelpers := ANew;
   end;
 
@@ -1148,3 +1130,51 @@ finalization
 TQProfile.Cleanup;
 
 end.
+
+(* ************ Find Bugs ***************
+  以下是代码中可能存在的bug及其解释：
+
+  3. **POSIX堆栈追踪错误**
+
+  **问题位置**：`RtlCaptureStackBackTrace`的POSIX实现。
+
+  **问题描述**：`PosixTraceCallback`中`AStacks.MaxLevel`递减逻辑错误，导致获取的堆栈层级不正确。此外，`Result := AItem.Count`应为`Result :=
+  AItems.Count`，存在变量名拼写错误。
+  **修复建议**：修正变量名，并调整层级计数逻辑，确保正确捕获堆栈地址。
+
+  4. **递归调用判断错误**
+
+  **问题位置**：`TQProfileStackHelper.Push`中的`IsNest`函数。
+  **问题描述**：当`AName`为空时，仅通过地址判断递归可能导致误判，尤其是在动态生成代码或不同函数共享地址的情况下。
+
+  **修复建议**：同时检查函数名和地址的匹配，确保递归判断更准确。
+
+  5. **引用计数管理错误**
+  **问题位置**：`TQThreadProfileHelper._Release`方法。
+
+  **问题描述**：在减少`AddedRefCount`后未正确处理所有引用情况，可能导致嵌套层级过早减少，影响统计结果。
+  **修复建议**：确保仅在所有引用释放后才减少`NestLevel`，并正确更新父栈。
+
+  6.
+  **数组处理错误**
+  **问题位置**：`TQProfile.GetStatics`中的`TArray.BinarySearch`使用。
+  **问题描述**：函数统计数组可能未正确排序，导致二分查找失败，插入位置错误。
+
+  **修复建议**：在插入前确保数组已按名称排序，或改用字典结构提高查找效率。
+
+  7. **时间差计算错误**
+  **问题位置**：`TQProfile.TickDiff`函数。
+
+  **问题描述**：当时间戳回绕时，计算逻辑可能返回错误差值。假设时间戳为64位，实际无需处理回绕，直接相减即可。
+  **修复建议**：简化计算为`Result := AStop -
+  AStart`，因为`UInt64`差值天然处理回绕。
+
+  **其他潜在问题**：
+  - **字符串分割问题**：`StackItemName`使用`Split(['#'])`，若函数名包含`#`可能导致统计分组错误。
+  -
+  **回调函数安全**：`AfterDone`回调可能被覆盖，尤其在异步调用中，导致部分回调未触发。建议使用列表管理多个回调。
+  -
+  **线程ID哈希冲突**：使用`Integer(AThreadId)`可能导致哈希冲突，建议改用更大的类型（如`NativeInt`）计算哈希值。
+
+  **总结**：这段代码在内存管理、线程安全、递归判断和平台兼容性方面存在较多潜在问题，需逐一验证并修正，以确保性能分析工具的准确性和稳定性。
+*)
