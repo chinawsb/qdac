@@ -30,8 +30,6 @@ object Form1: TForm1
     BevelOuter = bvNone
     ShowCaption = False
     TabOrder = 1
-    ExplicitLeft = -3
-    ExplicitTop = -3
     object Button1: TButton
       Left = 8
       Top = 8

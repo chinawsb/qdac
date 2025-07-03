@@ -13,12 +13,9 @@ interface
 {$DEFINE ENABLE_JCL_DEBUG }
 
 uses
-  Winapi.Windows, Winapi.Messages, Winapi.ShellAPI, System.SysUtils,
-  System.Variants,
-  System.Classes, Vcl.Graphics,
-  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls, IdContext,
-  IdCustomHTTPServer, IdBaseComponent, IdComponent, IdCustomTCPServer,
-  IdHTTPServer{$IFDEF ENABLE_JCL_DEBUG}, qdac.profile.win{$ENDIF};
+  Winapi.Windows, Winapi.Messages, Winapi.ShellAPI, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls, IdContext, IdCustomHTTPServer, IdBaseComponent,
+  IdComponent, IdCustomTCPServer, IdHTTPServer{$IFDEF ENABLE_JCL_DEBUG}, qdac.profile.win{$ENDIF};
 
 type
   TForm1 = class(TForm)
@@ -41,8 +38,8 @@ type
     procedure Button4Click(Sender: TObject);
     procedure Button5Click(Sender: TObject);
     procedure Button6Click(Sender: TObject);
-    procedure IdHTTPServer1CommandGet(AContext: TIdContext;
-      ARequestInfo: TIdHTTPRequestInfo; AResponseInfo: TIdHTTPResponseInfo);
+    procedure IdHTTPServer1CommandGet(AContext: TIdContext; ARequestInfo: TIdHTTPRequestInfo;
+      AResponseInfo: TIdHTTPResponseInfo);
     procedure Button7Click(Sender: TObject);
     procedure Button8Click(Sender: TObject);
     procedure chkByMsClick(Sender: TObject);
@@ -110,8 +107,7 @@ end;
 procedure TForm1.Button6Click(Sender: TObject);
 begin
   IdHTTPServer1.Active := true;
-  ShellExecute(Handle, 'open',
-    PChar('http://localhost:' + IntToStr(IdHTTPServer1.DefaultPort)), nil, nil,
+  ShellExecute(Handle, 'open', PChar('http://localhost:' + IntToStr(IdHTTPServer1.DefaultPort)), nil, nil,
     SW_SHOWNORMAL);
 end;
 
@@ -128,8 +124,7 @@ begin
   TQProfile.Calc(
     procedure(const AEscaped: Double)
     begin
-      Memo1.Lines.Add('Sleep(' + ASleep.ToString + ') 实际用时 ' +
-        AEscaped.ToString + ' 毫秒');
+      Memo1.Lines.Add('Sleep(' + ASleep.ToString + ') 实际用时 ' + AEscaped.ToString + ' 毫秒');
     end);
   ASleep := random(50 + random(300));
   TThread.Sleep(ASleep);
@@ -158,8 +153,8 @@ begin
   TQProfile.Translation.Thread := '线程';
 end;
 
-procedure TForm1.IdHTTPServer1CommandGet(AContext: TIdContext;
-ARequestInfo: TIdHTTPRequestInfo; AResponseInfo: TIdHTTPResponseInfo);
+procedure TForm1.IdHTTPServer1CommandGet(AContext: TIdContext; ARequestInfo: TIdHTTPRequestInfo;
+AResponseInfo: TIdHTTPResponseInfo);
   function ExtractJsFileName(const S: String): String;
   var
     AList: TArray<String>;
@@ -171,13 +166,10 @@ ARequestInfo: TIdHTTPRequestInfo; AResponseInfo: TIdHTTPResponseInfo);
   var
     AFileName: String;
   begin
-    if ARequestInfo.Document.StartsWith
-      ('/mermaid.esm.min/chunks/mermaid.esm.min/') then
-      AFileName := '../../mermaid.esm.min/chunks/' +
-        ExtractJsFileName(ARequestInfo.Document)
+    if ARequestInfo.Document.StartsWith('/mermaid.esm.min/chunks/mermaid.esm.min/') then
+      AFileName := '../../mermaid.esm.min/chunks/' + ExtractJsFileName(ARequestInfo.Document)
     else
-      AFileName := '../../mermaid.esm.min/' + ExtractJsFileName
-        (ARequestInfo.Document);
+      AFileName := '../../mermaid.esm.min/' + ExtractJsFileName(ARequestInfo.Document);
     if FileExists(AFileName) then
     begin
       AResponseInfo.ContentType := 'application/javascript;charset=utf-8';
@@ -198,8 +190,7 @@ begin
       TQProfile.AsDiagrams + SLineBreak + //
       '</pre>' + SLineBreak + //
       '<script type="module">' + SLineBreak + //
-      'import mermaid from "/mermaid.esm.min/mermaid.esm.min.mjs"' +
-      SLineBreak + //
+      'import mermaid from "/mermaid.esm.min/mermaid.esm.min.mjs"' + SLineBreak + //
       'mermaid.initialize({ startOnLoad: true });' + SLineBreak + //
       '</script>' + SLineBreak + //
       '</body>' + SLineBreak + //

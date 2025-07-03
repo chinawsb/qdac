@@ -2,6 +2,7 @@
 
 interface
 
+// Todo:support json schema :https://json-schema.org/understanding-json-schema/keywords
 // FPC 暂时未提供 Hash 单元，所以在使用 FPC 时，使用 FAST_HASH_CODE 宏
 uses Classes, SysUtils, SysConst, Timespan, Generics.Collections, NetEncoding,
   FmtBcd,
@@ -33,7 +34,7 @@ type
   TQJsonParseStage = (jpsStartItem, jpsParseValue, jpsEndItem, jpsStartArray,
     jpsEndArray, jpsStartObject, jpsEndObject);
   // 解析动作：继承/跳过后续/停止解析
-  TQJsonParseAction = (jpaContinue, jpaSkipSiblings, jpaStop);
+  TQJsonParseAction = (jpaContinue, jpaSkipCurrent, jpaSkipSiblings, jpaStop);
   // 存贮模式：正常，缓存重复字符串值以节省内存,快速只进
   TQJsonStoreMode = (jsmNormal, jsmCacheNames, jsmCacheStrings, jsmForwardOnly);
   // 关键词类型
@@ -291,6 +292,12 @@ type
       const ADefVal: TDateTime = 0): TDateTime;
     function TryToDateTime(var AValue: TDateTime): Boolean;
 
+    // 字符串
+    function ValueByName(const AName: UnicodeString;
+      ADefVal: UnicodeString = ''): String;
+    function ValueByPath(const AName: UnicodeString;
+      ADefVal: UnicodeString = ''): String;
+
     property Name: UnicodeString read GetName;
     property Path: UnicodeString read GetPath;
     property Level: Integer read GetLevel;
@@ -312,7 +319,7 @@ type
 
   // JSON 解析器
   // 名称缓存模式下，需要考虑将 FNameIndexes 设置为全局，这样就可以尽量少占用内存，字符串值一般不缓存，但枚举类型就几个值，可以缓存重复使用
-  TQJsonParser = class sealed(TInterfacedObject { , IQSerializeReader } )
+  TQJsonParser = class sealed(TInterfacedObject)
   private type
     TCharReader = procedure of object;
 
@@ -391,6 +398,19 @@ type
       AEncoding: TEncoding; ACallback: TQJsonParseCallback = nil);
   end;
 
+  TQJsonDecoder = class sealed(TQBaseReader)
+  protected
+    FRootNode: TQJsonNode;
+    FText: UnicodeString;
+    FStream: TStream;
+    procedure DoParse; override;
+    procedure HandleStage(AParser: TQJsonParser; AItem: PQJsonNode;
+      AStage: TQJsonParseStage; var AParseAction: TQJsonParseAction);
+  public
+    constructor Create(AStream: TStream); overload;
+    constructor Create(const AText: UnicodeString); overload;
+  end;
+
   // JSON 编码器
   TQJsonEncoder = class sealed(TInterfacedObject, IQSerializeWriter)
   private type
@@ -414,6 +434,7 @@ type
     FEncoding: TEncoding;
     FBuffer: TBytes;
     FBuffered: Integer;
+    FStartOffset: Int64;
     FFormat: TQJsonFormatSettings;
   protected
     class procedure DoJsonEscape(ABuilder: PQPageBuffers;
@@ -431,7 +452,8 @@ type
       : UnicodeString;
     constructor Create(AStream: TStream; AWriteBom: Boolean;
       const AFormat: TQJsonFormatSettings; AEncoding: TEncoding;
-      ABufSize: Integer);
+      ABufSize: Integer); overload;
+    constructor Create; overload;
     destructor Destroy; override;
     procedure StartObject;
     procedure EndObject;
@@ -470,6 +492,7 @@ type
     //
     procedure WriteComment(const AComment: UnicodeString);
     procedure Flush;
+    function ToString: String; override;
     class property DefaultFormat: TQJsonFormatSettings read FDefaultFormat
       write FDefaultFormat;
   end;
@@ -776,6 +799,7 @@ begin
                     // AName=AChild.FName
                     ;
                 end;
+                DoParseStage(AChild, TQJsonParseStage.jpsStartItem);
               end
               else
               begin
@@ -1697,6 +1721,8 @@ end;
 function TQJsonParser.TryParseStream(ARoot: PQJsonNode; const AStream: TStream;
   AEncoding: TEncoding; ACallback: TQJsonParseCallback): Boolean;
   procedure DetectEncoding;
+  var
+    I: Integer;
   begin
     // 检测 BOM
     if FBufferSize >= 2 then
@@ -1725,7 +1751,14 @@ function TQJsonParser.TryParseStream(ARoot: PQJsonNode; const AStream: TStream;
         if (FBuffer[0] > 0) and (FBuffer[1] = 0) then
           AEncoding := TEncoding.Unicode
         else if (FBuffer[0] = 0) and (FBuffer[1] > 0) then
-          AEncoding := TEncoding.BigEndianUnicode;
+          AEncoding := TEncoding.BigEndianUnicode
+        else
+        begin
+          if TEncoding.UTF8.IsBufferValid(FBuffer, FBufferSize) then
+            AEncoding := TEncoding.UTF8
+          else
+            AEncoding := TEncoding.ANSI;
+        end;
       end;
     end;
   end;
@@ -2005,7 +2038,6 @@ function TQJsonNode.DateTimeByName(const AName: UnicodeString;
 var
   AChild: PQJsonNode;
 begin
-  Assert(FDataType = jdtObject);
   AChild := ItemByName(AName);
   if Assigned(AChild) and AChild.TryToDateTime(Result) then
     Exit
@@ -2136,7 +2168,6 @@ function TQJsonNode.FloatByName(const AName: UnicodeString;
 var
   AChild: PQJsonNode;
 begin
-  Assert(FDataType = jdtObject);
   AChild := ItemByName(AName);
   if Assigned(AChild) and AChild.TryToFloat(Result) then
     Exit
@@ -2349,7 +2380,6 @@ function TQJsonNode.IntByName(const AName: UnicodeString;
 var
   AChild: PQJsonNode;
 begin
-  Assert(FDataType = jdtObject);
   AChild := ItemByName(AName);
   if Assigned(AChild) and AChild.TryToInt(Result) then
     Exit
@@ -2371,7 +2401,7 @@ end;
 
 function TQJsonNode.InternalAdd: PQJsonNode;
 begin
-  Result:=AcquireJson;
+  Result := AcquireJson;
   Result.FParent := @Self;
   Result.FPrior := FValue.Items.Last;
   if Assigned(FValue.Items.Last) then
@@ -3575,6 +3605,30 @@ begin
   end;
 end;
 
+function TQJsonNode.ValueByName(const AName: UnicodeString;
+ADefVal: UnicodeString): String;
+var
+  AChild: PQJsonNode;
+begin
+  AChild := ItemByName(AName);
+  if Assigned(AChild) then
+    Result := AChild.AsString
+  else
+    Result := ADefVal;
+end;
+
+function TQJsonNode.ValueByPath(const AName: UnicodeString;
+ADefVal: UnicodeString): String;
+var
+  AChild: PQJsonNode;
+begin
+  AChild := ItemByPath(AName);
+  if Assigned(AChild) then
+    Result := AChild.AsString
+  else
+    Result := ADefVal;
+end;
+
 function TQJsonNode.Add(const AValue: UnicodeString): PQJsonNode;
 begin
   Result := Add;
@@ -3693,7 +3747,6 @@ const ADefVal: TBcd): TBcd;
 var
   AChild: PQJsonNode;
 begin
-  Assert(FDataType = jdtObject);
   AChild := ItemByName(AName);
   if Assigned(AChild) and AChild.TryToBcd(Result) then
     Exit
@@ -3718,7 +3771,6 @@ const ADefVal: Boolean): Boolean;
 var
   AChild: PQJsonNode;
 begin
-  Assert(FDataType = jdtObject);
   AChild := ItemByName(AName);
   if Assigned(AChild) and AChild.TryToBool(Result) then
     Exit
@@ -3769,6 +3821,7 @@ begin
   FEncoding := AEncoding;
   FStream := AStream;
   FFormat := AFormat;
+  FStartOffset := AStream.Position;
   if ABufSize <= 0 then // 默认 8KB
     ABufSize := 8192
   else if ABufSize < 1024 then // 最小分配1KB空间
@@ -3777,6 +3830,11 @@ begin
   if AWriteBom then
     AppendBom;
   FCurrent := @FRoot;
+end;
+
+constructor TQJsonEncoder.Create;
+begin
+  Create(TMemoryStream.Create, false, DefaultFormat, TEncoding.UTF8, 4196);
 end;
 
 destructor TQJsonEncoder.Destroy;
@@ -4000,6 +4058,19 @@ begin
   WriteString(AName, true);
   WriteString(':', false);
   FCurrent.Stage := wsValue;
+end;
+
+function TQJsonEncoder.ToString: String;
+var
+  ABytes: TBytes;
+  ACount: NativeInt;
+begin
+  Flush;
+  ACount := FStream.Position - FStartOffset;
+  SetLength(ABytes, ACount);
+  FStream.Position := FStartOffset;
+  FStream.ReadBuffer(ABytes, ACount);
+  Result := FEncoding.GetString(ABytes);
 end;
 
 procedure TQJsonEncoder.WriteComment(const AComment: UnicodeString);
@@ -4328,10 +4399,75 @@ begin
     TEncoding.UTF8, 8192);
 end;
 
-procedure CreateDefaultReader(AStream: TStream; var AReader: IQSerializeReader);
+procedure CreateDefaultReader(AStream: TStream; const AText: UnicodeString;
+var AReader: IQSerializeReader);
 begin
-  // Unsupport now
-  AReader := nil;
+  if Assigned(AStream) then
+    AReader := TQJsonDecoder.Create(AStream)
+  else
+    AReader := TQJsonDecoder.Create(AText);
+end;
+
+{ TQJsonDecoder }
+
+constructor TQJsonDecoder.Create(const AText: UnicodeString);
+begin
+  inherited Create;
+  FText := AText;
+end;
+
+constructor TQJsonDecoder.Create(AStream: TStream);
+begin
+  inherited Create;
+  FStream := AStream;
+end;
+
+procedure TQJsonDecoder.DoParse;
+var
+  AParser: TQJsonParser;
+begin
+  AParser := TQJsonParser.Create(TQJsonStoreMode.jsmForwardOnly);
+  try
+    if Assigned(FStream) then
+      AParser.ParseStream(@FRootNode, FStream, nil,
+        procedure(AParser: TQJsonParser; AItem: PQJsonNode;
+          AStage: TQJsonParseStage; var AParseAction: TQJsonParseAction)
+        begin
+          HandleStage(AParser, AItem, AStage, AParseAction);
+        end)
+    else
+      AParser.ParseText(@FRootNode, FText,
+        procedure(AParser: TQJsonParser; AItem: PQJsonNode;
+          AStage: TQJsonParseStage; var AParseAction: TQJsonParseAction)
+        begin
+          HandleStage(AParser, AItem, AStage, AParseAction);
+        end);
+  finally
+    FreeAndNil(AParser);
+  end;
+end;
+
+procedure TQJsonDecoder.HandleStage(AParser: TQJsonParser; AItem: PQJsonNode;
+AStage: TQJsonParseStage; var AParseAction: TQJsonParseAction);
+begin
+  case AStage of
+    jpsStartItem:
+      begin
+        if not TryRead(AItem.Name) then
+          AParseAction := TQJsonParseAction.jpaSkipCurrent;
+      end;
+    jpsEndItem:
+      begin
+      end;
+    jpsStartArray:
+      ;
+    jpsEndArray:
+      ;
+    jpsStartObject:
+      ;
+    jpsEndObject:
+      ;
+  end;
 end;
 
 initialization

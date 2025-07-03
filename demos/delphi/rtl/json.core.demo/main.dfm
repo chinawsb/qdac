@@ -61,7 +61,7 @@ object Form1: TForm1
     object Button4: TButton
       Left = 496
       Top = 8
-      Width = 75
+      Width = 100
       Height = 25
       Caption = 'RTTI'
       TabOrder = 4

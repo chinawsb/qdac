@@ -79,6 +79,7 @@ type
     TypeInfo: PTypeInfo;
     Fields: PQSerializeFields;
     Prior: PQSerializeStackItem;
+    UserData: Pointer;
   end;
 
   // 用户定义的类型序列化
@@ -99,7 +100,6 @@ type
   IQSerializeWriter = interface
     ['{6596818B-32B7-4A2F-9512-1229E7553A0B}']
     procedure StartObject;
-
     procedure EndObject;
     procedure StartArray;
     procedure EndArray;
@@ -135,23 +135,42 @@ type
     procedure Flush;
   end;
 
-  // 从流中反序列化实例
+  // 从流或字符串中反序列化实例
   IQSerializeReader = interface
     ['{F65DB855-C751-4C84-AD91-346ADC335D62}']
-    // 此接口需要考虑三种场景：
-    // 1.一次性完整序列化整个实例（全部缓存到内存）
-    // 2.只序列化一个对象（类JSONL处理）
-    // 3.只序列化一级元素（快速只进模式，只实例化一级元素）
+    procedure SetRoot(const AInstance: Pointer; AFields: PQSerializeFields);
+    function TryRead(const AName: String): Boolean;
+    procedure EndRead;
+    procedure DoParse;
+    function GetActiveInstance: Pointer;
+    function GetActiveFields: PQSerializeFields;
+    property ActiveInstance: Pointer read GetActiveInstance;
+    property ActiveFields: PQSerializeFields read GetActiveFields;
   end;
 
   TQSerializeWriterCreateProc = procedure(AStream: TStream;
     var AWriter: IQSerializeWriter);
-  TQSerializeReaderCreateProc = procedure(AStream: TStream;
-    var AWriter: IQSerializeReader);
+  TQSerializeReaderCreateProc = procedure(AStream: TStream;const AText:UnicodeString;
+    var AReader: IQSerializeReader);
 
   TQSerializeFormatCodec = record
     Reader: TQSerializeReaderCreateProc;
     Writer: TQSerializeWriterCreateProc;
+  end;
+
+  TQBaseReader = class(TInterfacedObject, IQSerializeReader)
+  protected
+    FRoot: TQSerializeStackItem;
+    FCurrent: PQSerializeStackItem;
+    function GetActiveInstance: Pointer;
+    function GetActiveFields: PQSerializeFields;
+    function TryRead(const AName: String): Boolean;
+    procedure EndRead;
+    procedure SetRoot(const AInstance: Pointer; AFields: PQSerializeFields);
+    procedure DoParse;virtual;abstract;
+  public
+    procedure Push(AInstance: Pointer; AFields: PQSerializeFields);
+    procedure Pop;
   end;
 
   TQSerializer = class sealed
@@ -2095,7 +2114,7 @@ begin
   System.TMonitor.Enter(Self);
   try
     if FCodecs.TryGetValue(AFormat, ACodec) and Assigned(ACodec.Reader) then
-      ACodec.Reader(AStream, AReader);
+      ACodec.Reader(AStream,'', AReader);
   finally
     System.TMonitor.Exit(Self);
   end;
@@ -2181,7 +2200,8 @@ end;
 class procedure TQSerializer.ToRtti<T>(AReader: IQSerializeReader;
 var AInstance: T);
 begin
-
+  AReader.SetRoot(@AInstance, Current.Find(TypeInfo(T)));
+  AReader.DoParse;
 end;
 
 { TQValueCaches<T> }
@@ -2638,6 +2658,65 @@ begin
   Assert(not Assigned(TypeData.PropInfo));
   ARef := AParent;
   Inc(ARef, Offset);
+end;
+
+{ TQBaseReader }
+
+procedure TQBaseReader.EndRead;
+begin
+  Pop;
+end;
+
+function TQBaseReader.GetActiveFields: PQSerializeFields;
+begin
+  Assert(Assigned(FCurrent));
+  Result := FCurrent.Instance;
+end;
+
+function TQBaseReader.GetActiveInstance: Pointer;
+begin
+  Result := FCurrent.Fields;
+end;
+
+procedure TQBaseReader.Pop;
+begin
+  Assert(Assigned(FCurrent), 'Can not popup,push/pop mismatch?');
+  FCurrent := FCurrent.UserData;
+end;
+
+procedure TQBaseReader.Push(AInstance: Pointer; AFields: PQSerializeFields);
+var
+  ANext: PQSerializeStackItem;
+begin
+  if not Assigned(FRoot.Instance) then
+    FCurrent := @FRoot
+  else
+  begin
+    New(ANext);
+    ANext.Prior := ANext;
+    FCurrent.UserData := ANext; // 使用 UserData 来实现双向链表
+    FCurrent := ANext;
+  end;
+  FCurrent.Instance := AInstance;
+  FCurrent.Fields := AFields;
+  FCurrent.TypeInfo := AFields.TypeData.TypeInfo;
+end;
+
+procedure TQBaseReader.SetRoot(const AInstance: Pointer;
+AFields: PQSerializeFields);
+begin
+  Push(AInstance, AFields);
+end;
+
+function TQBaseReader.TryRead(const AName: String): Boolean;
+var
+  AField: TQSerializeField;
+  AIdx: NativeInt;
+begin
+  Result := TArray.BinarySearch<TQSerializeField>(FCurrent.Fields.Fields,
+    AField, AIdx);
+  if Result then
+    Push(AField.FieldInstance<Pointer>(FCurrent.Instance), AField.Fields);
 end;
 
 initialization

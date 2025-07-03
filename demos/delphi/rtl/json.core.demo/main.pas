@@ -87,6 +87,8 @@ type
     property Count: Integer read GetCount write SetCount;
   end;
 
+  TSubscribeOrders = TArray<TSubscribeOrder>;
+
   [IncludeProps]
   TDemoCollectionItem = class(TCollectionItem)
   private
@@ -276,7 +278,7 @@ end;
 
 procedure TForm1.Button4Click(Sender: TObject);
 var
-  AOrders: TArray<TSubscribeOrder>;
+  AOrders: TSubscribeOrders;
   ATime: TDateTime;
 const
   KnownColors: array [0 .. 5] of TColor = (clBlack, clRed, clYellow, clPurple,
@@ -312,8 +314,7 @@ begin
   var
   AStream := TBytesStream.Create;
   // Use default format settings
-  TQSerializer.Current.SaveToStream < TArray < TSubscribeOrder >>
-    (AOrders, AStream, 'json');
+  TQSerializer.Current.SaveToStream<TSubscribeOrders>(AOrders, AStream, 'json');
   // More settings create new encoder and setup properties
   // var
   // AEncoder := TQJsonEncoder.Create(AStream, true, TQJsonEncoder.DefaultFormat,
@@ -323,6 +324,9 @@ begin
   // (AEncoder, AOrders);
   AStream.Position := 0;
   Memo1.Lines.Add(TEncoding.Utf8.GetString(AStream.Bytes));
+  SetLength(AOrders, 0);
+  AStream.Position := 0;
+  TQSerializer.Current.LoadFromStream<TSubscribeOrders>(AOrders, AStream);
   FreeAndNil(AStream);
 end;
 
