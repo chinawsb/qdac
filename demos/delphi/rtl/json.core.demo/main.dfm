@@ -103,6 +103,15 @@ object Form1: TForm1
       TabOrder = 8
       OnClick = Button9Click
     end
+    object Button10: TButton
+      Left = 496
+      Top = 39
+      Width = 100
+      Height = 25
+      Caption = 'Stream'
+      TabOrder = 9
+      OnClick = Button10Click
+    end
   end
   object Memo1: TMemo
     Left = 0

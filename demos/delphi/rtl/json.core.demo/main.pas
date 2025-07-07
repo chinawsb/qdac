@@ -7,7 +7,7 @@ uses
   System.TypInfo, System.Rtti,
   System.Generics.Collections, System.DateUtils, System.VarCmplx, Data.FMTBcd,
   System.Classes, Vcl.Graphics, System.JSON, System.Diagnostics,
-  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, qdac.attribute, qdac.serialize.core,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, qdac.common, qdac.attribute, qdac.serialize.core,
   qdac.JSON.core,
   Vcl.StdCtrls,
   Vcl.Buttons, Vcl.ExtCtrls;
@@ -25,6 +25,7 @@ type
     Button7: TButton;
     Button8: TButton;
     Button9: TButton;
+    Button10: TButton;
     procedure Button1Click(Sender: TObject);
     procedure Button2Click(Sender: TObject);
     procedure Button3Click(Sender: TObject);
@@ -35,14 +36,14 @@ type
     procedure Button8Click(Sender: TObject);
     procedure Button9Click(Sender: TObject);
     procedure FormCreate(Sender: TObject);
+    procedure Button10Click(Sender: TObject);
   private
     { Private declarations }
   public
     { Public declarations }
   end;
 
-  TOrderStatus = (osUnknown, osBeforePay, osAfterPay, osPrinted, osSent,
-    osSigned, osReject);
+  TOrderStatus = (osUnknown, osBeforePay, osAfterPay, osPrinted, osSent, osSigned, osReject);
   [Prefix('ob')]
   TOrderBookmark = (obStep, obVip, obRefund, obBlocked);
   TOrderBookmarks = set of TOrderBookmark;
@@ -120,11 +121,23 @@ implementation
 type
   TCustomRecordWriter = class(TInterfacedObject, IQCustomSerializer)
   private
-    procedure Write(AWriter: IQSerializeWriter; AStack: PQSerializeStackItem;
-      AField: PQSerializeField);
-    procedure Read(AReader: IQSerializeReader; AStack: PQSerializeStackItem;
-      AField: PQSerializeField);
+    procedure Write(AWriter: IQSerializeWriter; AStack: PQSerializeStackItem; AField: PQSerializeField);
+    procedure Read(AReader: IQSerializeReader; AStack: PQSerializeStackItem; AField: PQSerializeField);
   end;
+
+procedure TForm1.Button10Click(Sender: TObject);
+var
+  ANode: TQJsonNode;
+  ABytes: TBytes;
+begin
+  ANode := Default (TQJsonNode);
+  // 我们使用 Base64 编码流，可以通过 TBaseStreamCodec 的子类
+  ANode.SetStreamCodec(TBase64StreamCodec);
+  ABytes := TEncoding.utf8.GetBytes('This is a demo of Utf8 String');
+  ANode.AsStream.LoadFromBuffer(ABytes, 0, Length(ABytes));
+  Memo1.Lines.Add(ANode.AsString);
+  ANode.Reset;
+end;
 
 procedure TForm1.Button1Click(Sender: TObject);
 const
@@ -140,7 +153,7 @@ const
     Memo1.Lines.Add('Start parse ' + AText);
     Memo1.Update;
     var
-    ABytes := TEncoding.Utf8.GetBytes(AText);
+    ABytes := TEncoding.utf8.GetBytes(AText);
     D2 := TThread.GetTickCount64;
     for var I := 0 to Count - 1 do
     begin
@@ -156,20 +169,16 @@ const
     for var I := 0 to Count - 1 do
       ANode.AsJson := AText;
     D1 := Int64(TThread.GetTickCount64) - D1;
-    Memo1.Lines.Add('  QJSON(Normal):' + D1.ToString + 'ms(' +
-      FormatFloat('0.00', D1 * 100 / D2) + '%)');
-    Memo1.Lines.Add('    Compare result:' + FormatFloat('0.00',
-      (D2 - D1) * 100 / D2) + '%');
+    Memo1.Lines.Add('  QJSON(Normal):' + D1.ToString + 'ms(' + FormatFloat('0.00', D1 * 100 / D2) + '%)');
+    Memo1.Lines.Add('    Compare result:' + FormatFloat('0.00', (D2 - D1) * 100 / D2) + '%');
 
     D3 := Int64(TThread.GetTickCount64);
     for var I := 0 to Count - 1 do
       ANode.TryParse(AText, jsmForwardOnly);
     D3 := Int64(TThread.GetTickCount64) - D3;
 
-    Memo1.Lines.Add('  QJSON(FowardOnly):' + D3.ToString + 'ms(' +
-      FormatFloat('0.00', D3 * 100 / D2) + '%)');
-    Memo1.Lines.Add('    Compare result:' + FormatFloat('0.00',
-      (D2 - D3) * 100 / D2) + '%');
+    Memo1.Lines.Add('  QJSON(FowardOnly):' + D3.ToString + 'ms(' + FormatFloat('0.00', D3 * 100 / D2) + '%)');
+    Memo1.Lines.Add('    Compare result:' + FormatFloat('0.00', (D2 - D3) * 100 / D2) + '%');
 
     Memo1.Update;
     ANode.Reset;
@@ -192,13 +201,11 @@ var
   D1, D2, D3: Cardinal;
 const
   Count = 1000000;
-  AJsonText =
-    '[{"tid":"123456","name":"jone sim"},{"tid":"567890","name":"jone sim"}]';
+  AJsonText = '[{"tid":"123456","name":"jone sim"},{"tid":"567890","name":"jone sim"}]';
 begin
   AJson := TQJsonNode.Create;
   Memo1.Lines.Clear;
-  Memo1.Lines.Add('Before parse Cached Items =' +
-    TQJsonStringCaches.Current.Count.ToString);
+  Memo1.Lines.Add('Before parse Cached Items =' + TQJsonStringCaches.Current.Count.ToString);
   Memo1.Update;
   TQJsonStringCaches.Current.KeepCaches := true;
 
@@ -212,19 +219,16 @@ begin
   for var I := 0 to Count - 1 do
     AJson.TryParse(AJsonText, jsmCacheStrings);
   D1 := TThread.GetTickCount - D1;
-  Memo1.Lines.Add('  CacheStrings used time ' + D1.ToString + 'ms(' +
-    FormatFloat('0.00', D1 * 100 / D2) + '%)');
+  Memo1.Lines.Add('  CacheStrings used time ' + D1.ToString + 'ms(' + FormatFloat('0.00', D1 * 100 / D2) + '%)');
   Memo1.Update;
   var
-    AData: TBytes := TEncoding.Utf8.GetBytes(AJsonText);
+    AData: TBytes := TEncoding.utf8.GetBytes(AJsonText);
   D3 := TThread.GetTickCount;
   for var I := 0 to Count - 1 do
     TJsonValue.ParseJSONValue(AData, 0).Free;
   D3 := TThread.GetTickCount - D3;
-  Memo1.Lines.Add('  System.JSON used time ' + D3.ToString + 'ms(' +
-    FormatFloat('0.00', D3 * 100 / D2) + '%)');
-  Memo1.Lines.Add('After parse Cached Items =' +
-    TQJsonStringCaches.Current.Count.ToString);
+  Memo1.Lines.Add('  System.JSON used time ' + D3.ToString + 'ms(' + FormatFloat('0.00', D3 * 100 / D2) + '%)');
+  Memo1.Lines.Add('After parse Cached Items =' + TQJsonStringCaches.Current.Count.ToString);
   Memo1.Lines.Add(AJson.AsJson);
   AJson.Free;
 end;
@@ -271,8 +275,7 @@ begin
     TQJsonStringCaches.Current.AddRef(@AList[I]);
   end;
   D2 := TThread.GetTickCount - D2;
-  Memo1.Lines.Add('FashHash used ' + D2.ToString + 'ms(' + FormatFloat('0.00',
-    D2 * 100 / D1) + '%)');
+  Memo1.Lines.Add('FashHash used ' + D2.ToString + 'ms(' + FormatFloat('0.00', D2 * 100 / D1) + '%)');
   TQJsonStringCaches.Current.Clear;
 end;
 
@@ -281,22 +284,19 @@ var
   AOrders: TSubscribeOrders;
   ATime: TDateTime;
 const
-  KnownColors: array [0 .. 5] of TColor = (clBlack, clRed, clYellow, clPurple,
-    clBlue, clWhite);
+  KnownColors: array [0 .. 5] of TColor = (clBlack, clRed, clYellow, clPurple, clBlue, clWhite);
 begin
   SetLength(AOrders, 10);
   ATime := Now;
   for var I := 0 to High(AOrders) do
   begin
     AOrders[I].PackageId := 100000 + I * 1000 + random(100);
-    AOrders[I].Tid := FormatDateTime('yymmdd-', ATime) +
-      TStopWatch.GetTimeStamp.ToString;
+    AOrders[I].Tid := FormatDateTime('yymmdd-', ATime) + TStopWatch.GetTimeStamp.ToString;
     AOrders[I].Price := random(10000) / 100;
     AOrders[I].PackageWeight := random(100000) / 1000;
     AOrders[I].PackageVolume := random(10000) / 1000;
     AOrders[I].CreateTime := ATime - random(1000) / 1000;
-    AOrders[I].ConfirmTime := ATime + (ATime - AOrders[I].CreateTime) *
-      random(100) / 100;
+    AOrders[I].ConfirmTime := ATime + (ATime - AOrders[I].CreateTime) * random(100) / 100;
     AOrders[I].Status := TOrderStatus(random(Ord(High(TOrderStatus)) + 1));
     AOrders[I].Paid := AOrders[I].Status >= TOrderStatus.osAfterPay;
     AOrders[I].Bookmarks := [obRefund, obVip];
@@ -323,7 +323,7 @@ begin
   // TQSerializer.Current.FromRtti < TArray < TSubscribeOrder >>
   // (AEncoder, AOrders);
   AStream.Position := 0;
-  Memo1.Lines.Add(TEncoding.Utf8.GetString(AStream.Bytes));
+  Memo1.Lines.Add(TEncoding.utf8.GetString(AStream.Bytes));
   SetLength(AOrders, 0);
   AStream.Position := 0;
   TQSerializer.Current.LoadFromStream<TSubscribeOrders>(AOrders, AStream);
@@ -340,7 +340,7 @@ begin
   var
   AFormat := TQJsonEncoder.DefaultFormat;
   AFormat.Settings := AFormat.Settings + [jesDoFormat];
-  AWriter := TQJsonEncoder.Create(AStream, true, AFormat, TEncoding.Utf8, 0);
+  AWriter := TQJsonEncoder.Create(AStream, true, AFormat, TEncoding.utf8, 0);
   try
     AWriter.StartObject;
     AWriter.WritePair('allow', true);
@@ -355,7 +355,7 @@ begin
     AWriter.EndObject;
     AStream.Position := 0;
     Memo1.Lines.Add('Encoded json:');
-    Memo1.Lines.Add(TEncoding.Utf8.GetString(TBytesStream(AStream).Bytes));
+    Memo1.Lines.Add(TEncoding.utf8.GetString(TBytesStream(AStream).Bytes));
     var
       AJson: TQJsonNode;
     AStream.Position := 0;
@@ -380,7 +380,7 @@ begin
   TQSerializer.Current.SaveToStream<TStrings>(AList, AStream, 'json');
   FreeAndNil(AList);
   AStream.Position := 0;
-  Memo1.Lines.Add(TEncoding.Utf8.GetString(AStream.Bytes));
+  Memo1.Lines.Add(TEncoding.utf8.GetString(AStream.Bytes));
   FreeAndNil(AStream);
 end;
 
@@ -391,11 +391,10 @@ var
 begin
   AStream := TBytesStream.Create;
   AList := TList<String>.Create(['abc', 'def']);
-  TQSerializer.Current.SaveToStream < TList < String >>
-    (AList, AStream, 'json');
+  TQSerializer.Current.SaveToStream < TList < String >> (AList, AStream, 'json');
   FreeAndNil(AList);
   AStream.Position := 0;
-  Memo1.Lines.Add(TEncoding.Utf8.GetString(AStream.Bytes));
+  Memo1.Lines.Add(TEncoding.utf8.GetString(AStream.Bytes));
   FreeAndNil(AStream);
 end;
 
@@ -408,11 +407,10 @@ begin
   ACollection := TDemoCollection.Create(Self, TDemoCollectionItem);
   (ACollection.Add as TDemoCollectionItem).Name := 'abc';
   (ACollection.Add as TDemoCollectionItem).Name := 'def';
-  TQSerializer.Current.SaveToStream<TDemoCollection>(ACollection,
-    AStream, 'json');
+  TQSerializer.Current.SaveToStream<TDemoCollection>(ACollection, AStream, 'json');
   FreeAndNil(ACollection);
   AStream.Position := 0;
-  Memo1.Lines.Add(TEncoding.Utf8.GetString(AStream.Bytes));
+  Memo1.Lines.Add(TEncoding.utf8.GetString(AStream.Bytes));
   FreeAndNil(AStream);
 end;
 
@@ -426,15 +424,14 @@ begin
   AStream := TBytesStream.Create;
   TQSerializer.Current.SaveToStream<TCustomRecord>(ARec, AStream, 'json');
   AStream.Position := 0;
-  Memo1.Lines.Add(TEncoding.Utf8.GetString(AStream.Bytes));
+  Memo1.Lines.Add(TEncoding.utf8.GetString(AStream.Bytes));
   FreeAndNil(AStream);
 end;
 
 procedure TForm1.FormCreate(Sender: TObject);
 begin
   // 用户自定义读写方法
-  TQSerializer.Current.RegisterType(TypeInfo(TCustomRecord),
-    TCustomRecordWriter.Create);
+  TQSerializer.Current.RegisterType(TypeInfo(TCustomRecord), TCustomRecordWriter.Create);
 end;
 
 { TSubscribeOrder }
@@ -451,8 +448,7 @@ end;
 
 { TDemoCollection }
 
-constructor TDemoCollection.Create(AOwner: TPersistent;
-  ItemClass: TCollectionItemClass);
+constructor TDemoCollection.Create(AOwner: TPersistent; ItemClass: TCollectionItemClass);
 begin
   inherited;
 end;
@@ -478,18 +474,15 @@ end;
 
 { TCustomRecordWriter }
 
-procedure TCustomRecordWriter.Read(AReader: IQSerializeReader;
-  AStack: PQSerializeStackItem; AField: PQSerializeField);
+procedure TCustomRecordWriter.Read(AReader: IQSerializeReader; AStack: PQSerializeStackItem; AField: PQSerializeField);
 begin
   // todo:
 end;
 
-procedure TCustomRecordWriter.Write(AWriter: IQSerializeWriter;
-  AStack: PQSerializeStackItem; AField: PQSerializeField);
+procedure TCustomRecordWriter.Write(AWriter: IQSerializeWriter; AStack: PQSerializeStackItem; AField: PQSerializeField);
 begin
   if Assigned(AField) then
-    AWriter.WritePair(AField.FormatedName, PCustomRecord(AStack.Instance)
-      ^.ToString)
+    AWriter.WritePair(AField.FormatedName, PCustomRecord(AStack.Instance)^.ToString)
   else
     AWriter.WriteValue(PCustomRecord(AStack.Instance)^.ToString);
 end;
