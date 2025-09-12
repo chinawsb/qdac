@@ -469,6 +469,7 @@ type
 
 procedure PostLog(ALevel: TQLogLevel; const AMsg: QStringW; const ATag: QStringW = ''); overload;
 procedure PostLog(ALevel: TQLogLevel; const fmt: PWideChar; Args: array of const; const ATag: QStringW = ''); overload;
+procedure PostLogIf(const Accept:Boolean;ALevel: TQLogLevel; const fmt: PWideChar; Args: array of const; const ATag: QStringW = ''); overload;
 function CalcPerf(const ATag: QStringW; const ALogToConsole: Boolean = true): IPerfCounter;
 {$IFDEF POSIX}
 function GetCurrentProcessId: Integer;
@@ -663,6 +664,11 @@ end;
 procedure PostLog(ALevel: TQLogLevel; const fmt: PWideChar; Args: array of const; const ATag: QStringW);
 begin
   Logs.Post(ALevel, fmt, Args, ATag);
+end;
+procedure PostLogIf(const Accept:Boolean;ALevel: TQLogLevel; const fmt: PWideChar; Args: array of const; const ATag: QStringW = '');
+begin
+  if Accept then
+    PostLog(ALevel,fmt,Args,ATag);
 end;
 
 function CreateItemBuffer(ALevel: TQLogLevel; AMsgLen, ATagLen: Integer): PQLogItem;
