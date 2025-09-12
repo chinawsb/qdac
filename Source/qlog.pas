@@ -860,7 +860,7 @@ begin
     p := PQCharW(Value);
     while p^ <> #0 do
     begin
-      FAcceptTags[ACount - 1] := DecodeTokenW(p, ',', #0, true);
+      FAcceptTags[ACount - 1] := DecodeTokenW(p, PWideChar(','), #0, true);
       Dec(ACount);
     end;
   end
