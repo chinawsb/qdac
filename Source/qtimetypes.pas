@@ -2751,7 +2751,10 @@ begin
         until IsSpaceW(P) or (P^ = #0);
       end;
       SkipSpaceW(P);
-      Inc(AIdx);
+      if AIdx<tlpYear then
+        Inc(AIdx)
+      else
+        Break;
     end;
     if (P^ = '"') or (P^ = '''') then
       FContent := DequotedStrW(P, P^)
