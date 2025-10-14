@@ -306,7 +306,7 @@ interface
   * 修正了Assign函数的一处错误
 }
 // 测试环境仅为Delphi 2007或XE6，其它版本的开发环境，请自行修改
-uses classes, sysutils, math, types, qstring, typinfo, qrbtree, fmtbcd,
+uses classes, sysutils, math, types, qstring, typinfo, qrbtree, fmtbcd,syncobjs,
 {$IF RTLVersion>27}
   System.NetEncoding{$ELSE}EncdDecd{$IFEND}
 {$IFDEF MSWINDOWS}, windows{$ENDIF}
@@ -8899,8 +8899,6 @@ end;
 
 procedure TQJsonPool.PushJson(AJson: TQJson);
   procedure DirectFree(AItem: TQJson);
-  var
-    AChild: TQJson;
   begin
     while AItem.Count > 0 do
       DirectFree(AItem.Remove(AItem.Count - 1));
@@ -8910,7 +8908,6 @@ procedure TQJsonPool.PushJson(AJson: TQJson);
   procedure DoRelease(AItem: TQJson);
   var
     I: Integer;
-    AChild: TQJson;
   begin
     if FCount = FSize then // 超出池大小，直接释放
       DirectFree(AItem)

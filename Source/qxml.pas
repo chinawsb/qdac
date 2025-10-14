@@ -3955,7 +3955,7 @@ procedure TQXMLNode.ToRtti(ADest: Pointer; AType: PTypeInfo;
             if AFields[J].FieldType.Handle = TypeInfo(TGuid) then
               PGuid(IntPtr(ABaseAddr) + AFields[J].Offset)^ :=
                 StringToGuid(Attr.AsString)
-            else
+            else if Assigned(AChild) then
               AChild.ToRtti(Pointer(IntPtr(ABaseAddr) + AFields[J].Offset),
                 AFields[J].FieldType.Handle);
         end;

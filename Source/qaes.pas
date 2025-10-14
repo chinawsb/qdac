@@ -2692,7 +2692,9 @@ begin
       begin
         Result := (SizeOf(TQAESBuffer) - len);
         FillChar(ABuf[len], Result, Result);
-      end;
+      end
+    else
+      Result:=0;
   end;
 end;
 
@@ -4146,7 +4148,7 @@ var
 begin
   if Length(S) > 0 then
   begin
-    ABytes := DecodeBase64(S);
+    ABytes := DecodeBase64(AnsiString(S));
     if AHexBeforeBase64 then
       ABytes := HexToBin(AnsiDecode(PQCharA(ABytes), Length(ABytes)));
     if Length(ABytes) <> 0 then
@@ -4212,7 +4214,7 @@ begin
   if AHexBeforeBase64 then
     Result := EncodeString(BinToHex(AResult))
   else
-    Result := EncodeBase64(@AResult[0], Length(AResult));
+    Result := QStringW(EncodeBase64(@AResult[0], Length(AResult)));
 end;
 
 procedure TQAES.Encrypt(const AData: QStringW; var AResult: TBytes);

@@ -1160,8 +1160,6 @@ var
       Inc(p);
   end;
   procedure ParseInQuoter;
-  var
-    AQuoted: QCharW;
   begin
     AQuoter := p^;
     Inc(p);
