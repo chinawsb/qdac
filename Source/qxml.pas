@@ -233,8 +233,7 @@ type
     function Add(const AName: QStringW; AValue: Int64): Integer; overload;
     function Add(const AName: QStringW; AValue: Double): Integer; overload;
     function Add(const AName: QStringW; AValue: TGuid): Integer; overload;
-    function AddDateTime(const AName: QStringW; AValue: TDateTime)
-      : Integer; overload;
+    function AddDateTime(const AName: QStringW; AValue: TDateTime): Integer; overload;
 
     /// <summary>查找指定名称的属性</summary>
     /// <param name="AName">要查找的属性名称</param>
@@ -248,16 +247,12 @@ type
     /// <param name="AName">属性名称</param>
     /// <param name="ADefVal">如果属性不存在，返回的默认值</param>
     /// <returns>返回找到的属性的值，如果未找到，返回ADefVal参数的值</returns>
-    function ValueByName(const AName: QStringW; const ADefVal: QStringW = '')
-      : QStringW;
-    function BoolByName(const AName: QStringW;
-      const ADefVal: Boolean = False): Boolean;
+    function ValueByName(const AName: QStringW; const ADefVal: QStringW = ''): QStringW;
+    function BoolByName(const AName: QStringW; const ADefVal: Boolean = False): Boolean;
     function IntByName(const AName: QStringW; const ADefVal: Int64 = 0): Int64;
-    function FloatByName(const AName: QStringW;
-      const ADefVal: Double = 0): Double;
+    function FloatByName(const AName: QStringW; const ADefVal: Double = 0): Double;
     function GuidByName(const AName: QStringW; const ADefVal: TGuid): TGuid;
-    function DateTimeByName(const AName: QStringW; const ADefVal: TDateTime = 0)
-      : TDateTime;
+    function DateTimeByName(const AName: QStringW; const ADefVal: TDateTime = 0): TDateTime;
     /// <summary>删除指定索引的属性值</summary>
     /// <param name="AIndex">属性索引</param>
     procedure Delete(AIndex: Integer); overload;
@@ -277,15 +272,11 @@ type
     property Items[AIndex: Integer]: TQXMLAttr read GetItems; default;
     /// <summary>属性所有者结点</summary>
     property Owner: TQXMLNode read FOwner;
-    property AsString[AName: QStringW]: QStringW read GetAsString
-      write SetAsString;
+    property AsString[AName: QStringW]: QStringW read GetAsString write SetAsString;
     property AsInt[AName: QStringW]: Int64 read GetAsInt write SetAsInt;
-    property AsFloat[AName: QStringW]: Double read GetAsDouble
-      write SetAsDouble;
-    property AsDateTime[AName: QStringW]: TDateTime read GetAsDateTime
-      write SetAsDateTime;
-    property AsBoolean[AName: QStringW]: Boolean read GetAsBoolean
-      write SetAsBoolean;
+    property AsFloat[AName: QStringW]: Double read GetAsDouble write SetAsDouble;
+    property AsDateTime[AName: QStringW]: TDateTime read GetAsDateTime write SetAsDateTime;
+    property AsBoolean[AName: QStringW]: Boolean read GetAsBoolean write SetAsBoolean;
     property AsGuid[AName: QStringW]: TGuid read GetAsGuid write SetAsGuid;
   end;
 
@@ -314,9 +305,8 @@ type
   TQXMLNodeList = TList<TQXMLNode>;
 {$IFEND}
 {$IF RTLVersion>=21}
-  TQXMLRttiFilterEventA = reference to procedure(ASender: TQXMLNode;
-    AObject: Pointer; AName: QStringW; AType: PTypeInfo; var Accept: Boolean;
-    ATag: Pointer);
+  TQXMLRttiFilterEventA = reference to procedure(ASender: TQXMLNode; AObject: Pointer; AName: QStringW;
+    AType: PTypeInfo; var Accept: Boolean; ATag: Pointer);
   /// <summary>
   /// 结点过滤处理函数，以在XE6上支持匿名函数
   /// </summary>
@@ -324,15 +314,12 @@ type
   /// <param name="AItem">要过滤的对象</param>
   /// <param name="Accept">是否要处理该对象</param>
   /// <param name="ATag">用户附加的数据项</param>
-  TQXMLFilterEventA = reference to procedure(ASender, AItem: TQXMLNode;
-    var Accept: Boolean; ATag: Pointer);
+  TQXMLFilterEventA = reference to procedure(ASender, AItem: TQXMLNode; var Accept: Boolean; ATag: Pointer);
 {$IFEND >=2010}
-  TQXMLRttiFilterEvent = procedure(ASender: TQXMLNode; AObject: Pointer;
-    AName: QStringW; AType: PTypeInfo; var Accept: Boolean; ATag: Pointer)
-    of object;
+  TQXMLRttiFilterEvent = procedure(ASender: TQXMLNode; AObject: Pointer; AName: QStringW; AType: PTypeInfo;
+    var Accept: Boolean; ATag: Pointer) of object;
 
-  TQXMLFilterEvent = procedure(ASender, AItem: TQXMLNode; var Accept: Boolean;
-    ATag: Pointer) of object;
+  TQXMLFilterEvent = procedure(ASender, AItem: TQXMLNode; var Accept: Boolean; ATag: Pointer) of object;
 
   /// <summary>
   /// AddObject/AddRecord时内部过滤时使用附加的Tag类型，仅用于内部使用
@@ -396,8 +383,7 @@ type
     FData: Pointer;
     function GetCount: Integer;
     function GetItems(AIndex: Integer): TQXMLNode;
-    function XMLEncode(const S: QStringW; AConvertQuoter, AppendSpace,
-      ADoEscape: Boolean): QStringW;
+    function XMLEncode(const S: QStringW; AConvertQuoter, AppendSpace, ADoEscape: Boolean): QStringW;
     function XMLDecode(const p: PQCharW; l: Integer): QStringW; overload;
     function GetItemIndex: Integer;
     function GetText: QStringW;
@@ -407,8 +393,7 @@ type
     function GetPath: QStringW;
     function GetCapacity: Integer;
     procedure SetCapacity(const Value: Integer);
-    function InternalEncode(ABuilder: TQStringCatHelperW;
-      ADoFormat, ADoEscape: Boolean; const AIndent: QStringW)
+    function InternalEncode(ABuilder: TQStringCatHelperW; ADoFormat, ADoEscape: Boolean; const AIndent: QStringW)
       : TQStringCatHelperW;
     function GetName: QStringW;
     // procedure InternalRttiFilter(ASender: TQXMLNode; AObject: Pointer;
@@ -437,8 +422,7 @@ type
     /// <summary>添加一个结点、文本、注释或CData</summary>
     /// <param name="AName_Text">名称或内容，具体取决于AType参数</param>
     /// <returns>返回添加的结点实例</returns>
-    function Add(const AName_Text: QStringW; AType: TQXMLNodeType = xntNode)
-      : TQXMLNode; overload;
+    function Add(const AName_Text: QStringW; AType: TQXMLNodeType = xntNode): TQXMLNode; overload;
     /// <summary>添加一个结点</summary>
     /// <param name="AName">结点名称</param>
     /// <returns>返回添加的结点实例</returns>
@@ -469,8 +453,7 @@ type
     /// <param name="AList">用于保存结点的列表对象</param>
     /// <param name="ANest">是否递归查找子结点</param>
     /// <returns>返回找到的结点数量，如果未找到，返回0</returns>
-    function ItemByName(const AName: QStringW; AList: TQXMLNodeList;
-      ANest: Boolean = False): Integer; overload;
+    function ItemByName(const AName: QStringW; AList: TQXMLNodeList; ANest: Boolean = False): Integer; overload;
     /// <summary>获取指定路径的XML对象</summary>
     /// <param name="APath">路径，以"."或"/"或"\"分隔</param>
     /// <returns>返回找到的子结点，如果未找到返回NULL(nil)</returns>
@@ -480,8 +463,7 @@ type
     /// <param name="AList">用于保存结点的列表对象</param>
     /// <param name="ANest">是否递归查找子结点</param>
     /// <returns>返回找到的结点数量，如果未找到，返回0</returns>
-    function ItemByRegex(const ARegex: QStringW; AList: TQXMLNodeList;
-      ANest: Boolean = False): Integer; overload;
+    function ItemByRegex(const ARegex: QStringW; AList: TQXMLNodeList; ANest: Boolean = False): Integer; overload;
     /// <summary>获取指定路径结点的文本内容</summary>
     /// <param name="APath">路径，以"."或"/"或"\"分隔</param>
     /// <param name="ADefVal">若路径不存在，返回的默认值</param>
@@ -492,8 +474,7 @@ type
     /// <param name="AttrName">要检查的属性名称</param>
     /// <param name="AttrValue">要检查的属性值</param>
     /// <returns>如果找到结点，返回找到的结点，否则返回空(nil/NULL)</returns>
-    function ItemWithAttrValue(const APath: QStringW;
-      const AttrName, AttrValue: QStringW): TQXMLNode;
+    function ItemWithAttrValue(const APath: QStringW; const AttrName, AttrValue: QStringW): TQXMLNode;
     /// <summary>判断自己是否是指定对象的子对象</summmary>
     /// <param name="AParent">可能的父对象</param>
     /// <returns>如果AParent是自己的父对象，返回True，否则返回false</returns>
@@ -514,8 +495,7 @@ type
     /// <param name="ADefVal">若路径不存在，返回的默认值</param>
     /// <returns>如果找到结点相应的属性，返回找到的属性的文本内容，否则返回ADefVal参数的值</returns>
     /// <remarks>
-    function AttrValueByPath(const APath, AttrName, ADefVal: QStringW)
-      : QStringW;
+    function AttrValueByPath(const APath, AttrName, ADefVal: QStringW): QStringW;
 
     /// <summary>强制一个路径存在,如果不存在,则依次创建需要的结点</summary>
     /// <param name="APath">要添加的结点路径</param>
@@ -526,7 +506,7 @@ type
     /// <param name="AIndent">ADoFormat参数为True时，缩进内容，默认为两个空格</param>
     /// <returns>返回编码后的字符串</returns>
     /// <remarks>AsXML等价于Encode(True,'  ')</remarks>
-    function Encode(ADoFormat: Boolean; AIndent: QStringW = '  '): QStringW;
+    function Encode(ADoFormat: Boolean; AIndent: QStringW = '  '; ADoEscape: Boolean = False): QStringW;
     /// <summary>拷贝生成一个新的实例</summary>
     /// <returns>返回新的拷贝实例</returns>
     /// <remarks>因为是拷贝，所以新旧对象之间的内容变更没有任何关系，更改任意一个
@@ -534,11 +514,9 @@ type
     /// </remarks>
     function Copy: TQXMLNode;
 {$IF RTLVersion>=21}
-    function CopyIf(const ATag: Pointer; AFilter: TQXMLFilterEventA)
-      : TQXMLNode; overload;
+    function CopyIf(const ATag: Pointer; AFilter: TQXMLFilterEventA): TQXMLNode; overload;
 {$IFEND >=2010}
-    function CopyIf(const ATag: Pointer; AFilter: TQXMLFilterEvent)
-      : TQXMLNode; overload;
+    function CopyIf(const ATag: Pointer; AFilter: TQXMLFilterEvent): TQXMLNode; overload;
     /// <summary>克隆生成一个新的实例</summary>
     /// <returns>返回新的拷贝实例</returns>
     /// <remarks>因为实际上执行的是拷贝，所以新旧对象之间的内容变更没有任何关系，
@@ -572,8 +550,7 @@ type
     /// <param name="ATag">用户自己附加的额外标记</param>
     /// <param name="ANest">是否嵌套调用，如果为false，则只对当前子结点过滤</param>
     /// <param name="AFilter">过滤回调函数，如果为nil，等价于Clear</param>
-    procedure DeleteIf(const ATag: Pointer; ANest: Boolean;
-      AFilter: TQXMLFilterEventA); overload;
+    procedure DeleteIf(const ATag: Pointer; ANest: Boolean; AFilter: TQXMLFilterEventA); overload;
 {$IFEND >=2010}
     /// <summary>
     /// 删除符合条件的子结点
@@ -581,8 +558,7 @@ type
     /// <param name="ATag">用户自己附加的额外标记</param>
     /// <param name="ANest">是否嵌套调用，如果为false，则只对当前子结点过滤</param>
     /// <param name="AFilter">过滤回调函数，如果为nil，等价于Clear</param>
-    procedure DeleteIf(const ATag: Pointer; ANest: Boolean;
-      AFilter: TQXMLFilterEvent); overload;
+    procedure DeleteIf(const ATag: Pointer; ANest: Boolean; AFilter: TQXMLFilterEvent); overload;
 
     /// <summary>删除指定名称的结点</summary>
     /// <param name="AName">要删除的结点名称</param>
@@ -597,15 +573,13 @@ type
     /// <param name="ATag">用户自定义的附加额外标记</param>
     /// <param name="ANest">是否嵌套调用，如果为false，则只对当前子结点过滤</param>
     /// <param name="AFilter">过滤回调函数，如果为nil，则返回nil</param>
-    function FindIf(const ATag: Pointer; ANest: Boolean;
-      AFilter: TQXMLFilterEventA): TQXMLNode; overload;
+    function FindIf(const ATag: Pointer; ANest: Boolean; AFilter: TQXMLFilterEventA): TQXMLNode; overload;
 {$IFEND >=2010}
     /// <summary>遍历结点查找符合条件的结点</summary>
     /// <param name="ATag">用户自定义的附加额外标记</param>
     /// <param name="ANest">是否嵌套调用，如果为false，则只对当前子结点过滤</param>
     /// <param name="AFilter">过滤回调函数，如果为nil，则返回nil</param>
-    function FindIf(const ATag: Pointer; ANest: Boolean;
-      AFilter: TQXMLFilterEvent): TQXMLNode; overload;
+    function FindIf(const ATag: Pointer; ANest: Boolean; AFilter: TQXMLFilterEvent): TQXMLNode; overload;
 
     /// <summary>清除所有的结点</summary>
     procedure Clear(AIncAttrs: Boolean = True); virtual;
@@ -626,14 +600,12 @@ type
     /// <summary>从指定的文件中加载当前对象</summary>
     /// <param name="AFileName">要加载的文件名</param>
     /// <param name="AEncoding">源文件编码，如果为teUnknown，则自动判断</param>
-    procedure LoadFromFile(AFileName: QStringW;
-      AEncoding: TTextEncoding = teUnknown);
+    procedure LoadFromFile(AFileName: QStringW; AEncoding: TTextEncoding = teUnknown);
     /// <summary>从流的当前位置开始加载XML对象</summary>
     /// <param name="AStream">源数据流</param>
     /// <param name="AEncoding">源文件编码，如果为teUnknown，则自动判断</param>
     /// <remarks>流的当前位置到结束的长度必需大于2字节，否则无意义</remarks>
-    procedure LoadFromStream(AStream: TStream;
-      AEncoding: TTextEncoding = teUnknown);
+    procedure LoadFromStream(AStream: TStream; AEncoding: TTextEncoding = teUnknown);
     /// <summary>保存当前对象内容到文件中</summary>
     /// <param name="AFileName">文件名</param>
     /// <param name="AEncoding">编码格式</param>
@@ -641,9 +613,8 @@ type
     /// <param name="AWriteHeader">是否写入xml标准头部</param>
     /// <param name="AFormat">是否格式化内容</param>
     /// <remarks>注意当前结点的名称不会被写入</remarks>
-    procedure SaveToFile(AFileName: QStringW; AEncoding: TTextEncoding = teUTF8;
-      AWriteBom: Boolean = False; AWriteHeader: Boolean = True;
-      AFormat: Boolean = True); overload;
+    procedure SaveToFile(AFileName: QStringW; AEncoding: TTextEncoding = teUTF8; AWriteBom: Boolean = False;
+      AWriteHeader: Boolean = True; AFormat: Boolean = True; ADoEscape: Boolean = False); overload;
     /// <summary>保存当前对象内容到流中</summary>
     /// <param name="AFileName">文件名</param>
     /// <param name="AEncoding">编码格式，如果传入的是UTF-8则使用 UTF-8 编码，如果是 UTF-16 则使用 Unicode LE 编码，其它则使用 Ansi编码</param>
@@ -651,9 +622,8 @@ type
     /// <param name="AWriteHeader">是否写入xml标准头部</param>
     /// <param name="AFormat">是否格式化内容</param>
     /// <remarks>注意当前结点的名称不会被写入</remarks>
-    procedure SaveToFile(AFileName: QStringW; AEncoding: String;
-      AWriteBom: Boolean = False; AWriteHeader: Boolean = True;
-      AFormat: Boolean = True); overload;
+    procedure SaveToFile(AFileName: QStringW; AEncoding: String; AWriteBom: Boolean = False;
+      AWriteHeader: Boolean = True; AFormat: Boolean = True; ADoEscape: Boolean = False); overload;
     /// <summary>保存当前对象内容到流中</summary>
     /// <param name="AStream">目标流对象</param>
     /// <param name="AEncoding">编码格式</param>
@@ -661,9 +631,8 @@ type
     /// <param name="AWriteHeader">是否写入xml标准头部</param>
     /// <param name="AFormat">是否格式化内容</param>
     /// <remarks>注意当前结点的名称不会被写入</remarks>
-    procedure SaveToStream(AStream: TStream; AEncoding: TTextEncoding = teUTF8;
-      AWriteBom: Boolean = False; AWriteHeader: Boolean = True;
-      AFormat: Boolean = True); overload;
+    procedure SaveToStream(AStream: TStream; AEncoding: TTextEncoding = teUTF8; AWriteBom: Boolean = False;
+      AWriteHeader: Boolean = True; AFormat: Boolean = True; ADoEscape: Boolean = False); overload;
     /// <summary>保存当前对象内容到流中</summary>
     /// <param name="AStream">目标流对象</param>
     /// <param name="AEncoding">编码格式，如果传入的是UTF-8则使用 UTF-8 编码，如果是 UTF-16 则使用 Unicode LE 编码，其它则使用 Ansi编码</param>
@@ -671,9 +640,8 @@ type
     /// <param name="AWriteHeader">是否写入xml标准头部</param>
     /// <param name="AFormat">是否格式化内容</param>
     /// <remarks>注意当前结点的名称不会被写入</remarks>
-    procedure SaveToStream(AStream: TStream; AEncoding: String;
-      AWriteBom: Boolean = False; AWriteHeader: Boolean = True;
-      AFormat: Boolean = True); overload;
+    procedure SaveToStream(AStream: TStream; AEncoding: String; AWriteBom: Boolean = False;
+      AWriteHeader: Boolean = True; AFormat: Boolean = True; ADoEscape: Boolean = False); overload;
 {$IF RTLVersion>=21}
     /// <summary>使用当前XML对象参数调用指定对象的相应函数</summary>
     /// <param name="AInstance">函数所隶属的对象实例</param>
@@ -699,20 +667,17 @@ type
     /// <param name="AClearCollections">是否在恢复TCollection对象的元素时先清理已有的元素,默认为trur</param>
     /// <remarks>实际上参数只支持对象，记录由于目前无法直接转换为TValue，所以没
     /// 意义，而其它类型因为是值拷贝，实际就算赋值了也返回不了，因此无意义</remarks>
-    procedure ToRtti(AInstance: TValue;
-      AClearCollections: Boolean = True); overload;
+    procedure ToRtti(AInstance: TValue; AClearCollections: Boolean = True); overload;
     /// <summary>从当前JSON中按指定的类型信息还原到指定的地址</summary>
     /// <param name="ADest">目的地址</param>
     /// <param name="AType">对象或结构体的类型信息</param>
     /// <param name="AClearCollections">是否在恢复TCollection对象的元素时先清理已有的元素,默认为trur</param>
     /// <remarks>ADest对应的应是记录或对象，其它类型不受支持</remarks>
-    procedure ToRtti(ADest: Pointer; AType: PTypeInfo;
-      AClearCollections: Boolean = True); overload;
+    procedure ToRtti(ADest: Pointer; AType: PTypeInfo; AClearCollections: Boolean = True); overload;
     /// <summary>从当前的JSON中还原到指定的记录实例中</summary>
     /// <param name="ARecord">目的记录实例</param>
     /// <param name="AClearCollections">是否在恢复TCollection对象的元素时先清理已有的元素,默认为trur</param>
-    procedure ToRecord<T: record >(var ARecord: T;
-      AClearCollections: Boolean = True);
+    procedure ToRecord<T: record >(var ARecord: T; AClearCollections: Boolean = True);
 {$IFEND}
     /// <summary>从当前XML父结点中分离当前结点</summary>
     /// <remarks>分离后的结点需要单独释放</remarks>
@@ -735,14 +700,12 @@ type
     /// <param name="ANamePath">结点路径，分隔符接受“.”，“/”，“\”三种</param>
     /// <param name="AChild">用于返回子结点指针</param>
     /// <returns>成功，返回True，AChild赋值为子结点指针，失败，返回False</returns>
-    function HasChild(ANamePath: QStringW; var AChild: TQXMLNode)
-      : Boolean; inline;
+    function HasChild(ANamePath: QStringW; var AChild: TQXMLNode): Boolean; inline;
     /// <summary>获取到指定父结点的相对路径</summary>
     /// <param name="AParent">目标父结点</param>
     /// <param name="APathDelimiter">路径分隔符</param>
     /// <returns>返回相对路径</returns>
-    function GetRelPath(AParent: TQXMLNode; APathDelimiter: QCharW = '\')
-      : QStringW;
+    function GetRelPath(AParent: TQXMLNode; APathDelimiter: QCharW = '\'): QStringW;
     function XMLDecode(const S: QStringW): QStringW; overload;
     procedure Reset(ADetach: Boolean);
     /// <summary>子结点数量</<summary>summary>
@@ -874,8 +837,7 @@ resourcestring
   SSupportFloat = 'NaN/+∞/-∞不受XML规范支持。';
   SParamMissed = '参数 %s 同名的结点未找到。';
   SMethodMissed = '指定的函数 %s 不存在。';
-  SMissRttiTypeDefine =
-    '无法找到 %s 的RTTI类型信息，尝试将对应的类型单独定义(如array[0..1] of Byte改为TByteArr=array[0..1]，然后用TByteArr声明)。';
+  SMissRttiTypeDefine = '无法找到 %s 的RTTI类型信息，尝试将对应的类型单独定义(如array[0..1] of Byte改为TByteArr=array[0..1]，然后用TByteArr声明)。';
   SUnsupportPropertyType = '不支持的属性类型';
   SParentMustNode = '添加子结点时，上级结点类型必需是xntNode';
   SCantMoveToChild = '不能将自己移动到自己的子结点下面';
@@ -907,21 +869,18 @@ var
 
 begin
   p := PQCharW(S);
-  if InRange(p^, 'A', 'Z') or InRange(p^, 'a', 'z') or (p^ = '_') or
-    InRange(p^, #$00C0, #$02FF) or InRange(p^, #$0370, #$037D) or
-    InRange(p^, #$037F, #$1FFF) or InRange(p^, #$200C, #$200D) or
-    InRange(p^, #$2070, #$218F) or InRange(p^, #$2C00, #$2FEF) or
-    InRange(p^, #$3001, #$D7FF) or InRange(p^, #$F900, #$EFFF) then
+  if InRange(p^, 'A', 'Z') or InRange(p^, 'a', 'z') or (p^ = '_') or InRange(p^, #$00C0, #$02FF) or
+    InRange(p^, #$0370, #$037D) or InRange(p^, #$037F, #$1FFF) or InRange(p^, #$200C, #$200D) or
+    InRange(p^, #$2070, #$218F) or InRange(p^, #$2C00, #$2FEF) or InRange(p^, #$3001, #$D7FF) or
+    InRange(p^, #$F900, #$EFFF) then
   begin
     Inc(p);
     while p^ <> #0 do
     begin
-      if InRange(p^, 'A', 'Z') or InRange(p^, 'a', 'z') or InRange(p^, '0', '9')
-        or (p^ = '_') or (p^ = '-') or (p^ = '.') or (p^ = ':') or (p^ = #$00B7)
-        or InRange(p^, #$00C0, #$02FF) or InRange(p^, #$0300, #$037D) or
-        InRange(p^, #$037F, #$1FFF) or InRange(p^, #$200C, #$200D) or
-        InRange(p^, #$203F, #$2040) or InRange(p^, #$2070, #$218F) or
-        InRange(p^, #$2C00, #$2FEF) or InRange(p^, #$3001, #$D7FF) or
+      if InRange(p^, 'A', 'Z') or InRange(p^, 'a', 'z') or InRange(p^, '0', '9') or (p^ = '_') or (p^ = '-') or
+        (p^ = '.') or (p^ = ':') or (p^ = #$00B7) or InRange(p^, #$00C0, #$02FF) or InRange(p^, #$0300, #$037D) or
+        InRange(p^, #$037F, #$1FFF) or InRange(p^, #$200C, #$200D) or InRange(p^, #$203F, #$2040) or
+        InRange(p^, #$2070, #$218F) or InRange(p^, #$2C00, #$2FEF) or InRange(p^, #$3001, #$D7FF) or
         InRange(p^, #$F900, #$EFFF) then
         Inc(p)
       else
@@ -1032,8 +991,7 @@ begin
   end;
 end;
 
-function TQXMLAttrs.BoolByName(const AName: QStringW;
-  const ADefVal: Boolean): Boolean;
+function TQXMLAttrs.BoolByName(const AName: QStringW; const ADefVal: Boolean): Boolean;
 var
   I: Integer;
 begin
@@ -1069,8 +1027,7 @@ begin
   FItems.Delete(AIndex);
 end;
 
-function TQXMLAttrs.DateTimeByName(const AName: QStringW;
-  const ADefVal: TDateTime): TDateTime;
+function TQXMLAttrs.DateTimeByName(const AName: QStringW; const ADefVal: TDateTime): TDateTime;
 var
   I: Integer;
   S: QStringW;
@@ -1079,8 +1036,7 @@ begin
   if I <> -1 then
   begin
     S := Items[I].FValue;
-    if not(ParseDateTime(PQCharW(S), Result) or ParseWebTime(PQCharW(S), Result)
-      or TryStrToDateTime(S, Result)) then
+    if not(ParseDateTime(PQCharW(S), Result) or ParseWebTime(PQCharW(S), Result) or TryStrToDateTime(S, Result)) then
       Result := ADefVal;
   end
   else
@@ -1103,8 +1059,7 @@ begin
   inherited;
 end;
 
-function TQXMLAttrs.FloatByName(const AName: QStringW;
-  const ADefVal: Double): Double;
+function TQXMLAttrs.FloatByName(const AName: QStringW; const ADefVal: Double): Double;
 var
   I: Integer;
 begin
@@ -1134,8 +1089,7 @@ var
 begin
   S := ValueByName(AName, '');
   p := PQCharW(S);
-  if not(ParseDateTime(p, Result) or ParseWebTime(p, Result) or
-    TryStrToDateTime(S, Result)) then
+  if not(ParseDateTime(p, Result) or ParseWebTime(p, Result) or TryStrToDateTime(S, Result)) then
     raise EConvertError.CreateFmt(SValueNotDateTime, [S]);
 end;
 
@@ -1186,8 +1140,7 @@ begin
   Result := FItems[AIndex];
 end;
 
-function TQXMLAttrs.GuidByName(const AName: QStringW;
-  const ADefVal: TGuid): TGuid;
+function TQXMLAttrs.GuidByName(const AName: QStringW; const ADefVal: TGuid): TGuid;
 var
   I: Integer;
 begin
@@ -1236,8 +1189,7 @@ begin
   end;
 end;
 
-function TQXMLAttrs.IntByName(const AName: QStringW;
-  const ADefVal: Int64): Int64;
+function TQXMLAttrs.IntByName(const AName: QStringW; const ADefVal: Int64): Int64;
 var
   I: Integer;
 begin
@@ -1330,8 +1282,7 @@ begin
   FItems.Add(Result);
 end;
 
-function TQXMLNode.Add(const AName_Text: QStringW; AType: TQXMLNodeType)
-  : TQXMLNode;
+function TQXMLNode.Add(const AName_Text: QStringW; AType: TQXMLNodeType): TQXMLNode;
 begin
   if AType = xntNode then
     Result := AddNode(AName_Text)
@@ -1387,8 +1338,7 @@ begin
       if XMLCaseSensitive then
       begin
         if AItem.FNameHash = 0 then
-          AItem.FNameHash := HashOf(PQCharW(AItem.FName),
-            Length(AItem.FName) shl 1);
+          AItem.FNameHash := HashOf(PQCharW(AItem.FName), Length(AItem.FName) shl 1);
         if AItem.FNameHash = AHash then
         begin
           if Items[I].FName = AName then
@@ -1612,8 +1562,7 @@ begin
     Result := nil;
 end;
 
-function TQXMLNode.AttrValueByPath(const APath, AttrName, ADefVal: QStringW)
-  : QStringW;
+function TQXMLNode.AttrValueByPath(const APath, AttrName, ADefVal: QStringW): QStringW;
 var
   Attr: TQXMLAttr;
 begin
@@ -1650,8 +1599,7 @@ begin
 end;
 {$IF RTLVersion>=21}
 
-function TQXMLNode.CopyIf(const ATag: Pointer; AFilter: TQXMLFilterEventA)
-  : TQXMLNode;
+function TQXMLNode.CopyIf(const ATag: Pointer; AFilter: TQXMLFilterEventA): TQXMLNode;
   procedure NestCopy(AParentSource, AParentDest: TQXMLNode);
   var
     I: Integer;
@@ -1665,8 +1613,7 @@ function TQXMLNode.CopyIf(const ATag: Pointer; AFilter: TQXMLFilterEventA)
       AFilter(Self, AChildSource, Accept, ATag);
       if Accept then
       begin
-        AChildDest := AParentDest.Add(AChildSource.FName,
-          AChildSource.NodeType);
+        AChildDest := AParentDest.Add(AChildSource.FName, AChildSource.NodeType);
         if Assigned(AChildSource.FAttrs) then
           AChildDest.Attrs.Assign(AChildSource.Attrs);
         if AChildSource.Count > 0 then
@@ -1689,8 +1636,7 @@ begin
 end;
 {$IFEND >=2010}
 
-function TQXMLNode.CopyIf(const ATag: Pointer; AFilter: TQXMLFilterEvent)
-  : TQXMLNode;
+function TQXMLNode.CopyIf(const ATag: Pointer; AFilter: TQXMLFilterEvent): TQXMLNode;
 
   procedure NestCopy(AParentSource, AParentDest: TQXMLNode);
   var
@@ -1705,8 +1651,7 @@ function TQXMLNode.CopyIf(const ATag: Pointer; AFilter: TQXMLFilterEvent)
       AFilter(Self, AChildSource, Accept, ATag);
       if Accept then
       begin
-        AChildDest := AParentDest.Add(AChildSource.FName,
-          AChildSource.NodeType);
+        AChildDest := AParentDest.Add(AChildSource.FName, AChildSource.NodeType);
         if Assigned(AChildSource.FAttrs) then
           AChildDest.Attrs.Assign(AChildSource.Attrs);
         if AChildSource.Count > 0 then
@@ -1778,8 +1723,7 @@ end;
 
 {$IF RTLVersion>=21}
 
-procedure TQXMLNode.DeleteIf(const ATag: Pointer; ANest: Boolean;
-  AFilter: TQXMLFilterEventA);
+procedure TQXMLNode.DeleteIf(const ATag: Pointer; ANest: Boolean; AFilter: TQXMLFilterEventA);
   procedure DeleteChildren(AParent: TQXMLNode);
   var
     I: Integer;
@@ -1809,8 +1753,7 @@ begin
 end;
 {$IFEND >=2010}
 
-procedure TQXMLNode.DeleteIf(const ATag: Pointer; ANest: Boolean;
-  AFilter: TQXMLFilterEvent);
+procedure TQXMLNode.DeleteIf(const ATag: Pointer; ANest: Boolean; AFilter: TQXMLFilterEvent);
   procedure DeleteChildren(AParent: TQXMLNode);
   var
     I: Integer;
@@ -1874,8 +1817,7 @@ var
   var
     APairCount: Integer;
   begin
-    if StartWithW(p, '<!DOCTYPE', False) or StartWithW(p, '<!ELEMENT', False) or
-      StartWithW(p, '<!ATTLIST', False) then
+    if StartWithW(p, '<!DOCTYPE', False) or StartWithW(p, '<!ELEMENT', False) or StartWithW(p, '<!ATTLIST', False) then
     begin
       APairCount := 1;
       Inc(p, 9); // 都是9个字符长度,:)
@@ -1925,19 +1867,16 @@ var
           SkipUntilW(p, TagClose);
           if p^ = '>' then
           begin
-            if (Length(AParent.Name) = (p - ws)) and
-              StartWithW(ws, PQCharW(AParent.Name), False) then
+            if (Length(AParent.Name) = (p - ws)) and StartWithW(ws, PQCharW(AParent.Name), False) then
             begin
               Inc(p);
               Exit;
             end
             else
-              raise Exception.CreateFmt(SUnexpectXMLTagClose,
-                [StrDupX(ws, p - ws), AParent.Name]);
+              raise Exception.CreateFmt(SUnexpectXMLTagClose, [StrDupX(ws, p - ws), AParent.Name]);
           end
           else
-            raise Exception.CreateFmt(SUnexpectXMLTagClose,
-              [StrDupX(ws, p - ws), AParent.Name]);
+            raise Exception.CreateFmt(SUnexpectXMLTagClose, [StrDupX(ws, p - ws), AParent.Name]);
         end
         else if p[1] = '!' then
         begin
@@ -2106,7 +2045,7 @@ var
 
   procedure CheckIsXMLRoot;
   var
-    AItem: TQXMLNode;
+    AItem, AChild: TQXMLNode;
   begin
     if (Count = 1) then
     begin
@@ -2145,13 +2084,13 @@ begin
 end;
 
 // Redo:格式化不对
-function TQXMLNode.Encode(ADoFormat: Boolean; AIndent: QStringW): QStringW;
+function TQXMLNode.Encode(ADoFormat: Boolean; AIndent: QStringW; ADoEscape: Boolean): QStringW;
 var
   ABuilder: TQStringCatHelperW;
 begin
   ABuilder := TQStringCatHelperW.Create; // (16384);
   try
-    InternalEncode(ABuilder, ADoFormat, True, AIndent);
+    InternalEncode(ABuilder, ADoFormat, ADoEscape, AIndent);
     Result := ABuilder.Value;
   finally
     FreeObject(ABuilder);
@@ -2159,8 +2098,7 @@ begin
 end;
 {$IF RTLVersion>=21}
 
-function TQXMLNode.FindIf(const ATag: Pointer; ANest: Boolean;
-  AFilter: TQXMLFilterEventA): TQXMLNode;
+function TQXMLNode.FindIf(const ATag: Pointer; ANest: Boolean; AFilter: TQXMLFilterEventA): TQXMLNode;
   function DoFind(AParent: TQXMLNode): TQXMLNode;
   var
     I: Integer;
@@ -2190,8 +2128,7 @@ begin
 end;
 {$IFEND >=2010}
 
-function TQXMLNode.FindIf(const ATag: Pointer; ANest: Boolean;
-  AFilter: TQXMLFilterEvent): TQXMLNode;
+function TQXMLNode.FindIf(const ATag: Pointer; ANest: Boolean; AFilter: TQXMLFilterEvent): TQXMLNode;
   function DoFind(AParent: TQXMLNode): TQXMLNode;
   var
     I: Integer;
@@ -2269,8 +2206,7 @@ var
     for J := 0 to ACollection.Count - 1 do
       AParent.Add('item', xntNode).FromRtti(ACollection.Items[J]);
   end;
-  procedure AddVariant(AParent: TQXMLNode; const AName: String;
-    const V: Variant);
+  procedure AddVariant(AParent: TQXMLNode; const AName: String; const V: Variant);
   var
     I: Integer;
   begin
@@ -2333,58 +2269,44 @@ var
         // 如果是从结构体，则记录其成员，如果是对象，则只记录其公开的属性，特殊处理TStrings和TCollection
         case AFields[J].FieldType.TypeKind of
           tkInteger:
-            Attrs.Add(AFields[J].Name).AsInteger := AFields[J].GetValue(ASource)
-              .AsInteger;
+            Attrs.Add(AFields[J].Name).AsInteger := AFields[J].GetValue(ASource).AsInteger;
 {$IFNDEF NEXTGEN}tkString, tkLString, tkWString,
 {$ENDIF !NEXTGEN}tkUString:
-            Attrs.Add(AFields[J].Name).AsString :=
-              AFields[J].GetValue(ASource).AsString;
+            Attrs.Add(AFields[J].Name).AsString := AFields[J].GetValue(ASource).AsString;
           tkEnumeration:
             begin
-              if GetTypeData(AFields[J].FieldType.Handle)
-                .BaseType^ = TypeInfo(Boolean) then
-                Attrs.Add(AFields[J].Name).AsBoolean :=
-                  AFields[J].GetValue(ASource).AsBoolean
+              if GetTypeData(AFields[J].FieldType.Handle).BaseType^ = TypeInfo(Boolean) then
+                Attrs.Add(AFields[J].Name).AsBoolean := AFields[J].GetValue(ASource).AsBoolean
               else if XMLRttiEnumAsInt then
-                Attrs.Add(AFields[J].Name).AsInteger :=
-                  AFields[J].GetValue(ASource).AsOrdinal
+                Attrs.Add(AFields[J].Name).AsInteger := AFields[J].GetValue(ASource).AsOrdinal
               else
-                Attrs.Add(AFields[J].Name).AsString :=
-                  AFields[J].GetValue(ASource).ToString;
+                Attrs.Add(AFields[J].Name).AsString := AFields[J].GetValue(ASource).ToString;
             end;
           tkSet:
             begin
               if XMLRttiEnumAsInt then
-                Attrs.Add(AFields[J].Name).AsInt64 :=
-                  SetAsOrd(AFields[J].GetValue(ASource))
+                Attrs.Add(AFields[J].Name).AsInt64 := SetAsOrd(AFields[J].GetValue(ASource))
               else
-                Attrs.Add(AFields[J].Name).AsString :=
-                  AFields[J].GetValue(ASource).ToString;
+                Attrs.Add(AFields[J].Name).AsString := AFields[J].GetValue(ASource).ToString;
             end;
           tkChar, tkWChar:
-            Attrs.Add(AFields[J].Name).AsString :=
-              AFields[J].GetValue(ASource).ToString;
+            Attrs.Add(AFields[J].Name).AsString := AFields[J].GetValue(ASource).ToString;
           tkFloat:
             begin
-              if (AFields[J].FieldType.Handle = TypeInfo(TDateTime)) or
-                (AFields[J].FieldType.Handle = TypeInfo(TTime)) or
-                (AFields[J].FieldType.Handle = TypeInfo(TDate)) then
+              if (AFields[J].FieldType.Handle = TypeInfo(TDateTime)) or (AFields[J].FieldType.Handle = TypeInfo(TTime))
+                or (AFields[J].FieldType.Handle = TypeInfo(TDate)) then
               begin
                 // 判断一个数值是否是一个有效的值
 
-                Attrs.Add(AFields[J].Name).AsDateTime :=
-                  AFields[J].GetValue(ASource).AsExtended
+                Attrs.Add(AFields[J].Name).AsDateTime := AFields[J].GetValue(ASource).AsExtended
               end
               else
-                Attrs.Add(AFields[J].Name).AsFloat :=
-                  AFields[J].GetValue(ASource).AsExtended;
+                Attrs.Add(AFields[J].Name).AsFloat := AFields[J].GetValue(ASource).AsExtended;
             end;
           tkInt64:
-            Attrs.Add(AFields[J].Name).AsInt64 :=
-              AFields[J].GetValue(ASource).AsInt64;
+            Attrs.Add(AFields[J].Name).AsInt64 := AFields[J].GetValue(ASource).AsInt64;
           tkVariant:
-            AddVariant(Self, AFields[J].Name, AFields[J].GetValue(ASource)
-              .AsVariant);
+            AddVariant(Self, AFields[J].Name, AFields[J].GetValue(ASource).AsVariant);
           tkArray, tkDynArray:
             begin
               with Add(AFields[J].Name, xntNode) do
@@ -2401,8 +2323,7 @@ var
               if (AObj is TStrings) then
                 Add(AFields[J].Name, xntNode).AddText(TStrings(AObj).Text)
               else if AObj is TCollection then
-                AddCollection(Add(AFields[J].Name, xntNode),
-                  AObj as TCollection)
+                AddCollection(Add(AFields[J].Name, xntNode), AObj as TCollection)
               else // 其它类型的对象不保存
                 Add(AFields[J].Name, xntNode).FromRtti(AObj, AObj.ClassInfo);
             end;
@@ -2411,11 +2332,9 @@ var
               // AValue := AFields[J].GetValue(ASource);
               if AFields[J].FieldType.Handle = TypeInfo(TGuid) then
                 Attrs.Add(AFields[J].Name).AsString :=
-                  GuidToString
-                  (PGuid(Pointer(IntPtr(ASource) + AFields[J].Offset))^)
+                  GuidToString(PGuid(Pointer(IntPtr(ASource) + AFields[J].Offset))^)
               else
-                Add(AFields[J].Name, xntNode)
-                  .FromRtti(Pointer(IntPtr(ASource) + AFields[J].Offset),
+                Add(AFields[J].Name, xntNode).FromRtti(Pointer(IntPtr(ASource) + AFields[J].Offset),
                   AFields[J].FieldType.Handle);
             end;
         end;
@@ -2445,9 +2364,8 @@ var
       try
         for J := 0 to ACount - 1 do
         begin
-          if Assigned(APropList[J].GetProc) and Assigned(APropList[J].SetProc)
-            and (not(APropList[J].PropType^.Kind in [tkMethod, tkInterface,
-            tkClassRef, tkPointer, tkProcedure])) then
+          if Assigned(APropList[J].GetProc) and Assigned(APropList[J].SetProc) and
+            (not(APropList[J].PropType^.Kind in [tkMethod, tkInterface, tkClassRef, tkPointer, tkProcedure])) then
           begin
 {$IF RTLVersion>25}
             AName := APropList[J].NameFld.ToString;
@@ -2471,39 +2389,32 @@ var
                 Attrs.Add(AName).AsInt64 := GetOrdProp(AObj, APropList[J]);
               tkFloat:
                 begin
-                  if (APropList[J].PropType^ = TypeInfo(TDateTime)) or
-                    (APropList[J].PropType^ = TypeInfo(TTime)) or
+                  if (APropList[J].PropType^ = TypeInfo(TDateTime)) or (APropList[J].PropType^ = TypeInfo(TTime)) or
                     (APropList[J].PropType^ = TypeInfo(TDate)) then
                   begin
                     // 判断一个数值是否是一个有效的值
-                    Attrs.Add(AName).AsDateTime :=
-                      GetFloatProp(AObj, APropList[J]);
+                    Attrs.Add(AName).AsDateTime := GetFloatProp(AObj, APropList[J]);
                   end
                   else
-                    Attrs.Add(AName).AsFloat :=
-                      GetFloatProp(AObj, APropList[J]);
+                    Attrs.Add(AName).AsFloat := GetFloatProp(AObj, APropList[J]);
                 end;
               tkChar, tkString, tkWChar, tkLString, tkWString, tkUString:
                 Attrs.Add(AName).AsString := GetStrProp(AObj, APropList[J]);
               tkEnumeration:
                 begin
-                  if GetTypeData(APropList[J]^.PropType^)
-                    ^.BaseType^ = TypeInfo(Boolean) then
-                    Attrs.Add(AName).AsBoolean :=
-                      GetOrdProp(AObj, APropList[J]) <> 0
+                  if GetTypeData(APropList[J]^.PropType^)^.BaseType^ = TypeInfo(Boolean) then
+                    Attrs.Add(AName).AsBoolean := GetOrdProp(AObj, APropList[J]) <> 0
                   else if XMLRttiEnumAsInt then
                     Attrs.Add(AName).AsInteger := GetOrdProp(AObj, APropList[J])
                   else
-                    Attrs.Add(AName).AsString :=
-                      GetEnumProp(AObj, APropList[J]);
+                    Attrs.Add(AName).AsString := GetEnumProp(AObj, APropList[J]);
                 end;
               tkSet:
                 begin
                   if XMLRttiEnumAsInt then
                     Attrs.Add(AName).AsInteger := GetOrdProp(AObj, APropList[J])
                   else
-                    Attrs.Add(AName).AsString :=
-                      GetSetProp(AObj, APropList[J], True);
+                    Attrs.Add(AName).AsString := GetSetProp(AObj, APropList[J], True);
                 end;
               tkVariant:
                 Attrs.Add(AName).AsVariant := GetPropValue(AObj, APropList[J]);
@@ -2641,8 +2552,7 @@ begin
   Result := GetRelPath(nil);
 end;
 
-function TQXMLNode.GetRelPath(AParent: TQXMLNode; APathDelimiter: QCharW)
-  : QStringW;
+function TQXMLNode.GetRelPath(AParent: TQXMLNode; APathDelimiter: QCharW): QStringW;
 var
   AItem, APItem: TQXMLNode;
   AItemName: QStringW;
@@ -2694,8 +2604,7 @@ begin
   end;
 end;
 
-function TQXMLNode.HasChild(ANamePath: QStringW; var AChild: TQXMLNode)
-  : Boolean;
+function TQXMLNode.HasChild(ANamePath: QStringW; var AChild: TQXMLNode): Boolean;
 begin
   AChild := ItemByPath(ANamePath);
   Result := AChild <> nil;
@@ -2714,8 +2623,8 @@ begin
     Result := nil;
 end;
 
-function TQXMLNode.InternalEncode(ABuilder: TQStringCatHelperW;
-  ADoFormat, ADoEscape: Boolean; const AIndent: QStringW): TQStringCatHelperW;
+function TQXMLNode.InternalEncode(ABuilder: TQStringCatHelperW; ADoFormat, ADoEscape: Boolean; const AIndent: QStringW)
+  : TQStringCatHelperW;
 const
   TagStart: PWideChar = '<';
   TagEnd: PWideChar = '/>';
@@ -2754,8 +2663,7 @@ var
         if Attr.Unescape then
           ABuilder.Cat(Attr.Value)
         else
-          ABuilder.Cat(XMLEncode(AItem.Attrs[I].FValue, True, False,
-            ADoEscape));
+          ABuilder.Cat(XMLEncode(AItem.Attrs[I].FValue, True, False, ADoEscape));
         ABuilder.Cat(Quoter);
       end;
     end;
@@ -2766,8 +2674,7 @@ var
         if XMLTagShortClose then
           ABuilder.Cat(TagEnd, 2)
         else if Length(AItem.FName) > 0 then
-          ABuilder.Cat(TagClose, 1).Cat(TagCloseStart, 2).Cat(AItem.FName)
-            .Cat(TagClose, 1)
+          ABuilder.Cat(TagClose, 1).Cat(TagCloseStart, 2).Cat(AItem.FName).Cat(TagClose, 1)
         else if AItem.Parent = nil then
           ABuilder.Cat(TagCloseStart, 6);
       end;
@@ -2783,8 +2690,7 @@ var
       if Length(AItem.Name) > 0 then
       begin
         ABuilder.Cat(TagClose, 1);
-        if (AItem.Count > 0) and (AItem[0].NodeType <> xntText) and ADoFormat
-        then
+        if (AItem.Count > 0) and (AItem[0].NodeType <> xntText) and ADoFormat then
           ABuilder.Cat(SLineBreak);
       end;
       for I := 0 to AItem.Count - 1 do
@@ -2959,8 +2865,7 @@ end;
 // end;
 // {$ENDIF}
 
-function TQXMLNode.ItemByName(const AName: QStringW; AList: TQXMLNodeList;
-  ANest: Boolean): Integer;
+function TQXMLNode.ItemByName(const AName: QStringW; AList: TQXMLNodeList; ANest: Boolean): Integer;
 var
   ANode: TQXMLNode;
   function InternalFind(AParent: TQXMLNode): Integer;
@@ -3000,8 +2905,7 @@ begin
     AItem := nil;
     while pPath^ <> #0 do
     begin
-      AName := HtmlUnescape(DecodeTokenW(pPath, PathDelimiters,
-        WideChar(0), False));
+      AName := HtmlUnescape(DecodeTokenW(pPath, PathDelimiters, WideChar(0), False));
       AItem := AParent.ItemByName(AName);
       if Assigned(AItem) then
         AParent := AItem
@@ -3017,8 +2921,7 @@ begin
     Result := Self;
 end;
 
-function TQXMLNode.ItemByRegex(const ARegex: QStringW; AList: TQXMLNodeList;
-  ANest: Boolean): Integer;
+function TQXMLNode.ItemByRegex(const ARegex: QStringW; AList: TQXMLNodeList; ANest: Boolean): Integer;
 var
   ANode: TQXMLNode;
   APcre: TPerlRegex;
@@ -3065,8 +2968,7 @@ begin
   end;
 end;
 
-function TQXMLNode.ItemWithAttrValue(const APath, AttrName, AttrValue: QStringW)
-  : TQXMLNode;
+function TQXMLNode.ItemWithAttrValue(const APath, AttrName, AttrValue: QStringW): TQXMLNode;
 var
   ANode: TQXMLNode;
   I: Integer;
@@ -3126,10 +3028,8 @@ var
   const
     UTF8Code: array [0 .. 4] of Byte = ($55, $54, $46, $2D, $38);
     // UTF8的编码串的ASCII码
-    UTF16LECode: array [0 .. 11] of Byte = ($55, $00, $54, $00, $46, $00, $2D,
-      $00, $31, $00, $36, $00);
-    UTF16BECode: array [0 .. 11] of Byte = ($00, $55, $00, $54, $00, $46, $00,
-      $2D, $00, $31, $00, $36);
+    UTF16LECode: array [0 .. 11] of Byte = ($55, $00, $54, $00, $46, $00, $2D, $00, $31, $00, $36, $00);
+    UTF16BECode: array [0 .. 11] of Byte = ($00, $55, $00, $54, $00, $46, $00, $2D, $00, $31, $00, $36);
   begin
     APos := AStream.Position;
     SetLength(S, 1024); // 读取前1024个字节来判定
@@ -3245,8 +3145,7 @@ var
       AStream.Read(c, SizeOf(QCharW));
       AMS.WriteBuffer(c, SizeOf(QCharW));
     until c = '>';
-    ATag := StrDupW(PQCharW(AMS.Memory), ATagStart,
-      (AMS.Position - ATagStart) shr 1);
+    ATag := StrDupW(PQCharW(AMS.Memory), ATagStart, (AMS.Position - ATagStart) shr 1);
     ps := PQCharW(ATag);
     if StartWithW(ps, '<?xml', True) then
     begin
@@ -3276,8 +3175,7 @@ var
           begin
             if AMS.Position - ATagStart = (Length(ATagName) shl 1) then
             begin
-              if StartWithW(PWideChar(AMS.Memory) + (ATagStart shr 1),
-                PQCharW(ATagName), False) then
+              if StartWithW(PWideChar(AMS.Memory) + (ATagStart shr 1), PQCharW(ATagName), False) then
               begin
                 // OK,Found Close
                 c := #0;
@@ -3295,8 +3193,8 @@ var
     else // 注释，CDATA，DocType
     begin
       // DTD,忽略
-      if StartWithW(ps, '<!DOCTYPE', False) or StartWithW(ps, '<!ELEMENT',
-        False) or StartWithW(ps, '<!ATTLIST', False) then
+      if StartWithW(ps, '<!DOCTYPE', False) or StartWithW(ps, '<!ELEMENT', False) or StartWithW(ps, '<!ATTLIST', False)
+      then
       begin
         AMS.Size := 0;
         ParseUCS2;
@@ -3319,12 +3217,12 @@ var
     XMLTagClose: array [0 .. 1] of QCharA = ($2F, $3E); // />
     XMLDeclare: array [0 .. 4] of QCharA = ($3C, $3F, $78, $6D, $6C); // <?xml
     XMLComment: QCharA = $21;
-    DTDDocType: array [0 .. 8] of QCharA = (Ord('<'), Ord('!'), Ord('D'),
-      Ord('O'), Ord('C'), Ord('T'), Ord('Y'), Ord('P'), Ord('E'));
-    DTDElement: array [0 .. 8] of QCharA = (Ord('<'), Ord('!'), Ord('E'),
-      Ord('L'), Ord('E'), Ord('M'), Ord('E'), Ord('N'), Ord('T'));
-    DTDAttrList: array [0 .. 8] of QCharA = (Ord('<'), Ord('!'), Ord('A'),
-      Ord('T'), Ord('T'), Ord('L'), Ord('I'), Ord('S'), Ord('T'));
+    DTDDocType: array [0 .. 8] of QCharA = (Ord('<'), Ord('!'), Ord('D'), Ord('O'), Ord('C'), Ord('T'), Ord('Y'),
+      Ord('P'), Ord('E'));
+    DTDElement: array [0 .. 8] of QCharA = (Ord('<'), Ord('!'), Ord('E'), Ord('L'), Ord('E'), Ord('M'), Ord('E'),
+      Ord('N'), Ord('T'));
+    DTDAttrList: array [0 .. 8] of QCharA = (Ord('<'), Ord('!'), Ord('A'), Ord('T'), Ord('T'), Ord('L'), Ord('I'),
+      Ord('S'), Ord('T'));
   begin
     // 查找标签开始，并记录标签的名称
     repeat
@@ -3396,8 +3294,8 @@ var
     else // 注释，CDATA，DocType
     begin
       // DTD,忽略
-      if CompareMem(ps, @DTDDocType[0], 9) or CompareMem(ps, @DTDElement[0], 9)
-        or CompareMem(ps, @DTDAttrList[0], 9) then
+      if CompareMem(ps, @DTDDocType[0], 9) or CompareMem(ps, @DTDElement[0], 9) or CompareMem(ps, @DTDAttrList[0], 9)
+      then
       begin
         AMS.Size := 0;
         ParseUtf8;
@@ -3477,13 +3375,13 @@ begin
 end;
 
 procedure TQXMLNode.SaveToFile(AFileName: QStringW; AEncoding: TTextEncoding;
-  AWriteBom, AWriteHeader, AFormat: Boolean);
+  AWriteBom, AWriteHeader, AFormat, ADoEscape: Boolean);
 var
   AStream: TMemoryStream;
 begin
   AStream := TMemoryStream.Create;
   try
-    SaveToStream(AStream, AEncoding, AWriteBom, AWriteHeader, AFormat);
+    SaveToStream(AStream, AEncoding, AWriteBom, AWriteHeader, AFormat, ADoEscape);
     AStream.SaveToFile(AFileName);
   finally
     FreeObject(AStream);
@@ -3491,13 +3389,13 @@ begin
 end;
 
 procedure TQXMLNode.SaveToFile(AFileName: QStringW; AEncoding: String;
-  AWriteBom, AWriteHeader, AFormat: Boolean);
+  AWriteBom, AWriteHeader, AFormat, ADoEscape: Boolean);
 var
   AStream: TMemoryStream;
 begin
   AStream := TMemoryStream.Create;
   try
-    SaveToStream(AStream, AEncoding, AWriteBom, AWriteHeader, AFormat);
+    SaveToStream(AStream, AEncoding, AWriteBom, AWriteHeader, AFormat, ADoEscape);
     AStream.SaveToFile(AFileName);
   finally
     FreeObject(AStream);
@@ -3505,7 +3403,7 @@ begin
 end;
 
 procedure TQXMLNode.SaveToStream(AStream: TStream; AEncoding: String;
-  AWriteBom, AWriteHeader, AFormat: Boolean);
+  AWriteBom, AWriteHeader, AFormat, ADoEscape: Boolean);
 var
   ABuilder: TQStringCatHelperW;
 const
@@ -3521,21 +3419,21 @@ begin
     begin
       if AWriteHeader then
         ABuilder.Cat(UTF8Format, 8).Cat(SLineBreak);
-      InternalEncode(ABuilder, AFormat, False, ' ');
+      InternalEncode(ABuilder, AFormat, ADoEscape, ' ');
       SaveTextU(AStream, qstring.UTF8Encode(ABuilder.Value), AWriteBom)
     end
     else if AEncoding = 'UTF-16' then
     begin
       if AWriteHeader then
         ABuilder.Cat(UTF16Format, 9).Cat(SLineBreak);
-      InternalEncode(ABuilder, AFormat, False, ' ');
+      InternalEncode(ABuilder, AFormat, ADoEscape, ' ');
       SaveTextW(AStream, ABuilder.Value, AWriteBom)
     end
     else
     begin
       if AWriteHeader then
         ABuilder.Cat(AEncoding).Cat('"?>').Cat(SLineBreak);
-      InternalEncode(ABuilder, AFormat, False, ' ');
+      InternalEncode(ABuilder, AFormat, ADoEscape, ' ');
       SaveTextA(AStream, ABuilder.Value);
     end;
   finally
@@ -3544,13 +3442,13 @@ begin
 end;
 
 procedure TQXMLNode.SaveToStream(AStream: TStream; AEncoding: TTextEncoding;
-  AWriteBom, AWriteHeader, AFormat: Boolean);
+  AWriteBom, AWriteHeader, AFormat, ADoEscape: Boolean);
 begin
   case AEncoding of
     teUnicode16LE:
-      SaveToStream(AStream, 'UTF-16', AWriteBom, AWriteHeader, AFormat);
+      SaveToStream(AStream, 'UTF-16', AWriteBom, AWriteHeader, AFormat, ADoEscape);
     teUTF8:
-      SaveToStream(AStream, 'UTF-8', AWriteBom, AWriteHeader, AFormat)
+      SaveToStream(AStream, 'UTF-8', AWriteBom, AWriteHeader, AFormat, ADoEscape)
   else
     raise QException.Create(SBadXMLEncoding);
   end;
@@ -3693,14 +3591,12 @@ begin
   if AInstance.IsEmpty then
     Exit;
   if AInstance.Kind = tkRecord then
-    ToRtti(AInstance.GetReferenceToRawData, AInstance.TypeInfo,
-      AClearCollections)
+    ToRtti(AInstance.GetReferenceToRawData, AInstance.TypeInfo, AClearCollections)
   else if AInstance.Kind = tkClass then
     ToRtti(AInstance.AsObject, AInstance.TypeInfo, AClearCollections)
 end;
 
-procedure TQXMLNode.ToRtti(ADest: Pointer; AType: PTypeInfo;
-  AClearCollections: Boolean);
+procedure TQXMLNode.ToRtti(ADest: Pointer; AType: PTypeInfo; AClearCollections: Boolean);
   procedure LoadCollection(AParent: TQXMLNode; ACollection: TCollection);
   var
     I: Integer;
@@ -3742,6 +3638,7 @@ procedure TQXMLNode.ToRtti(ADest: Pointer; AType: PTypeInfo;
     AObj: TObject;
     fVal: Double;
     iVal: Integer;
+    S: String;
   begin
     AContext := TRttiContext.Create;
     ARttiType := AContext.GetType(AType);
@@ -3756,183 +3653,184 @@ procedure TQXMLNode.ToRtti(ADest: Pointer; AType: PTypeInfo;
         case AFields[J].FieldType.TypeKind of
           tkInteger:
             if Assigned(Attr) then // Simple type store in attribute
-              AFields[J].SetValue(ABaseAddr, Attr.AsInteger);
+              AFields[J].SetValue(ABaseAddr, Attr.AsInteger)
+            else if Assigned(AChild) then
+              AFields[J].SetValue(ABaseAddr, StrToInt(AChild.Text));
 {$IFNDEF NEXTGEN}
           tkString:
             if Assigned(Attr) then
-              PShortString(IntPtr(ABaseAddr) + AFields[J].Offset)^ :=
-                ShortString(Attr.AsString);
+              PShortString(IntPtr(ABaseAddr) + AFields[J].Offset)^ := ShortString(Attr.AsString)
+            else if Assigned(AChild) then
+              PShortString(IntPtr(ABaseAddr) + AFields[J].Offset)^ := AChild.Text;
 {$ENDIF !NEXTGEN}
           tkUString{$IFNDEF NEXTGEN}, tkLString, tkWString{$ENDIF !NEXTGEN}:
             if Assigned(Attr) then
-              AFields[J].SetValue(ABaseAddr, Attr.AsString);
+              AFields[J].SetValue(ABaseAddr, Attr.AsString)
+            else if Assigned(AChild) then
+              AFields[J].SetValue(ABaseAddr, AChild.Text);
           tkEnumeration:
             begin
-              if Assigned(Attr) then
+              if GetTypeData(AFields[J].FieldType.Handle)^.BaseType^ = TypeInfo(Boolean) then
               begin
-                if GetTypeData(AFields[J].FieldType.Handle)
-                  ^.BaseType^ = TypeInfo(Boolean) then
+                if Assigned(Attr) then
                   AFields[J].SetValue(ABaseAddr, Attr.AsBoolean)
+                else if Assigned(AChild) then
+                  AFields[J].SetValue(ABaseAddr, StrToBool(AChild.Text))
+              end
+              else
+              begin
+                if Assigned(Attr) then
+                  S := Attr.AsString
+                else if Assigned(AChild) then
+                  S := AChild.Text
                 else
-                begin
-                  case GetTypeData(AFields[J].FieldType.Handle).OrdType of
-                    otSByte:
-                      begin
-                        if TryStrToInt(Attr.AsString, iVal) then
-                          PShortint(IntPtr(ABaseAddr) + AFields[J]
-                            .Offset)^ := iVal
-                        else
-                          PShortint(IntPtr(ABaseAddr) + AFields[J].Offset)^ :=
-                            GetEnumValue(AFields[J].FieldType.Handle,
-                            Attr.AsString);
-                      end;
-                    otUByte:
-                      begin
-                        if TryStrToInt(Attr.AsString, iVal) then
-                          PByte(IntPtr(ABaseAddr) + AFields[J].Offset)^ := iVal
-                        else
-                          PByte(IntPtr(ABaseAddr) + AFields[J].Offset)^ :=
-                            GetEnumValue(AFields[J].FieldType.Handle,
-                            Attr.AsString);
-                      end;
-                    otSWord:
-                      begin
-                        if TryStrToInt(Attr.AsString, iVal) then
-                          PSmallint(IntPtr(ABaseAddr) + AFields[J]
-                            .Offset)^ := iVal
-                        else
-                          PSmallint(IntPtr(ABaseAddr) + AFields[J].Offset)^ :=
-                            GetEnumValue(AFields[J].FieldType.Handle,
-                            Attr.AsString);
-                      end;
-                    otUWord:
-                      begin
-                        if TryStrToInt(Attr.AsString, iVal) then
-                          PWord(IntPtr(ABaseAddr) + AFields[J].Offset)^ := iVal
-                        else
-                          PWord(IntPtr(ABaseAddr) + AFields[J].Offset)^ :=
-                            GetEnumValue(AFields[J].FieldType.Handle,
-                            Attr.AsString);
-                      end;
-                    otSLong:
-                      begin
-                        if TryStrToInt(Attr.AsString, iVal) then
-                          PInteger(IntPtr(ABaseAddr) + AFields[J]
-                            .Offset)^ := iVal
-                        else
-                          PInteger(IntPtr(ABaseAddr) + AFields[J].Offset)^ :=
-                            GetEnumValue(AFields[J].FieldType.Handle,
-                            Attr.AsString);
-                      end;
-                    otULong:
-                      begin
-                        if TryStrToInt(Attr.AsString, iVal) then
-                          PCardinal(IntPtr(ABaseAddr) + AFields[J]
-                            .Offset)^ := iVal
-                        else
-                          PCardinal(IntPtr(ABaseAddr) + AFields[J].Offset)^ :=
-                            GetEnumValue(AFields[J].FieldType.Handle,
-                            Attr.AsString);
-                      end;
-                  end;
+                  Continue;
+                case GetTypeData(AFields[J].FieldType.Handle).OrdType of
+                  otSByte:
+                    begin
+                      if TryStrToInt(S, iVal) then
+                        PShortint(IntPtr(ABaseAddr) + AFields[J].Offset)^ := iVal
+                      else
+                        PShortint(IntPtr(ABaseAddr) + AFields[J].Offset)^ :=
+                          GetEnumValue(AFields[J].FieldType.Handle, S);
+                    end;
+                  otUByte:
+                    begin
+                      if TryStrToInt(S, iVal) then
+                        PByte(IntPtr(ABaseAddr) + AFields[J].Offset)^ := iVal
+                      else
+                        PByte(IntPtr(ABaseAddr) + AFields[J].Offset)^ := GetEnumValue(AFields[J].FieldType.Handle, S);
+                    end;
+                  otSWord:
+                    begin
+                      if TryStrToInt(S, iVal) then
+                        PSmallint(IntPtr(ABaseAddr) + AFields[J].Offset)^ := iVal
+                      else
+                        PSmallint(IntPtr(ABaseAddr) + AFields[J].Offset)^ :=
+                          GetEnumValue(AFields[J].FieldType.Handle, S);
+                    end;
+                  otUWord:
+                    begin
+                      if TryStrToInt(S, iVal) then
+                        PWord(IntPtr(ABaseAddr) + AFields[J].Offset)^ := iVal
+                      else
+                        PWord(IntPtr(ABaseAddr) + AFields[J].Offset)^ := GetEnumValue(AFields[J].FieldType.Handle, S);
+                    end;
+                  otSLong:
+                    begin
+                      if TryStrToInt(S, iVal) then
+                        PInteger(IntPtr(ABaseAddr) + AFields[J].Offset)^ := iVal
+                      else
+                        PInteger(IntPtr(ABaseAddr) + AFields[J].Offset)^ :=
+                          GetEnumValue(AFields[J].FieldType.Handle, S);
+                    end;
+                  otULong:
+                    begin
+                      if TryStrToInt(S, iVal) then
+                        PCardinal(IntPtr(ABaseAddr) + AFields[J].Offset)^ := iVal
+                      else
+                        PCardinal(IntPtr(ABaseAddr) + AFields[J].Offset)^ :=
+                          GetEnumValue(AFields[J].FieldType.Handle, S);
+                    end;
                 end;
               end;
             end;
           tkSet:
             begin
               if Assigned(Attr) then
-              begin
-                case GetTypeData(AFields[J].FieldType.Handle).OrdType of
-                  otSByte:
-                    begin
-                      if TryStrToInt(Attr.AsString, iVal) then
-                        PShortint(IntPtr(ABaseAddr) + AFields[J]
-                          .Offset)^ := iVal
-                      else
-                        PShortint(IntPtr(ABaseAddr) + AFields[J].Offset)^ :=
-                          StringToSet(AFields[J].FieldType.Handle,
-                          Attr.AsString);
-                    end;
-                  otUByte:
-                    begin
-                      if TryStrToInt(Attr.AsString, iVal) then
-                        PByte(IntPtr(ABaseAddr) + AFields[J].Offset)^ := iVal
-                      else
-                        PByte(IntPtr(ABaseAddr) + AFields[J].Offset)^ :=
-                          StringToSet(AFields[J].FieldType.Handle,
-                          Attr.AsString);
-                    end;
-                  otSWord:
-                    begin
-                      if TryStrToInt(Attr.AsString, iVal) then
-                        PSmallint(IntPtr(ABaseAddr) + AFields[J]
-                          .Offset)^ := iVal
-                      else
-                        PSmallint(IntPtr(ABaseAddr) + AFields[J].Offset)^ :=
-                          StringToSet(AFields[J].FieldType.Handle,
-                          Attr.AsString);
-                    end;
-                  otUWord:
-                    begin
-                      if TryStrToInt(Attr.AsString, iVal) then
-                        PWord(IntPtr(ABaseAddr) + AFields[J].Offset)^ := iVal
-                      else
-                        PWord(IntPtr(ABaseAddr) + AFields[J].Offset)^ :=
-                          StringToSet(AFields[J].FieldType.Handle,
-                          Attr.AsString);
-                    end;
-                  otSLong:
-                    begin
-                      if TryStrToInt(Attr.AsString, iVal) then
-                        PInteger(IntPtr(ABaseAddr) + AFields[J].Offset)^ := iVal
-                      else
-                        PInteger(IntPtr(ABaseAddr) + AFields[J].Offset)^ :=
-                          StringToSet(AFields[J].FieldType.Handle,
-                          Attr.AsString);
-                    end;
-                  otULong:
-                    begin
-                      if TryStrToInt(Attr.AsString, iVal) then
-                        PCardinal(IntPtr(ABaseAddr) + AFields[J]
-                          .Offset)^ := iVal
-                      else
-                        PCardinal(IntPtr(ABaseAddr) + AFields[J].Offset)^ :=
-                          StringToSet(AFields[J].FieldType.Handle,
-                          Attr.AsString);
-                    end;
-                end;
+                S := Attr.AsString
+              else if Assigned(AChild) then
+                S := AChild.Text
+              else
+                Continue;
+              case GetTypeData(AFields[J].FieldType.Handle).OrdType of
+                otSByte:
+                  begin
+                    if TryStrToInt(S, iVal) then
+                      PShortint(IntPtr(ABaseAddr) + AFields[J].Offset)^ := iVal
+                    else
+                      PShortint(IntPtr(ABaseAddr) + AFields[J].Offset)^ := StringToSet(AFields[J].FieldType.Handle, S);
+                  end;
+                otUByte:
+                  begin
+                    if TryStrToInt(S, iVal) then
+                      PByte(IntPtr(ABaseAddr) + AFields[J].Offset)^ := iVal
+                    else
+                      PByte(IntPtr(ABaseAddr) + AFields[J].Offset)^ := StringToSet(AFields[J].FieldType.Handle, S);
+                  end;
+                otSWord:
+                  begin
+                    if TryStrToInt(S, iVal) then
+                      PSmallint(IntPtr(ABaseAddr) + AFields[J].Offset)^ := iVal
+                    else
+                      PSmallint(IntPtr(ABaseAddr) + AFields[J].Offset)^ := StringToSet(AFields[J].FieldType.Handle, S);
+                  end;
+                otUWord:
+                  begin
+                    if TryStrToInt(S, iVal) then
+                      PWord(IntPtr(ABaseAddr) + AFields[J].Offset)^ := iVal
+                    else
+                      PWord(IntPtr(ABaseAddr) + AFields[J].Offset)^ := StringToSet(AFields[J].FieldType.Handle, S);
+                  end;
+                otSLong:
+                  begin
+                    if TryStrToInt(S, iVal) then
+                      PInteger(IntPtr(ABaseAddr) + AFields[J].Offset)^ := iVal
+                    else
+                      PInteger(IntPtr(ABaseAddr) + AFields[J].Offset)^ := StringToSet(AFields[J].FieldType.Handle, S);
+                  end;
+                otULong:
+                  begin
+                    if TryStrToInt(S, iVal) then
+                      PCardinal(IntPtr(ABaseAddr) + AFields[J].Offset)^ := iVal
+                    else
+                      PCardinal(IntPtr(ABaseAddr) + AFields[J].Offset)^ := StringToSet(AFields[J].FieldType.Handle, S);
+                  end;
               end;
             end;
           tkChar, tkWChar:
             if Assigned(Attr) then
-              AFields[J].SetValue(ABaseAddr, Attr.AsString);
+              AFields[J].SetValue(ABaseAddr, Attr.AsString)
+            else if Assigned(AChild) then
+              AFields[J].SetValue(ABaseAddr, AChild.Text);
           tkFloat:
-            if Assigned(Attr) then
             begin
-              if (AFields[J].FieldType.Handle = TypeInfo(TDateTime)) or
-                (AFields[J].FieldType.Handle = TypeInfo(TTime)) or
-                (AFields[J].FieldType.Handle = TypeInfo(TDate)) then
+              if Assigned(Attr) then
+                S := Attr.AsString
+              else if Assigned(AChild) then
+                S := AChild.Text
+              else
+                Continue;
+              if (AFields[J].FieldType.Handle = TypeInfo(TDateTime)) or (AFields[J].FieldType.Handle = TypeInfo(TTime))
+                or (AFields[J].FieldType.Handle = TypeInfo(TDate)) then
               begin
-                if Length(Attr.AsString) > 0 then
-                  AFields[J].SetValue(ABaseAddr, Attr.AsDateTime)
+                if Length(S) > 0 then
+                  AFields[J].SetValue(ABaseAddr, DateTimeFromString(S))
                 else
                   AFields[J].SetValue(ABaseAddr, 0);
               end
               else
-                AFields[J].SetValue(ABaseAddr, Attr.AsFloat);
+                AFields[J].SetValue(ABaseAddr, StrToFloat(S));
             end;
           tkInt64:
-            if Assigned(Attr) then
-              AFields[J].SetValue(ABaseAddr, Attr.AsInt64);
+            begin
+              if Assigned(Attr) then
+                AFields[J].SetValue(ABaseAddr, Attr.AsInt64)
+              else if Assigned(AChild) then
+                AFields[J].SetValue(ABaseAddr, AChild.Text);
+            end;
           tkVariant:
-            if Assigned(Attr) then
-              PVariant(IntPtr(ABaseAddr) + AFields[J].Offset)^ := Attr.AsVariant
-            else
-              PVariant(IntPtr(ABaseAddr) + AFields[J].Offset)^ :=
-                NodeToVariant(AChild);
+            begin
+              if Assigned(Attr) then
+                PVariant(IntPtr(ABaseAddr) + AFields[J].Offset)^ := Attr.AsVariant
+              else
+                PVariant(IntPtr(ABaseAddr) + AFields[J].Offset)^ := NodeToVariant(AChild);
+            end;
           tkArray, tkDynArray:
-            AChild.ToRtti(Pointer(IntPtr(ABaseAddr) + AFields[J].Offset),
-              AFields[J].FieldType.Handle);
+            begin
+              if Assigned(AChild) then
+                AChild.ToRtti(Pointer(IntPtr(ABaseAddr) + AFields[J].Offset), AFields[J].FieldType.Handle);
+            end;
           tkClass:
             begin
               AObj := AFields[J].GetValue(ABaseAddr).AsObject;
@@ -3953,11 +3851,14 @@ procedure TQXMLNode.ToRtti(ADest: Pointer; AType: PTypeInfo;
             end;
           tkRecord:
             if AFields[J].FieldType.Handle = TypeInfo(TGuid) then
-              PGuid(IntPtr(ABaseAddr) + AFields[J].Offset)^ :=
-                StringToGuid(Attr.AsString)
+            begin
+              if Assigned(Attr) then
+                PGuid(IntPtr(ABaseAddr) + AFields[J].Offset)^ := StringToGuid(Attr.AsString)
+              else if Assigned(AChild) then
+                PGuid(IntPtr(ABaseAddr) + AFields[J].Offset)^ := StringToGuid(AChild.Text);
+            end
             else if Assigned(AChild) then
-              AChild.ToRtti(Pointer(IntPtr(ABaseAddr) + AFields[J].Offset),
-                AFields[J].FieldType.Handle);
+              AChild.ToRtti(Pointer(IntPtr(ABaseAddr) + AFields[J].Offset), AFields[J].FieldType.Handle);
         end;
       end;
     end;
@@ -3968,6 +3869,7 @@ procedure TQXMLNode.ToRtti(ADest: Pointer; AType: PTypeInfo;
     AProp: PPropInfo;
     ACount: Integer;
     J, iVal: Integer;
+    dVal: Double;
     AObj, AChildObj: TObject;
     AChild: TQXMLNode;
     Attr: TQXMLAttr;
@@ -3991,8 +3893,7 @@ procedure TQXMLNode.ToRtti(ADest: Pointer; AType: PTypeInfo;
               SetOrdProp(AObj, AProp, Attr.AsInteger);
             tkFloat:
               begin
-                if (AProp.PropType^ = TypeInfo(TDateTime)) or
-                  (AProp.PropType^ = TypeInfo(TTime)) or
+                if (AProp.PropType^ = TypeInfo(TDateTime)) or (AProp.PropType^ = TypeInfo(TTime)) or
                   (AProp.PropType^ = TypeInfo(TDate)) then
                   SetFloatProp(AObj, AProp, Attr.AsDateTime)
                 else
@@ -4002,8 +3903,7 @@ procedure TQXMLNode.ToRtti(ADest: Pointer; AType: PTypeInfo;
               SetStrProp(AObj, AProp, Attr.AsString);
             tkEnumeration:
               begin
-                if GetTypeData(AProp.PropType^)^.BaseType^ = TypeInfo(Boolean)
-                then
+                if GetTypeData(AProp.PropType^)^.BaseType^ = TypeInfo(Boolean) then
                   SetOrdProp(AObj, AProp, Integer(Attr.AsBoolean))
                 else if TryStrToInt(Attr.AsString, iVal) then
                   SetOrdProp(AObj, AProp, iVal)
@@ -4031,6 +3931,38 @@ procedure TQXMLNode.ToRtti(ADest: Pointer; AType: PTypeInfo;
         if (AProp <> nil) and Assigned(AProp.SetProc) then
         begin
           case AProp.PropType^.Kind of
+            tkInteger:
+              SetOrdProp(AObj, AProp, StrToInt(AChild.Text));
+            tkFloat:
+              begin
+                if (AProp.PropType^ = TypeInfo(TDateTime)) or (AProp.PropType^ = TypeInfo(TTime)) or
+                  (AProp.PropType^ = TypeInfo(TDate)) then
+                  SetFloatProp(AObj, AProp, DateTimeFromString(AChild.Text))
+                else
+                  SetFloatProp(AObj, AProp, StrToFloat(AChild.Text));
+              end;
+            tkChar, tkString, tkWChar, tkLString, tkWString, tkUString:
+              SetStrProp(AObj, AProp, AChild.Text);
+            tkEnumeration:
+              begin
+                if GetTypeData(AProp.PropType^)^.BaseType^ = TypeInfo(Boolean) then
+                  SetOrdProp(AObj, AProp, Integer(StrToBool(AChild.Text)))
+                else if TryStrToInt(AChild.Text, iVal) then
+                  SetOrdProp(AObj, AProp, iVal)
+                else
+                  SetEnumProp(AObj, AProp, AChild.Text);
+              end;
+            tkSet:
+              begin
+                if TryStrToInt(AChild.Text, iVal) then
+                  SetOrdProp(AObj, AProp, iVal)
+                else
+                  SetSetProp(AObj, AProp, AChild.Text);
+              end;
+            tkVariant:
+              SetVariantProp(AObj, AProp, NodeToVariant(AChild));
+            tkInt64:
+              SetInt64Prop(AObj, AProp, StrToInt64(AChild.Text));
             tkClass:
               begin
                 AChildObj := Pointer(GetOrdProp(AObj, AProp));
@@ -4044,8 +3976,7 @@ procedure TQXMLNode.ToRtti(ADest: Pointer; AType: PTypeInfo;
             tkRecord, tkArray, tkDynArray:
               // tkArray,tkDynArray类型的属性没见过,tkRecord存疑
               begin
-                AChild.ToRtti(Pointer(GetOrdProp(AObj, AProp)),
-                  AProp.PropType^);
+                AChild.ToRtti(Pointer(GetOrdProp(AObj, AProp)), AProp.PropType^);
               end;
           end;
         end;
@@ -4092,6 +4023,7 @@ procedure TQXMLNode.ToRtti(ADest: Pointer; AType: PTypeInfo;
     AContext: TRttiContext;
     ASubType: TRttiType;
     I, l, AOffset, iVal: Integer;
+    dVal: Double;
     S: QStringW;
     pd, pi: PByte;
     AChildObj: TObject;
@@ -4161,8 +4093,7 @@ procedure TQXMLNode.ToRtti(ADest: Pointer; AType: PTypeInfo;
                         if TryStrToInt(Attr.AsString, iVal) then
                           PShortint(pi)^ := iVal
                         else
-                          PShortint(pi)^ := GetEnumValue(ASubTypeInfo,
-                            Attr.AsString);
+                          PShortint(pi)^ := GetEnumValue(ASubTypeInfo, Attr.AsString);
                       end;
                     otUByte:
                       begin
@@ -4176,32 +4107,28 @@ procedure TQXMLNode.ToRtti(ADest: Pointer; AType: PTypeInfo;
                         if TryStrToInt(Attr.AsString, iVal) then
                           PSmallint(pi)^ := iVal
                         else
-                          PSmallint(pi)^ := GetEnumValue(ASubTypeInfo,
-                            Attr.AsString);
+                          PSmallint(pi)^ := GetEnumValue(ASubTypeInfo, Attr.AsString);
                       end;
                     otUWord:
                       begin
                         if TryStrToInt(Attr.AsString, iVal) then
                           PWord(pi)^ := iVal
                         else
-                          PWord(pi)^ := GetEnumValue(ASubTypeInfo,
-                            Attr.AsString);
+                          PWord(pi)^ := GetEnumValue(ASubTypeInfo, Attr.AsString);
                       end;
                     otSLong:
                       begin
                         if TryStrToInt(Attr.AsString, iVal) then
                           PInteger(pi)^ := iVal
                         else
-                          PInteger(pi)^ := GetEnumValue(ASubTypeInfo,
-                            Attr.AsString);
+                          PInteger(pi)^ := GetEnumValue(ASubTypeInfo, Attr.AsString);
                       end;
                     otULong:
                       begin
                         if TryStrToInt(Attr.AsString, iVal) then
                           PCardinal(pi)^ := iVal
                         else
-                          PCardinal(pi)^ := GetEnumValue(ASubTypeInfo,
-                            Attr.AsString);
+                          PCardinal(pi)^ := GetEnumValue(ASubTypeInfo, Attr.AsString);
                       end;
                   end;
                 end;
@@ -4238,8 +4165,7 @@ procedure TQXMLNode.ToRtti(ADest: Pointer; AType: PTypeInfo;
                       if TryStrToInt(Attr.AsString, iVal) then
                         PShortint(pi)^ := iVal
                       else
-                        PShortint(pi)^ := StringToSet(ASubTypeInfo,
-                          Attr.AsString);
+                        PShortint(pi)^ := StringToSet(ASubTypeInfo, Attr.AsString);
                     end;
                   otUByte:
                     begin
@@ -4253,8 +4179,7 @@ procedure TQXMLNode.ToRtti(ADest: Pointer; AType: PTypeInfo;
                       if TryStrToInt(Attr.AsString, iVal) then
                         PSmallint(pi)^ := iVal
                       else
-                        PSmallint(pi)^ := StringToSet(ASubTypeInfo,
-                          Attr.AsString);
+                        PSmallint(pi)^ := StringToSet(ASubTypeInfo, Attr.AsString);
                     end;
                   otUWord:
                     begin
@@ -4268,16 +4193,14 @@ procedure TQXMLNode.ToRtti(ADest: Pointer; AType: PTypeInfo;
                       if TryStrToInt(Attr.AsString, iVal) then
                         PInteger(pi)^ := iVal
                       else
-                        PInteger(pi)^ := StringToSet(ASubTypeInfo,
-                          Attr.AsString);
+                        PInteger(pi)^ := StringToSet(ASubTypeInfo, Attr.AsString);
                     end;
                   otULong:
                     begin
                       if TryStrToInt(Attr.AsString, iVal) then
                         PCardinal(pi)^ := iVal
                       else
-                        PCardinal(pi)^ := StringToSet(ASubTypeInfo,
-                          Attr.AsString);
+                        PCardinal(pi)^ := StringToSet(ASubTypeInfo, Attr.AsString);
                     end;
                 end;
               end;
@@ -4406,8 +4329,7 @@ procedure TQXMLNode.ToRtti(ADest: Pointer; AType: PTypeInfo;
                       if TryStrToInt(Attr.AsString, iVal) then
                         PShortint(pi)^ := iVal
                       else
-                        PShortint(pi)^ := GetEnumValue(ASubTypeInfo,
-                          Attr.AsString);
+                        PShortint(pi)^ := GetEnumValue(ASubTypeInfo, Attr.AsString);
                     end;
                   otUByte:
                     begin
@@ -4421,8 +4343,7 @@ procedure TQXMLNode.ToRtti(ADest: Pointer; AType: PTypeInfo;
                       if TryStrToInt(Attr.AsString, iVal) then
                         PSmallint(pi)^ := iVal
                       else
-                        PSmallint(pi)^ := GetEnumValue(ASubTypeInfo,
-                          Attr.AsString);
+                        PSmallint(pi)^ := GetEnumValue(ASubTypeInfo, Attr.AsString);
                     end;
                   otUWord:
                     begin
@@ -4436,16 +4357,14 @@ procedure TQXMLNode.ToRtti(ADest: Pointer; AType: PTypeInfo;
                       if TryStrToInt(Attr.AsString, iVal) then
                         PInteger(pi)^ := iVal
                       else
-                        PInteger(pi)^ := GetEnumValue(ASubTypeInfo,
-                          Attr.AsString);
+                        PInteger(pi)^ := GetEnumValue(ASubTypeInfo, Attr.AsString);
                     end;
                   otULong:
                     begin
                       if TryStrToInt(Attr.AsString, iVal) then
                         PCardinal(pi)^ := iVal
                       else
-                        PCardinal(pi)^ := GetEnumValue(ASubTypeInfo,
-                          Attr.AsString);
+                        PCardinal(pi)^ := GetEnumValue(ASubTypeInfo, Attr.AsString);
                     end;
                 end;
               end;
@@ -4482,8 +4401,7 @@ procedure TQXMLNode.ToRtti(ADest: Pointer; AType: PTypeInfo;
                     if TryStrToInt(Attr.AsString, iVal) then
                       PShortint(pi)^ := iVal
                     else
-                      PShortint(pi)^ := StringToSet(ASubTypeInfo,
-                        Attr.AsString);
+                      PShortint(pi)^ := StringToSet(ASubTypeInfo, Attr.AsString);
                   end;
                 otUByte:
                   begin
@@ -4497,8 +4415,7 @@ procedure TQXMLNode.ToRtti(ADest: Pointer; AType: PTypeInfo;
                     if TryStrToInt(Attr.AsString, iVal) then
                       PSmallint(pi)^ := iVal
                     else
-                      PSmallint(pi)^ := StringToSet(ASubTypeInfo,
-                        Attr.AsString);
+                      PSmallint(pi)^ := StringToSet(ASubTypeInfo, Attr.AsString);
                   end;
                 otUWord:
                   begin
@@ -4519,8 +4436,7 @@ procedure TQXMLNode.ToRtti(ADest: Pointer; AType: PTypeInfo;
                     if TryStrToInt(Attr.AsString, iVal) then
                       PCardinal(pi)^ := iVal
                     else
-                      PCardinal(pi)^ := StringToSet(ASubTypeInfo,
-                        Attr.AsString);
+                      PCardinal(pi)^ := StringToSet(ASubTypeInfo, Attr.AsString);
                   end;
               end;
             end;
@@ -4637,8 +4553,7 @@ begin
         if c <> #0 then
           pd^ := c
         else
-          raise Exception.Create(Format(SUnknownXMLEscape,
-            [StrDupX(ws, ps - ws)]));
+          raise Exception.Create(Format(SUnknownXMLEscape, [StrDupX(ws, ps - ws)]));
         Inc(pd);
       end
       else // 兼容处理
@@ -4660,8 +4575,7 @@ begin
   SetLength(Result, pd - PQCharW(Result));
 end;
 
-function TQXMLNode.XMLEncode(const S: QStringW; AConvertQuoter, AppendSpace,
-  ADoEscape: Boolean): QStringW;
+function TQXMLNode.XMLEncode(const S: QStringW; AConvertQuoter, AppendSpace, ADoEscape: Boolean): QStringW;
 var
   ps, pd: PQCharW;
   ASpaceCount: Integer;
@@ -4786,8 +4700,7 @@ end;
 
 function TQXMLAttr.GetAsDateTime: TDateTime;
 begin
-  if not(ParseDateTime(PQCharW(FValue), Result) or ParseWebTime(PQCharW(FValue),
-    Result)) then
+  if not(ParseDateTime(PQCharW(FValue), Result) or ParseWebTime(PQCharW(FValue), Result)) then
     Result := GetAsFloat;
 end;
 
@@ -4937,8 +4850,7 @@ procedure TQHashedXMLNode.DoNodeNameChanged(ANode: TQXMLNode);
 begin
   ANode.FNameHash := HashOf(PQCharW(ANode.Name), Length(ANode.Name) shl 1);
   if Assigned(ANode.Parent) then
-    TQHashedXMLNode(ANode.Parent).FHashTable.Add
-      (Pointer(ANode.Parent.Count - 1), ANode.FNameHash);
+    TQHashedXMLNode(ANode.Parent).FHashTable.Add(Pointer(ANode.Parent.Count - 1), ANode.FNameHash);
 end;
 
 function TQHashedXMLNode.IndexOf(const AName: QStringW): Integer;
@@ -4989,10 +4901,8 @@ constructor TQSoapXML.Create;
 begin
   FRoot := TQXMLNode.Create;
   FRoot.Name := 'SOAP-ENV:Envelope';
-  FRoot.Attrs.Add('xmlns:SOAP-ENV',
-    'http://schemas.xmlsoap.org/soap/envelope/');
-  FRoot.Attrs.Add('SOAP-ENV:encodingStyle',
-    'http://schemas.xmlsoap.org/soap/encoding/');
+  FRoot.Attrs.Add('xmlns:SOAP-ENV', 'http://schemas.xmlsoap.org/soap/envelope/');
+  FRoot.Attrs.Add('SOAP-ENV:encodingStyle', 'http://schemas.xmlsoap.org/soap/encoding/');
 end;
 
 destructor TQSoapXML.Destroy;
@@ -5025,8 +4935,7 @@ const
 begin
   Result := Header.AddNode(ANodeName);
   p := PWideChar(ANodeName);
-  Result.Attrs.Add('xmlns:' + DecodeTokenW(p, NameValueDelimiter, QCharW(#0),
-    False), ANSUri);
+  Result.Attrs.Add('xmlns:' + DecodeTokenW(p, NameValueDelimiter, QCharW(#0), False), ANSUri);
 end;
 
 procedure TQSoapXML.SaveToFile(const AFileName: QStringW);
@@ -5039,8 +4948,7 @@ begin
   FRoot.SaveToStream(AStream, teUTF8, False, False, False);
 end;
 
-function TQXMLAttrs.AddDateTime(const AName: QStringW;
-  AValue: TDateTime): Integer;
+function TQXMLAttrs.AddDateTime(const AName: QStringW; AValue: TDateTime): Integer;
 var
   AInt: Integer;
 begin
