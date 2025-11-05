@@ -8605,19 +8605,46 @@ function DateTimeFromString(AStr: QStringW; var AResult: TDateTime;
         Inc(ps);
       end
       else
+      begin
         Result := false;
+      end;
     end;
-    Result := Result and ((ps^ = #0) or (ps^ = '+'));
     if Result then
     begin
-      if M = 0 then
-        M := 1;
-      if d = 0 then
-        d := 1;
-      Result := TryEncodeDate(Y, M, d, ADate);
-      Result := Result and TryEncodeTime(H, N, S, MS, ATime);
+      //AM/PM?
+      while ps^=' ' do
+        Inc(ps);
+      if StrIComp(ps,'am')=0 then
+      begin
+        Inc(ps,2);
+        while ps^=' ' do
+          Inc(ps);
+      end
+      else if StrIComp(ps,'pm')=0 then
+      begin
+        Inc(ps,2);
+        while ps^=' ' do
+          Inc(ps);
+        Inc(H,12);
+      end;
+
+      Result := Result and ((ps^ = #0) or (ps^ = '+'));
       if Result then
-        AResult := ADate + ATime;
+      begin
+        if M = 0 then
+          M := 1;
+        if d = 0 then
+          d := 1;
+        Result := TryEncodeDate(Y, M, d, ADate);
+        Result := Result and TryEncodeTime(H, N, S, MS, ATime);
+        if Result then
+        begin
+          if ADate<0 then
+            AResult:=AResult-ATime
+          else
+            AResult := ADate + ATime;
+        end;
+      end;
     end;
   end;
   procedure SmartDetect;
