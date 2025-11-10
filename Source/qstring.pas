@@ -8540,6 +8540,17 @@ function DateTimeFromString(AStr: QStringW; var AResult: TDateTime;
     pf, ps, pl: PWideChar;
     c, Y, M, d, H, N, S, MS: Integer;
     ADate, ATime: TDateTime;
+    AFlags:Integer;
+  const
+    MASK_YEAR=$1;
+    MASK_MONTH=$2;
+    MASK_DAY=$4;
+    MASK_DATE=$7;
+    MASK_HOUR=$8;
+    MASK_MINUTE=$10;
+    MASK_SECOND=$20;
+    MASK_MS=$40;
+    MASK_TIME=$38;
   begin
     pf := PWideChar(fmt);
     ps := PWideChar(AStr);
@@ -8552,6 +8563,7 @@ function DateTimeFromString(AStr: QStringW; var AResult: TDateTime;
     S := 0;
     MS := 0;
     Result := True;
+    AFlags := 0;
     while (pf^ <> #0) and Result do
     begin
       if (pf^ = 'y') or (pf^ = 'Y') then
@@ -8568,19 +8580,38 @@ function DateTimeFromString(AStr: QStringW; var AResult: TDateTime;
               Y := 1900 + Y;
           end
         end;
+        AFlags := AFlags or MASK_YEAR;
       end
       else if (pf^ = 'm') or (pf^ = 'M') then
-        Result := DecodeTagValue(pf, ps, 'm', 'M', M, c, 2)
+      begin
+        AFlags := AFlags or MASK_MONTH;
+        Result := DecodeTagValue(pf, ps, 'm', 'M', M, c, 2);
+      end
       else if (pf^ = 'd') or (pf^ = 'D') then
-        Result := DecodeTagValue(pf, ps, 'd', 'D', d, c, 2)
+      begin
+        AFlags := AFlags or MASK_DAY;
+        Result := DecodeTagValue(pf, ps, 'd', 'D', d, c, 2);
+      end
       else if (pf^ = 'h') or (pf^ = 'H') then
+      begin
+        AFlags := AFlags or MASK_HOUR;
         Result := DecodeTagValue(pf, ps, 'h', 'H', H, c, 2)
+      end
       else if (pf^ = 'n') or (pf^ = 'N') then
+      begin
+        AFlags := AFlags or MASK_MINUTE;
         Result := DecodeTagValue(pf, ps, 'n', 'N', N, c, 2)
+      end
       else if (pf^ = 's') or (pf^ = 'S') then
+      begin
+        AFlags := AFlags or MASK_SECOND;
         Result := DecodeTagValue(pf, ps, 's', 'S', S, c, 2)
+      end
       else if (pf^ = 'z') or (pf^ = 'Z') then
+      begin
+        AFlags := AFlags or MASK_MS;
         Result := DecodeTagValue(pf, ps, 'z', 'Z', MS, c, 3)
+      end
       else if (pf^ = '"') or (pf^ = '''') then
       begin
         pl := pf;
@@ -8631,18 +8662,26 @@ function DateTimeFromString(AStr: QStringW; var AResult: TDateTime;
       Result := Result and ((ps^ = #0) or (ps^ = '+'));
       if Result then
       begin
-        if M = 0 then
-          M := 1;
-        if d = 0 then
-          d := 1;
-        Result := TryEncodeDate(Y, M, d, ADate);
-        Result := Result and TryEncodeTime(H, N, S, MS, ATime);
-        if Result then
+        if (AFlags and MASK_DATE) = MASK_DATE  then
         begin
-          if ADate<0 then
-            AResult:=AResult-ATime
-          else
-            AResult := ADate + ATime;
+          if M = 0 then
+            M := 1;
+          if d = 0 then
+            d := 1;
+          Result := TryEncodeDate(Y, M, d, ADate);
+        end
+        else
+          ADate :=0;
+        if (AFlags and MASK_TIME)=MASK_TIME then
+        begin
+          Result := Result and TryEncodeTime(H, N, S, MS, ATime);
+          if Result then
+          begin
+            if ADate<0 then
+              AResult:=ADate-ATime
+            else
+              AResult := ADate + ATime;
+          end;
         end;
       end;
     end;
