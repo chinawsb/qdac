@@ -1109,6 +1109,8 @@ var
     AFuncSpliter: PWideChar = ',';
     ANonQuoter: WideChar = #0;
   begin
+    if not Assigned(AList) then
+      Exit;
     for I := 0 to AList.Count - 1 do
     begin
       S := AList[I];
