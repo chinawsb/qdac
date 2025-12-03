@@ -13105,38 +13105,36 @@ begin
   if ACount >= 11 then
   begin
     p := PQCharW(S);
-    if p^ = '+' then // +86
+    if StartWithW(p, '+86', false) then // +86
     begin
-      Inc(p);
-      if p^ <> '8' then
-        Exit;
-      Inc(p);
-      if p^ <> '6' then
-        Exit;
-      Inc(p);
+      Inc(p, 3);
       SkipCharW(p, Delimiters);
     end;
-    if (p^ = '1') or ACheckNumericOnly then // 中国手机号以1打头，
+    if StartWithW(p, '700', false) then
     begin
-      ACount := 0;
-      while p^ <> #0 do
+      Inc(p, 3);
+      ACount := 12; // 700虚拟号以700+12位数字组成
+    end
+    else if p^ = '1' then
+    begin
+      Inc(p);
+      ACount := 10;
+    end
+    else
+      Exit;
+    while (p^ <> #0) and (ACount > 0) do
+    begin
+      if (p^ >= '0') and (p^ <= '9') then
       begin
-        if (p^ >= '0') and (p^ <= '9') then
-        begin
-          Inc(p);
-          Inc(ACount);
-        end
-        else if (p^ = '-') or (p^ = ' ') then
-        begin
-          if (p^ = '-') and (ACount = 11) then // 虚拟号？
-            Exit(True);
-          Inc(p)
-        end
-        else
-          Exit;
-      end;
-      Result := (ACount = 11);
+        Inc(p);
+        Dec(ACount);
+      end
+      else if (p^ = '-') or (p^ = ' ') then
+        Inc(p)
+      else
+        Exit;
     end;
+    Result := (ACount = 0) and (p^ = #0);
   end;
 end;
 
