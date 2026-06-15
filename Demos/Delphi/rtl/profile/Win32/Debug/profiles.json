@@ -1,0 +1,25 @@
+{
+"mainThreadId":5492,
+"freq":10000000,
+"timeUnit":"default",
+"threads":[
+  {
+    "threadId":5492,
+    "startTime":117,
+    "latestTime":146441,
+    "chains":[
+      {
+        "name":"TestFunc",
+        "maxNestLevel":0,
+        "runs":1,
+        "minTime":146272,
+        "maxTime":146272,
+        "totalTime":146272,
+        "avgTime":146272,
+        "firstTime":161,
+        "lastStartTime":161
+      }
+    ]
+  }
+  ]
+}
