@@ -2,7 +2,7 @@
 
 interface
 
-uses classes, sysutils, typinfo, dateutils, math, ansistrings, Character, generics.Collections, winapi.Windows, generics.Defaults, rtti, variants, fmtbcd, qdac.common, qdac.attribute;
+uses classes, sysutils, typinfo, dateutils, math, ansistrings, Character, generics.Collections, generics.Defaults, rtti, variants, fmtbcd, qdac.common, qdac.attribute;
 
 const
   PAGE_BUFFER_SIZE = 4096 - sizeof(Pointer) - sizeof(Word);
@@ -158,6 +158,7 @@ type
     procedure StartPair(const AName: UnicodeString);
     procedure WritePair(const AName: UnicodeString; const V: UnicodeString); overload;
     procedure WritePair(const AName: UnicodeString; const V: Int64; AIsSign: Boolean = true); overload;
+    procedure WritePair(const AName: UnicodeString; const V: UInt64); overload;
     procedure WritePair(const AName: UnicodeString; const V: Extended; const AFormat: string = ''); overload;
     procedure WritePair(const AName: UnicodeString; const V: TBcd); overload;
     procedure WritePair(const AName: UnicodeString; const V: Boolean); overload;
