@@ -43,6 +43,7 @@ type
     procedure Clear;
     function ItemByPath(const APath: UnicodeString; ADelimiter: WideChar = '.'): PQXmlNode;
     function ForcePath(const APath: UnicodeString; ADelimiter: WideChar = '.'): PQXmlNode;
+    function ForceName(const AName: UnicodeString): PQXmlNode;
     function Find(const AName: UnicodeString): TArray<PQXmlNode>;
     procedure ForEach(ACallback: TQNodeForEachCallback);
     procedure Sort(ASC: Boolean = True);
@@ -247,6 +248,11 @@ end;
 function TQXmlNode.ForcePath(const APath: UnicodeString; ADelimiter: WideChar = '.'): PQXmlNode;
 begin
   Result := PQXmlNode(NodeForcePath(@Base, APath, ADelimiter));
+end;
+
+function TQXmlNode.ForceName(const AName: UnicodeString): PQXmlNode;
+begin
+  Result := PQXmlNode(NodeForceName(@Base, AName));
 end;
 
 function TQXmlNode.Find(const AName: UnicodeString): TArray<PQXmlNode>;

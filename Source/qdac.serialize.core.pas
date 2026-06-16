@@ -299,6 +299,7 @@ function NodeFindAll(ARoot: PQNodeBase; const AName: UnicodeString): TArray<PQNo
 procedure NodeSort(ARoot: PQNodeBase; ASC: Boolean);
 function NodeByPath(ARoot: PQNodeBase; const APath: UnicodeString; ADelimiter: WideChar): PQNodeBase;
 function NodeForcePath(ARoot: PQNodeBase; const APath: UnicodeString; ADelimiter: WideChar): PQNodeBase;
+function NodeForceName(ARoot: PQNodeBase; const AName: UnicodeString): PQNodeBase;
 function NodeXPath(ARoot: PQNodeBase; const AExpr: UnicodeString): TArray<PQNodeBase>;
 
 type
@@ -2665,6 +2666,17 @@ begin
       NodeAddChild(Result, N);
     end;
     Result := N;
+  end;
+end;
+
+function NodeForceName(ARoot: PQNodeBase; const AName: UnicodeString): PQNodeBase;
+begin
+  Result := NodeFindByName(ARoot, AName);
+  if Result = nil then begin
+    New(Result);
+    FillChar(Result^, SizeOf(TQNodeBase), 0);
+    Result.Name := AName;
+    NodeAddChild(ARoot, Result);
   end;
 end;
 

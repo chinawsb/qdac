@@ -184,6 +184,78 @@ begin
   N.Free;
   Writeln(' OK');
 
+  // ---- T8b: ForceName - find existing child ----
+  Write('T8b: ForceName find existing');
+  N := TQXmlNode.New(xntElement);
+  N.Name := 'root';
+  C := N.AddElement('child1');
+  C.SetText('value1');
+  C := N.AddElement('child2');
+  C.SetText('value2');
+  Found := N.ForceName('child1');
+  XCheck(Assigned(Found), 'force name found existing');
+  XCheck(Found.Name = 'child1', 'force name correct node');
+  XCheck(Found.Text = 'value1', 'force name correct value');
+  Found := N.ForceName('child2');
+  XCheck(Assigned(Found), 'force name second child');
+  XCheck(Found.Text = 'value2', 'force name second value');
+  N.Free;
+  Writeln(' OK');
+
+  // ---- T8c: ForceName - create if not exists ----
+  Write('T8c: ForceName create missing');
+  N := TQXmlNode.New(xntElement);
+  N.Name := 'root';
+  XCheck(N.Count = 0, 'empty root before force');
+  Found := N.ForceName('newchild');
+  XCheck(Assigned(Found), 'force name created');
+  XCheck(Found.Name = 'newchild', 'force name correct name');
+  XCheck(N.Count = 1, 'one child after force');
+  Found.InnerText := 'created';
+  Found := N.ForceName('newchild');
+  XCheck(Assigned(Found), 'force name find after create');
+  XCheck(Found.Text = 'created', 'force name preserved value');
+  N.Free;
+  Writeln(' OK');
+
+  // ---- T8d: ForceName - multiple creates ----
+  Write('T8d: ForceName multiple children');
+  N := TQXmlNode.New(xntElement);
+  N.Name := 'root';
+  Found := N.ForceName('a');
+  Found := N.ForceName('b');
+  Found := N.ForceName('c');
+  XCheck(N.Count = 3, '3 children created');
+  XCheck(N.GetChild(0).Name = 'a', 'first is a');
+  XCheck(N.GetChild(1).Name = 'b', 'second is b');
+  XCheck(N.GetChild(2).Name = 'c', 'third is c');
+  // Re-access existing ones
+  Found := N.ForceName('a');
+  XCheck(Assigned(Found), 're-find a');
+  XCheck(N.Count = 3, 'count still 3 after re-find');
+  N.Free;
+  Writeln(' OK');
+
+  // ---- T8e: ForceName edge - empty name ----
+  Write('T8e: ForceName edge cases');
+  N := TQXmlNode.New(xntElement);
+  N.Name := 'root';
+  // Empty string name
+  Found := N.ForceName('');
+  XCheck(Assigned(Found), 'empty name creates node');
+  XCheck(Found.Name = '', 'empty name stored');
+  // Name with special chars
+  Found := N.ForceName('my-node_1');
+  XCheck(Assigned(Found), 'special chars name');
+  XCheck(Found.Name = 'my-node_1', 'special chars preserved');
+  // ForceName same as existing ForcePath pattern
+  Found := N.ForcePath('a.b.c', '.');
+  Found := N.ForceName('a');
+  XCheck(Assigned(Found), 'force name after force path');
+  XCheck(Found.Name = 'a', 'existing found by force name');
+  N.Free;
+  Writeln(' OK');
+
   // ---- T9: ForEach enumeration ----
   Write('T9: ForEach');
   N := TQXmlNode.New(xntElement);
