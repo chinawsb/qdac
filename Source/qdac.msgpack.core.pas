@@ -149,6 +149,7 @@ type
     procedure StartPair(const AName: UnicodeString);
     procedure WritePair(const AName: UnicodeString; const V: UnicodeString); overload;
     procedure WritePair(const AName: UnicodeString; const V: Int64; AIsSign: Boolean = True); overload;
+    procedure WritePair(const AName: UnicodeString; const V: UInt64); overload;
     procedure WritePair(const AName: UnicodeString; const V: Extended; const AFormat: string = ''); overload;
     procedure WritePair(const AName: UnicodeString; const V: TBcd); overload;
     procedure WritePair(const AName: UnicodeString; const V: Boolean); overload;
@@ -697,6 +698,11 @@ begin
   WriteValue(V, AIsSign);
 end;
 
+procedure TQMsgPackEncoder.WritePair(const AName: UnicodeString; const V: UInt64);
+begin
+  WriteName(AName);
+  WriteValue(V);
+end;
 procedure TQMsgPackEncoder.WritePair(const AName: UnicodeString; const V: Extended; const AFormat: string);
 begin
   WriteName(AName);

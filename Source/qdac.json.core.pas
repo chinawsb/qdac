@@ -569,6 +569,7 @@ type
     procedure StartPair(const AName: UnicodeString);
     procedure WritePair(const AName: UnicodeString; const V: UnicodeString); overload;
     procedure WritePair(const AName: UnicodeString; const V: Int64; AIsSign: Boolean = true); overload;
+    procedure WritePair(const AName: UnicodeString; const V: UInt64); overload;
     procedure WritePair(const AName: UnicodeString; const V: Extended; const AFormat: UnicodeString = ''); overload;
     procedure WritePair(const AName: UnicodeString; const V: TBcd); overload;
     procedure WritePair(const AName: UnicodeString; const V: Boolean); overload;
@@ -4308,6 +4309,10 @@ begin
     InternalWritePair(AName, UIntToStr(UInt64(V)), false);
 end;
 
+procedure TQJsonEncoder.WritePair(const AName: UnicodeString; const V: UInt64);
+begin
+  InternalWritePair(AName, SysUtils.UIntToStr(V), false);
+end;
 procedure TQJsonEncoder.WritePair(const AName, V: UnicodeString);
 begin
   InternalWritePair(AName, V, true);
