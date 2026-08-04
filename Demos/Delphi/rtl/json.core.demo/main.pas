@@ -29,6 +29,7 @@ type
     procedure Button9Click(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure Button10Click(Sender: TObject);
+    procedure Panel1Click(Sender: TObject);
   private
   { Private declarations }
   public
@@ -412,6 +413,11 @@ procedure TForm1.FormCreate(Sender: TObject);
 begin
   // 用户自定义读写方法
   TQSerializer.Current.RegisterType(TypeInfo(TCustomRecord), TCustomRecordWriter.Create);
+end;
+
+procedure TForm1.Panel1Click(Sender: TObject);
+begin
+
 end;
 
 { TSubscribeOrder }

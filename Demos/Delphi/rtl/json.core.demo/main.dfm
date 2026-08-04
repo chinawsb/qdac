@@ -22,6 +22,7 @@ object Form1: TForm1
     Color = clInfoBk
     ParentBackground = False
     TabOrder = 0
+    OnClick = Panel1Click
     object Button1: TButton
       Left = 8
       Top = 9
