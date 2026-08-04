@@ -17,6 +17,7 @@
 | `qdac.json.core.pas` | 4322 | JSON parser/generator (RFC 8259) — largest module |
 | `qdac.xml.core.pas` | 788 | XML parser/generator — shares DOM with serialize.core |
 | `qdac.msgpack.core.pas` | 953 | MessagePack parser/generator — shares DOM with serialize.core |
+| `qdac.protobuf.core.pas` | new | Protocol Buffers codec registered through `TQSerializer` |
 | `qdac.profile.base.pas` | 52 | Abstract profiler base class (`TQProfileBase`) |
 | `qdac.profile.pas` | 1137 | Label-based profiler (`TQProfile.Calc`) |
 | `qdac.profile.detour.pas` | 849 | Hook-based profiler (machine code detour) |
