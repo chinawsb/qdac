@@ -4,6 +4,7 @@ program json.core.comprehensive_test;
 
 uses System.SysUtils, System.Classes,
   qdac.json.core in '..\..\..\..\Source\qdac.json.core.pas',
+  qdac.attribute in '..\..\..\..\Source\qdac.attribute.pas',
   qdac.common in '..\..\..\..\Source\qdac.common.pas',
   qdac.serialize.core in '..\..\..\..\Source\qdac.serialize.core.pas';
 
