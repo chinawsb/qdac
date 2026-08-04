@@ -4,7 +4,7 @@ interface
 
 // Todo:support json schema :https://json-schema.org/understanding-json-schema/keywords
 // FPC 暂时未提供 Hash 单元，所以在使用 FPC 时，使用 FAST_HASH_CODE 宏
-uses Classes, SysUtils, SysConst, Timespan, Generics.Collections, NetEncoding, FmtBcd, DateUtils, Math, qdac.common, qdac.serialize.core, Generics.Defaults
+uses Classes, SysUtils, SysConst, Timespan, TypInfo, Generics.Collections, NetEncoding, FmtBcd, DateUtils, Math, qdac.common, qdac.attribute, qdac.serialize.core, Generics.Defaults
 {$IFNDEF FPC}
   ,Hash
 {$ENDIF}
@@ -393,6 +393,7 @@ type
     FCharReader: TCharReader;
     FOnParseStage: TQJsonParseCallback;
     FStoreMode: TQJsonStoreMode;
+    FCaptureRoot: PQJsonNode;
     FParseAction: TQJsonParseAction;
     FActiveTokenKind: TQJsonTokenKind;
     FErrorCode, FErrorLine, FErrorColumn: Cardinal;
@@ -424,6 +425,9 @@ type
     procedure SetLastError(const ACode: Cardinal; const AMsg: UnicodeString);
     function ReadToken(ABreakAtColon: Boolean = True): Boolean;
     function InternalTryParseText(const p: PByte; AReader: TCharReader; ACallback: TQJsonParseCallback): Boolean;
+    procedure BeginCapture(ARoot: PQJsonNode);
+    procedure FinishCapture(ARoot: PQJsonNode);
+    function IsCapturing: Boolean; inline;
     procedure DoParseStage(ANode: PQJsonNode; AStage: TQJsonParseStage); inline;
     function ParseChildren(AParent: PQJsonNode): Boolean;
     function ParseValue(var AChild: TQJsonNode; ABcd: PBcd): Boolean;
@@ -482,13 +486,26 @@ type
     );
   end;
 
-  TQJsonDecoder = class sealed(TQBaseReader)
+  TQJsonDecoder = class sealed(TQBaseReader, IQTextSerializeReader)
   protected
     FRootNode: TQJsonNode;
+    FRawRoot: TQJsonNode;
+    FRawCurrent: PQJsonNode;
     FText: UnicodeString;
     FStream: TStream;
     FOptions: TQJsonParserOptions;
+    FIgnoreDepth: Integer;
+    FRawPairIndex: Integer;
+    FRawLoaded: Boolean;
+    FEventSerializer: IQCustomSerializerEvents;
+    FEventStack: PQSerializeStackItem;
+    FEventDepth: Integer;
     procedure DoParse; override;
+    procedure EnsureRawLoaded;
+    function EncodeRawNode(ANode: PQJsonNode): UnicodeString;
+    procedure StartCustomEvents;
+    procedure EmitCustomEvent(AItem: PQJsonNode; AKind: TQSerializeReadEventKind);
+    procedure FinishCustomEvents(ACompleted: Boolean);
     procedure HandleStage(
         AParser: TQJsonParser;
         AItem: PQJsonNode;
@@ -498,11 +515,14 @@ type
   public
     constructor Create(AStream: TStream); overload;
     constructor Create(const AText: UnicodeString); overload;
+    destructor Destroy; override;
+    procedure ReadRawValue(out AText: UnicodeString);
+    function ReadRawPair(out AName, AText: UnicodeString): Boolean;
     property Options: TQJsonParserOptions read FOptions write FOptions;
   end;
 
   // JSON 编码器
-  TQJsonEncoder = class sealed(TInterfacedObject, IQSerializeWriter)
+  TQJsonEncoder = class sealed(TInterfacedObject, IQSerializeWriter, IQTextSerializeWriter)
   private
     type
       PQJsonStackItem = ^TQJsonStackItem;
@@ -535,6 +555,8 @@ type
     procedure WritePrefix(AIsLast: Boolean = false);
     procedure InternalWritePair(const AName, AValue: UnicodeString; ADoQuote: Boolean);
     procedure InternalWriteValue(const AValue: UnicodeString; ADoQuote: Boolean);
+    procedure InternalWriteNode(ANode: PQJsonNode; AIsPair: Boolean);
+    procedure InternalWritePairNode(const AName: UnicodeString; ANode: PQJsonNode);
   public
     class constructor Create;
     class function JavaEscape(const S: UnicodeString; ADoEscape: Boolean): UnicodeString;
@@ -562,6 +584,8 @@ type
     procedure WriteValue(const V: TDateTime); overload;
     procedure WriteValue(const V: Currency; const AFormat: string = ''); overload;
     procedure WriteValue(const V: TBytes); overload;
+    procedure WriteValue(const ANode:TQJsonNode);overload;
+    procedure WriteRawValue(const AText: UnicodeString);
     procedure WriteNull; overload;
     //
     procedure StartObjectPair(const AName: UnicodeString);
@@ -576,6 +600,8 @@ type
     procedure WritePair(const AName: UnicodeString; const V: TDateTime); overload;
     procedure WritePair(const AName: UnicodeString; const V: Currency; const AFormat: UnicodeString = ''); overload;
     procedure WritePair(const AName: UnicodeString; const V: TBytes); overload;
+    procedure WirtePair(const AName: UnicodeString;const ANode:TQJsonNode);
+    procedure WriteRawPair(const AName, AText: UnicodeString);
     procedure WritePair(const AName: UnicodeString); overload;
     //
     procedure WriteComment(const AComment: UnicodeString);
@@ -616,6 +642,13 @@ const
     1000000000000000, 10000000000000000, 100000000000000000,
     1000000000000000000
   );
+  // 10^0..10^22 在二进制浮点中精确可表示 (5^n < 2^53), 用于指数运算避免 System.Math.Power 的精度损失
+  Power10D: array[0..22] of Double = (
+    1, 10, 100, 1000, 10000, 100000, 1000000, 10000000,
+    100000000, 1000000000, 10000000000, 100000000000,
+    1000000000000, 10000000000000, 100000000000000,
+    1000000000000000, 10000000000000000, 100000000000000000,
+    1000000000000000000, 1E19, 1E20, 1E21, 1E22);
   JsonDataTypeNames: array[TQJsonDataType] of UnicodeString = (
       'unknown',
       'comment',
@@ -678,12 +711,18 @@ begin
     Dec(GJsonNodeFreelistCount);
     FillChar(Result^, SizeOf(TQJsonNode), 0);
   end
-  else
+  else begin
     New(Result);
+    // 关键：New 对 ^record 不清零，必须 FillChar 显式清零，
+    // 否则 FNext/FValue.Items 等字段残留脏值，导致 InternalEncode
+    // 遍历链表时读到野指针崩溃（InternalAdd 不调用 Initialize，不重置这些字段）。
+    FillChar(Result^, SizeOf(TQJsonNode), 0);
+  end;
 end;
 
 procedure ReleaseJson(ANode: PQJsonNode);
 begin
+  ANode.Reset;
   if GJsonNodeFreelistCount < CJsonNodeFreelistMax then begin
     ANode.FPrior := GJsonNodeFreelist;
     GJsonNodeFreelist := ANode;
@@ -726,6 +765,26 @@ begin
   else
     FOptions := [];
   FStringBuilder.Initialize;
+end;
+
+procedure TQJsonParser.BeginCapture(ARoot: PQJsonNode);
+begin
+  Assert(FStoreMode = jsmForwardOnly);
+  Assert(not Assigned(FCaptureRoot));
+  FCaptureRoot := ARoot;
+end;
+
+procedure TQJsonParser.FinishCapture(ARoot: PQJsonNode);
+begin
+  if FCaptureRoot = ARoot then begin
+    FCaptureRoot := nil;
+    ARoot.Clear;
+  end;
+end;
+
+function TQJsonParser.IsCapturing: Boolean;
+begin
+  Result := Assigned(FCaptureRoot);
 end;
 
 destructor TQJsonParser.Destroy;
@@ -813,37 +872,34 @@ var
   ABcd: TBcd;
   procedure NeedChild;
   begin
-    case FStoreMode of
-      jsmNormal, jsmCacheNames, jsmCacheStrings: begin
-        case FParseAction of
-          jpaContinue: begin
-            AChild := AcquireJson;
-            AChild.Initialize(AParent, jdtUnknown);
-          end;
-          jpaSkipSiblings: // 跳过相邻结点模式下，后续兄弟结点只是占位，并不实际解析
-          begin
-            AChild := @ATemp;
-            AChild.FPrior := AParent.FValue.Items.Last;
-            AChild.FIndex := AParent.FValue.Items.Count;
-            Inc(AParent.FValue.Items.Count);
-            AChild.FParent := AParent;
-          end;
-          jpaStop:
-            // 不应该执行到这儿
-            Assert(FParseAction <> jpaStop);
+    if (FStoreMode <> jsmForwardOnly) or IsCapturing then begin
+      case FParseAction of
+        jpaContinue: begin
+          AChild := AcquireJson;
+          AChild.Initialize(AParent, jdtUnknown);
         end;
-      end;
-      jsmForwardOnly: begin
-        if not Assigned(AChild) then begin
+        jpaSkipSiblings: // 跳过相邻结点模式下，后续兄弟结点只是占位，并不实际解析
+        begin
           AChild := @ATemp;
-          AChild.Initialize(nil, jdtUnknown);
-          AChild.FName := TQJsonStringCaches.MakeReference(@AName);
+          AChild.FPrior := AParent.FValue.Items.Last;
+          AChild.FIndex := AParent.FValue.Items.Count;
+          Inc(AParent.FValue.Items.Count);
           AChild.FParent := AParent;
-        end
-        else
-          Inc(AChild.FIndex);
-        Inc(AParent.FValue.Items.Count);
+        end;
+        jpaStop:
+          Assert(FParseAction <> jpaStop);
       end;
+    end
+    else begin
+      if not Assigned(AChild) then begin
+        AChild := @ATemp;
+        AChild.Initialize(nil, jdtUnknown);
+        AChild.FName := TQJsonStringCaches.MakeReference(@AName);
+        AChild.FParent := AParent;
+      end
+      else
+        Inc(AChild.FIndex);
+      Inc(AParent.FValue.Items.Count);
     end;
   end;
 
@@ -918,15 +974,22 @@ begin
             FStringBuilder.ToString(AName);
             if FActiveTokenKind = jtkUnquotedString then
               AName := TrimRight(AName);
-            case FStoreMode of
-              jsmNormal: begin
-                New(AChild.FName);
-                AChild.FName^ := AName;
+            if IsCapturing then begin
+              New(AChild.FName);
+              AChild.FName^ := AName;
+            end
+            else begin
+              case FStoreMode of
+                jsmNormal: begin
+                  New(AChild.FName);
+                  AChild.FName^ := AName;
+                end;
+                jsmCacheNames, jsmCacheStrings:
+                  AChild.FName := TQJsonStringCaches.Current.AddRef(@AName);
+                jsmForwardOnly:
+                  // AName=AChild.FName
+                      ;
               end;
-              jsmCacheNames, jsmCacheStrings: AChild.FName := TQJsonStringCaches.Current.AddRef(@AName);
-              jsmForwardOnly:
-                // AName=AChild.FName
-                    ;
             end;
             DoParseStage(AChild, TQJsonParseStage.jpsStartItem);
           end
@@ -1048,19 +1111,25 @@ begin
       if FParseAction = TQJsonParseAction.jpaContinue then begin
         AChild.DataType := jdtString;
         if ReadString then begin
-          case FStoreMode of
-            jsmNormal, jsmCacheNames: begin
-              if not Assigned(AChild.FValue.AsString) then
-                New(AChild.FValue.AsString);
-              FStringBuilder.ToString(AChild.FValue.AsString^);
-            end;
-            jsmCacheStrings: begin
-              FStringBuilder.ToString(AValue);
-              AChild.FValue.AsString := TQJsonStringCaches.Current.AddRef(@AValue);
-            end;
-            jsmForwardOnly: begin
-              FStringBuilder.ToString(AValue);
-              AChild.FValue.AsString := TQJsonStringCaches.MakeReference(@AValue);
+          if IsCapturing then begin
+            New(AChild.FValue.AsString);
+            FStringBuilder.ToString(AChild.FValue.AsString^);
+          end
+          else begin
+            case FStoreMode of
+              jsmNormal, jsmCacheNames: begin
+                if not Assigned(AChild.FValue.AsString) then
+                  New(AChild.FValue.AsString);
+                FStringBuilder.ToString(AChild.FValue.AsString^);
+              end;
+              jsmCacheStrings: begin
+                FStringBuilder.ToString(AValue);
+                AChild.FValue.AsString := TQJsonStringCaches.Current.AddRef(@AValue);
+              end;
+              jsmForwardOnly: begin
+                FStringBuilder.ToString(AValue);
+                AChild.FValue.AsString := TQJsonStringCaches.MakeReference(@AValue);
+              end;
             end;
           end;
           DoParseStage(@AChild, TQJsonParseStage.jpsEndItem);
@@ -1074,11 +1143,14 @@ begin
     jtkArrayStart: begin
       AChild.DataType := jdtArray;
       ASavedAction := FParseAction;
-      if ParseChildren(@AChild) then begin
-        FParseAction := ASavedAction;
-      end
-      else
-        SetLastError(EJSON_BAD_TOKEN, Format(SUnexpectToken, [FStringBuilder.ToString]));
+      try
+        if ParseChildren(@AChild) then
+          FParseAction := ASavedAction
+        else
+          SetLastError(EJSON_BAD_TOKEN, Format(SUnexpectToken, [FStringBuilder.ToString]));
+      finally
+        FinishCapture(@AChild);
+      end;
     end;
     jtkItemDelimiter: begin
       (* 暂时忽略，在考虑将来加入自定义的格式支持，比如支持 [1,2,,3,,,,5,7] 对应于 [1,2,null,3,null,null,null,5,7] 这种格式的支持，
@@ -1096,32 +1168,42 @@ begin
     jtkObjectStart: begin
       AChild.DataType := jdtObject;
       ASavedAction := FParseAction;
-      if ParseChildren(@AChild) then begin
-        FParseAction := ASavedAction;
-      end
-      else
-        SetLastError(EJSON_BAD_TOKEN, Format(SUnexpectToken, [FStringBuilder.ToString]));
+      try
+        if ParseChildren(@AChild) then
+          FParseAction := ASavedAction
+        else
+          SetLastError(EJSON_BAD_TOKEN, Format(SUnexpectToken, [FStringBuilder.ToString]));
+      finally
+        FinishCapture(@AChild);
+      end;
     end;
     jtkUnquotedString: begin
       if FParseAction = TQJsonParseAction.jpaContinue then begin
         // 无引号字符串值，内容已在 FStringBuilder 中
         AChild.DataType := jdtString;
-        case FStoreMode of
-          jsmNormal, jsmCacheNames: begin
-            if not Assigned(AChild.FValue.AsString) then
-              New(AChild.FValue.AsString);
-            FStringBuilder.ToString(AChild.FValue.AsString^);
-            AChild.FValue.AsString^ := TrimRight(AChild.FValue.AsString^);
-          end;
-          jsmCacheStrings: begin
-            FStringBuilder.ToString(AValue);
-            AValue := TrimRight(AValue);
-            AChild.FValue.AsString := TQJsonStringCaches.Current.AddRef(@AValue);
-          end;
-          jsmForwardOnly: begin
-            FStringBuilder.ToString(AValue);
-            AValue := TrimRight(AValue);
-            AChild.FValue.AsString := TQJsonStringCaches.MakeReference(@AValue);
+        if IsCapturing then begin
+          New(AChild.FValue.AsString);
+          FStringBuilder.ToString(AChild.FValue.AsString^);
+          AChild.FValue.AsString^ := TrimRight(AChild.FValue.AsString^);
+        end
+        else begin
+          case FStoreMode of
+            jsmNormal, jsmCacheNames: begin
+              if not Assigned(AChild.FValue.AsString) then
+                New(AChild.FValue.AsString);
+              FStringBuilder.ToString(AChild.FValue.AsString^);
+              AChild.FValue.AsString^ := TrimRight(AChild.FValue.AsString^);
+            end;
+            jsmCacheStrings: begin
+              FStringBuilder.ToString(AValue);
+              AValue := TrimRight(AValue);
+              AChild.FValue.AsString := TQJsonStringCaches.Current.AddRef(@AValue);
+            end;
+            jsmForwardOnly: begin
+              FStringBuilder.ToString(AValue);
+              AValue := TrimRight(AValue);
+              AChild.FValue.AsString := TQJsonStringCaches.MakeReference(@AValue);
+            end;
           end;
         end;
         DoParseStage(@AChild, TQJsonParseStage.jpsEndItem);
@@ -1133,8 +1215,14 @@ begin
           AChild.DataType := jdtLineComment
         else
           AChild.DataType := jdtBlockComment;
-        AChild.FValue.AsString := TQJsonStringCaches.MakeReference(@AValue);
-        FStringBuilder.ToString(AValue);
+        if IsCapturing then begin
+          New(AChild.FValue.AsString);
+          FStringBuilder.ToString(AChild.FValue.AsString^);
+        end
+        else begin
+          AChild.FValue.AsString := TQJsonStringCaches.MakeReference(@AValue);
+          FStringBuilder.ToString(AValue);
+        end;
       end;
     end
   else
@@ -1209,7 +1297,7 @@ begin
   end
   else
     FLastChar := (Cardinal(FCurrent[0]) shl 8) or (FCurrent[1]);
-  if FLastChar >= $D800 then begin
+  if (FLastChar >= $D800) and (FLastChar<=$DBFF) then begin
     NeedCharBytes(4);
     FLastChar := $10000 + (FLastChar - $D800) shl 10 + ((Cardinal(FCurrent[2]) shl 8) or (FCurrent[3])) - $DC00;
   end
@@ -1228,7 +1316,7 @@ begin
   end
   else
     FLastChar := PWord(FCurrent)^;
-  if FLastChar >= $D800 then begin
+  if (FLastChar >= $D800) and (FLastChar<=$DBFF) then begin
     NeedCharBytes(4);
     FLastChar := $10000 + (FLastChar - $D800) shl 10;
     Inc(FLastChar, PWord(@FCurrent[2])^-$DC00);
@@ -1425,7 +1513,7 @@ begin
     Inc(ADigitCount);
     if (Res < cMinDiv10) or ((Res = cMinDiv10) and (DigitVal < cMinMod10)) then
     begin
-      Inc(FCurrent, FLastCharSize);
+      PeekNextChar;
       Result := prBcd;
       Break;
     end;
@@ -1437,6 +1525,41 @@ begin
 end;
 
   function ParseFloat(var AInt: Int64; var AValue: Extended; AStage: Integer): TQJsonFloatParseResult;
+
+    // 精确计算 10^AExp (指数范围限制 ±4900, Extended 上限约 10^4932),
+    // 避免 System.Math.Power 在 Win64 的精度损失 (如 Power(10, 18) -> 9.99999984306749E17)
+    function QJsonPow10(AExp: Int64): Extended;
+    var
+      ABase: Extended;
+    begin
+      if AExp < 0 then
+      begin
+        AExp := -AExp;
+        if AExp > 4900 then
+          AExp := 4900;
+        ABase := Power10D[22];
+        Result := 1;
+        while AExp > 22 do
+        begin
+          Result := Result / ABase;
+          Dec(AExp, 22);
+        end;
+        Result := Result / Power10D[AExp];
+      end
+      else
+      begin
+        if AExp > 4900 then
+          AExp := 4900;
+        ABase := Power10D[22];
+        Result := 1;
+        while AExp > 22 do
+        begin
+          Result := Result * ABase;
+          Dec(AExp, 22);
+        end;
+        Result := Result * Power10D[AExp];
+      end;
+    end;
 var
   FracDigits: Integer;
   IsNeg, HasDot: Boolean;
@@ -1487,7 +1610,7 @@ begin
           if Result in [prInt, prFloat] then
           begin
             if Result = prInt then
-              AValue := AValue * Power(10, ExpInt)
+              AValue := AValue * QJsonPow10(ExpInt)
             else
               AValue := AValue * Power(10, AValue);
           end
@@ -1511,7 +1634,7 @@ begin
       begin
         AValue := -AInt;
         if Result = prInt then
-          AValue := AValue * Power(10, ExpInt)
+          AValue := AValue * QJsonPow10(ExpInt)
         else
           AValue := AValue * Power(10, AValue);
       end
@@ -1546,7 +1669,7 @@ end;
   begin
     CaptureNumberText(ANumberStart);
     if TryStrToBcd(FStringBuilder.ToString, ABcd^) then begin
-      if FStoreMode = TQJsonStoreMode.jsmForwardOnly then
+      if (FStoreMode = TQJsonStoreMode.jsmForwardOnly) and not IsCapturing then
         ANode.FValue.AsBcd := TQJsonStringCaches.MakeReference(ABcd)
       else begin
         ANode.DataType := jdtBcd;
@@ -1642,14 +1765,17 @@ begin
           Ord('f'): FStringBuilder.Append(#12);
           Ord('r'): FStringBuilder.Append(#13);
           Ord('\'): FStringBuilder.Append('\');
-          Ord('"'): FStringBuilder.Append('"');
+          Ord('"'):
+          begin
+            FStringBuilder.Append('"');
+            FLastChar:=1;//Prevent break loop
+          end
         else
           begin
             if FLastChar = AQuoter then begin
               FStringBuilder.Append(AQuoter);
-              // Prevent `until` from treating escaped quote as closing quote.
-              // The next PeekNextChar in the repeat loop overwrites this.
-              FLastChar := FLastChar xor 1;
+              // Prevent break loop
+              FLastChar := 1;
             end
             else if jpoStrict in FOptions then
               break
@@ -1799,10 +1925,15 @@ begin
   FColNo := 0;
   FCharReader := nil;
   FBufferReader := nil;
+  // 关键：FLastChar 残留会导致下次 ReadToken 时跳过首个字符读取
+  // (ReadToken 以 if FLastChar = 0 then FCharReader 判断是否读取新字符)，
+  // 从而复用 parser 解析时 token 流错位，必须在此清零。
+  FLastChar := 0;
+  FLastCharSize := 0;
   FRoot.Reset;
+  FCaptureRoot := nil;
   FStringBuilder.Length := 0;
 end;
-
 procedure TQJsonParser.SetLastError(const ACode: Cardinal; const AMsg: UnicodeString);
 begin
   FErrorCode := ACode;
@@ -2879,92 +3010,10 @@ procedure TQJsonNode.SaveToStream(
 );
 var
   AEncoder: TQJsonEncoder;
-
-  procedure DoSave(ANode: PQJsonNode; AIsPair: Boolean);
-  var
-    AChild: PQJsonNode;
-  begin
-    case ANode.DataType of
-      jdtUnknown, jdtNull: begin
-        if jesIgnoreNull in AEncoder.FFormat.Settings then
-          Exit;
-        if AIsPair then
-          AEncoder.WritePair(ANode.Name)
-        else
-          AEncoder.WriteNull;
-      end;
-      jdtLineComment, jdtBlockComment: begin
-        // 自动检测保重注释内容有效性
-        if jesDoFormat in AFormat.Settings then
-          AEncoder.WriteComment(ANode.AsString);
-      end;
-      jdtBoolean: begin
-        if AIsPair then
-          AEncoder.WritePair(ANode.Name, ANode.FValue.AsBoolean)
-        else
-          AEncoder.WriteValue(ANode.FValue.AsBoolean);
-      end;
-      jdtInteger: begin
-        if AIsPair then
-          AEncoder.WritePair(ANode.Name, ANode.FValue.AsInt64)
-        else
-          AEncoder.WriteValue(ANode.FValue.AsInt64);
-      end;
-      jdtDateTime: begin
-        if AIsPair then
-          AEncoder.WritePair(ANode.Name, ANode.FValue.AsDateTime)
-        else
-          AEncoder.WriteValue(ANode.FValue.AsDateTime);
-      end;
-      jdtFloat: begin
-        if AIsPair then
-          AEncoder.WritePair(ANode.Name, ANode.FValue.AsFloat)
-        else
-          AEncoder.WriteValue(ANode.FValue.AsFloat);
-      end;
-      jdtBcd: begin
-        if AIsPair then
-          AEncoder.WritePair(ANode.Name, ANode.AsBcd)
-        else
-          AEncoder.WriteValue(ANode.AsBcd);
-      end;
-      jdtString, jdtStream: begin
-        if AIsPair then
-          AEncoder.WritePair(ANode.Name, ANode.AsString)
-        else
-          AEncoder.WriteValue(ANode.AsString);
-      end;
-      jdtArray: begin
-        AEncoder.StartArray;
-        try
-          AChild := ANode.FValue.Items.First;
-          while Assigned(AChild) do begin
-            DoSave(AChild, false);
-            AChild := AChild.FNext;
-          end;
-        finally
-          AEncoder.EndArray;
-        end;
-      end;
-      jdtObject: begin
-        AEncoder.StartObject;
-        try
-          AChild := ANode.FValue.Items.First;
-          while Assigned(AChild) do begin
-            DoSave(AChild, true);
-            AChild := AChild.FNext;
-          end;
-        finally
-          AEncoder.EndObject;
-        end;
-      end;
-    end;
-  end;
-
 begin
   AEncoder := TQJsonEncoder.Create(AStream, AWriteBom, AFormat, AEncoding, 0);
   try
-    DoSave(@Self, FDataType = jdtObject);
+    AEncoder.WriteValue(Self);
   finally
     FreeAndNil(AEncoder);
   end;
@@ -3098,7 +3147,7 @@ begin
     SetLength(ASavedText, 0);
   Clear;
   FDataType := jdtStream;
-  IQStreamCodec(FValue.AsPointer) := TBase64StreamCodec.Create;
+  IQStreamCodec(FValue.AsPointer) := ACodec.Create;
   if (Length(ASavedText) > 0) and Supports(IQStreamCodec(FValue.AsPointer), IQTextCodec, AText) then
     AText.Decode(ASavedText)
 end;
@@ -4003,7 +4052,7 @@ begin
       '\': Append(CharBackslash)
     else
       begin
-        if p^ < #$1F then begin
+        if p^ <= #$1F then begin
           Append(CharCode);
           if p^ > #$F then
             ABuilder.Append(CharNum1^)
@@ -4080,6 +4129,140 @@ begin
   if FBuffered > 0 then begin
     FStream.WriteBuffer(FBuffer[0], FBuffered);
     FBuffered := 0;
+  end;
+end;
+
+procedure TQJsonEncoder.InternalWriteNode(ANode: PQJsonNode; AIsPair: Boolean);
+var
+  AChild: PQJsonNode;
+begin
+  case ANode.DataType of
+    jdtUnknown, jdtNull: begin
+      if jesIgnoreNull in FFormat.Settings then
+        Exit;
+      if AIsPair then
+        WritePair(ANode.Name)
+      else
+        WriteNull;
+    end;
+    jdtLineComment, jdtBlockComment: begin
+      // 自动检测保重注释内容有效性
+      if jesDoFormat in FFormat.Settings then
+        WriteComment(ANode.AsString);
+    end;
+    jdtBoolean: begin
+      if AIsPair then
+        WritePair(ANode.Name, ANode.FValue.AsBoolean)
+      else
+        WriteValue(ANode.FValue.AsBoolean);
+    end;
+    jdtInteger: begin
+      if AIsPair then
+        WritePair(ANode.Name, ANode.FValue.AsInt64)
+      else
+        WriteValue(ANode.FValue.AsInt64);
+    end;
+    jdtDateTime: begin
+      if AIsPair then
+        WritePair(ANode.Name, ANode.FValue.AsDateTime)
+      else
+        WriteValue(ANode.FValue.AsDateTime);
+    end;
+    jdtFloat: begin
+      if AIsPair then
+        WritePair(ANode.Name, ANode.FValue.AsFloat)
+      else
+        WriteValue(ANode.FValue.AsFloat);
+    end;
+    jdtBcd: begin
+      if AIsPair then
+        WritePair(ANode.Name, ANode.AsBcd)
+      else
+        WriteValue(ANode.AsBcd);
+    end;
+    jdtString, jdtStream: begin
+      if AIsPair then
+        WritePair(ANode.Name, ANode.AsString)
+      else
+        WriteValue(ANode.AsString);
+    end;
+    jdtArray: begin
+      if AIsPair then
+        StartArrayPair(ANode.Name)
+      else
+        StartArray;
+      try
+        AChild := ANode.FValue.Items.First;
+        while Assigned(AChild) do begin
+          InternalWriteNode(AChild, false);
+          AChild := AChild.FNext;
+        end;
+      finally
+        EndArray;
+      end;
+    end;
+    jdtObject: begin
+      if AIsPair then
+        StartObjectPair(ANode.Name)
+      else
+        StartObject;
+      try
+        AChild := ANode.FValue.Items.First;
+        while Assigned(AChild) do begin
+          InternalWriteNode(AChild, true);
+          AChild := AChild.FNext;
+        end;
+      finally
+        EndObject;
+      end;
+    end;
+  end;
+end;
+
+procedure TQJsonEncoder.InternalWritePairNode(const AName: UnicodeString; ANode: PQJsonNode);
+var
+  AChild: PQJsonNode;
+begin
+  case ANode.DataType of
+    jdtUnknown, jdtNull: begin
+      if jesIgnoreNull in FFormat.Settings then
+        Exit;
+      WritePair(AName);
+    end;
+    jdtLineComment, jdtBlockComment: begin
+      if jesDoFormat in FFormat.Settings then
+        WriteComment(ANode.AsString);
+    end;
+    jdtBoolean: WritePair(AName, ANode.FValue.AsBoolean);
+    jdtInteger: WritePair(AName, ANode.FValue.AsInt64);
+    jdtDateTime: WritePair(AName, ANode.FValue.AsDateTime);
+    jdtFloat: WritePair(AName, ANode.FValue.AsFloat);
+    jdtBcd: WritePair(AName, ANode.AsBcd);
+    jdtString, jdtStream: WritePair(AName, ANode.AsString);
+    jdtArray: begin
+      StartArrayPair(AName);
+      try
+        AChild := ANode.FValue.Items.First;
+        while Assigned(AChild) do begin
+          InternalWriteNode(AChild, false);
+          AChild := AChild.FNext;
+        end;
+      finally
+        EndArray;
+      end;
+    end;
+    jdtObject: begin
+      StartObjectPair(AName);
+      try
+        AChild := ANode.FValue.Items.First;
+        while Assigned(AChild) do begin
+          InternalWriteNode(AChild, true);
+          AChild := AChild.FNext;
+        end;
+      finally
+        EndObject;
+      end;
+    end;
   end;
 end;
 
@@ -4186,6 +4369,28 @@ begin
   FStream.Position := FStartOffset;
   FStream.ReadBuffer(ABytes, ACount);
   Result := FEncoding.GetString(ABytes);
+end;
+
+procedure TQJsonEncoder.WirtePair(const AName: UnicodeString;
+  const ANode: TQJsonNode);
+begin
+  InternalWritePairNode(AName, @ANode);
+end;
+
+procedure TQJsonEncoder.WriteRawPair(const AName, AText: UnicodeString);
+var
+  ANode: TQJsonNode;
+  AParser: TQJsonParser;
+begin
+  FillChar(ANode, SizeOf(ANode), 0);
+  AParser := TQJsonParser.Create(jsmNormal, True);
+  try
+    AParser.ParseText(@ANode, AText, nil);
+    InternalWritePairNode(AName, @ANode);
+  finally
+    ANode.Reset;
+    FreeAndNil(AParser);
+  end;
 end;
 
 procedure TQJsonEncoder.WriteArray(const AName: UnicodeString;
@@ -4379,7 +4584,7 @@ end;
 procedure TQJsonEncoder.WriteString(const AValue: UnicodeString; ADoQuote: Boolean);
   procedure DoWrite(const S: UnicodeString);
   var
-    ACount: Integer;
+    ACount, I: Integer;
     p: PWideChar;
   begin
     p := PWideChar(S);
@@ -4391,12 +4596,18 @@ procedure TQJsonEncoder.WriteString(const AValue: UnicodeString; ADoQuote: Boole
       Flush;
     if ACount > Length(FBuffer) then
       SetLength(FBuffer, (ACount + 4095) div 4096 * 4096);
-    if FEncoding <> TEncoding.Unicode then
-      Inc(FBuffered, LocaleCharsFromUnicode(FEncoding.CodePage, 0, p, Length(S), @FBuffer[FBuffered], ACount, nil, nil))
-    else begin
+    if FEncoding = TEncoding.Unicode then begin
       Move(p^, FBuffer[FBuffered], ACount);
       Inc(FBuffered, ACount);
-    end;
+    end else if FEncoding = TEncoding.BigEndianUnicode then begin
+      // UTF-16BE 无专用转换 (WideCharToMultiByte 不支持 CP1201), 逐 code unit 交换字节序直写
+      for I := 0 to Length(S) - 1 do begin
+        FBuffer[FBuffered + I * 2] := Byte(Ord(p[I]) shr 8);
+        FBuffer[FBuffered + I * 2 + 1] := Byte(p[I]);
+      end;
+      Inc(FBuffered, ACount);
+    end else
+      Inc(FBuffered, LocaleCharsFromUnicode(FEncoding.CodePage, 0, p, Length(S), @FBuffer[FBuffered], ACount, nil, nil));
   end;
 
 begin
@@ -4486,6 +4697,27 @@ begin
     InternalWriteValue('false', false);
 end;
 
+procedure TQJsonEncoder.WriteValue(const ANode: TQJsonNode);
+begin
+  InternalWriteNode(@ANode,false);
+end;
+
+procedure TQJsonEncoder.WriteRawValue(const AText: UnicodeString);
+var
+  ANode: TQJsonNode;
+  AParser: TQJsonParser;
+begin
+  FillChar(ANode, SizeOf(ANode), 0);
+  AParser := TQJsonParser.Create(jsmNormal, True);
+  try
+    AParser.ParseText(@ANode, AText, nil);
+    InternalWriteNode(@ANode, false);
+  finally
+    ANode.Reset;
+    FreeAndNil(AParser);
+  end;
+end;
+
 { TQJsonStringCaches }
 
 class function TQJsonStringCaches.GetCurrent: TQJsonStringCaches;
@@ -4531,11 +4763,165 @@ begin
   FStream := AStream;
 end;
 
+destructor TQJsonDecoder.Destroy;
+begin
+  FRawRoot.Reset;
+  FRootNode.Reset;
+  inherited;
+end;
+
+function TQJsonDecoder.EncodeRawNode(ANode: PQJsonNode): UnicodeString;
+var
+  AEncoder: TQJsonEncoder;
+  AStream: TStringStream;
+begin
+  AStream := TStringStream.Create('', TEncoding.UTF8);
+  try
+    AEncoder := TQJsonEncoder.Create(
+        AStream,
+        False,
+        TQJsonEncoder.DefaultFormat,
+        TEncoding.UTF8,
+        4096
+    );
+    try
+      AEncoder.WriteValue(ANode^);
+      AEncoder.Flush;
+      Result := AStream.DataString;
+    finally
+      FreeAndNil(AEncoder);
+    end;
+  finally
+    FreeAndNil(AStream);
+  end;
+end;
+
+procedure TQJsonDecoder.EnsureRawLoaded;
+var
+  AParser: TQJsonParser;
+begin
+  if FRawLoaded then
+    Exit;
+  FRawRoot.Reset;
+  AParser := TQJsonParser.Create(jsmNormal);
+  AParser.Options := FOptions;
+  try
+    try
+      if Assigned(FStream) then
+        AParser.ParseStream(@FRawRoot, FStream, nil, nil)
+      else
+        AParser.ParseText(@FRawRoot, FText, nil);
+      FRawPairIndex := 0;
+      FRawLoaded := True;
+    except
+      FRawRoot.Reset;
+      raise;
+    end;
+  finally
+    FreeAndNil(AParser);
+  end;
+end;
+
+function TQJsonDecoder.ReadRawPair(out AName, AText: UnicodeString): Boolean;
+var
+  ANode, ARoot: PQJsonNode;
+begin
+  ARoot := FRawCurrent;
+  if not Assigned(ARoot) then begin
+    EnsureRawLoaded;
+    ARoot := @FRawRoot;
+  end;
+  Result := (ARoot.DataType = jdtObject) and (FRawPairIndex < ARoot.Count);
+  if not Result then begin
+    AName := '';
+    AText := '';
+    Exit;
+  end;
+  ANode := ARoot.Items[FRawPairIndex];
+  Inc(FRawPairIndex);
+  AName := ANode.Name;
+  AText := EncodeRawNode(ANode);
+end;
+
+procedure TQJsonDecoder.ReadRawValue(out AText: UnicodeString);
+var
+  ANode: PQJsonNode;
+begin
+  ANode := FRawCurrent;
+  if not Assigned(ANode) then begin
+    EnsureRawLoaded;
+    ANode := @FRawRoot;
+  end;
+  AText := EncodeRawNode(ANode);
+end;
+
+procedure TQJsonDecoder.StartCustomEvents;
+var
+  AReader: IQSerializeReader;
+begin
+  Assert(not Assigned(FEventSerializer));
+  if not Assigned(FCurrent) or not Assigned(FCurrent.Fields)
+      or not Supports(FCurrent.Fields.CustomSerializer, IQCustomSerializerEvents, FEventSerializer) then
+    raise ENotSupportedException.Create('Custom serializer does not support event reading');
+  FEventStack := FCurrent;
+  FEventDepth := 0;
+  AReader := Self as IQSerializeReader;
+  try
+    FEventSerializer.BeginRead(AReader, FEventStack, FEventStack.Field);
+  except
+    FEventStack := nil;
+    FEventSerializer := nil;
+    raise;
+  end;
+end;
+
+procedure TQJsonDecoder.EmitCustomEvent(AItem: PQJsonNode; AKind: TQSerializeReadEventKind);
+var
+  AEvent: TQSerializeReadEvent;
+  AReader: IQSerializeReader;
+begin
+  Assert(Assigned(FEventSerializer));
+  AEvent.Kind := AKind;
+  AEvent.Name := AItem.Name;
+  AReader := Self as IQSerializeReader;
+  if AKind = srekValue then
+    FRawCurrent := AItem;
+  try
+    FEventSerializer.ReadEvent(AReader, FEventStack, FEventStack.Field, AEvent);
+  finally
+    FRawCurrent := nil;
+  end;
+end;
+
+procedure TQJsonDecoder.FinishCustomEvents(ACompleted: Boolean);
+var
+  AReader: IQSerializeReader;
+  ASerializer: IQCustomSerializerEvents;
+  AStack: PQSerializeStackItem;
+begin
+  if not Assigned(FEventSerializer) then
+    Exit;
+  ASerializer := FEventSerializer;
+  AStack := FEventStack;
+  FEventSerializer := nil;
+  FEventStack := nil;
+  FEventDepth := 0;
+  FRawCurrent := nil;
+  AReader := Self as IQSerializeReader;
+  ASerializer.EndRead(AReader, AStack, AStack.Field, ACompleted);
+end;
+
 procedure TQJsonDecoder.DoParse;
 var
   AParser: TQJsonParser;
 begin
-  AParser := TQJsonParser.Create(TQJsonStoreMode.jsmForwardOnly);
+  FIgnoreDepth := 0;
+  FRawCurrent := nil;
+  FEventSerializer := nil;
+  FEventStack := nil;
+  FEventDepth := 0;
+  FRootNode.Reset;
+  AParser := TQJsonParser.Create(jsmForwardOnly);
   AParser.Options := FOptions;
   try
     if Assigned(FStream) then
@@ -4568,7 +4954,16 @@ begin
           end
       );
   finally
+    if Assigned(FEventSerializer) then begin
+      try
+        FinishCustomEvents(False);
+      except
+        // Preserve the parser or callback exception already in flight.
+      end;
+    end;
+    FRawCurrent := nil;
     FreeAndNil(AParser);
+    FRootNode.Reset;
   end;
 end;
 
@@ -4578,18 +4973,440 @@ procedure TQJsonDecoder.HandleStage(
     AStage: TQJsonParseStage;
     var AParseAction: TQJsonParseAction
 );
+const
+  IGNORED_ITEM = NativeInt(-1);
+  CUSTOM_ITEM = NativeInt(-2);
+
+  function ActiveTypeData: PQSerializeTypeData;
+  begin
+    if Assigned(FCurrent.Field) then
+      Result := @FCurrent.Field.TypeData
+    else if Assigned(FCurrent.Fields) then
+      Result := @FCurrent.Fields.TypeData
+    else
+      Result := nil;
+  end;
+
+  function IsProperty: Boolean;
+  begin
+    Result := Assigned(FCurrent.Field) and Assigned(FCurrent.Field.TypeData.PropInfo);
+  end;
+
+  procedure SetOrdinalValue(const AValue: Int64);
+  var
+    ATypeData: PTypeData;
+  begin
+    ATypeData := GetTypeData(FCurrent.TypeInfo);
+    if IsProperty then begin
+      SetOrdProp(TObject(FCurrent.Instance), FCurrent.Field.TypeData.PropInfo, AValue);
+      Exit;
+    end;
+    case ATypeData.OrdType of
+      otSByte: PShortInt(FCurrent.Instance)^ := ShortInt(AValue);
+      otUByte: PByte(FCurrent.Instance)^ := Byte(AValue);
+      otSWord: PSmallInt(FCurrent.Instance)^ := SmallInt(AValue);
+      otUWord: PWord(FCurrent.Instance)^ := Word(AValue);
+      otSLong: PInteger(FCurrent.Instance)^ := Integer(AValue);
+      otULong: PCardinal(FCurrent.Instance)^ := Cardinal(AValue);
+    end;
+  end;
+
+  function EnumValue: Int64;
+  var
+    AIdent: UnicodeString;
+    AValue: Integer;
+    I: Integer;
+  begin
+    if FCurrent.TypeInfo = TypeInfo(Boolean) then
+      Exit(Ord(AItem.AsBoolean));
+    if AItem.DataType <> jdtString then
+      Exit(AItem.AsInt);
+    AIdent := AItem.AsString;
+    if Assigned(FCurrent.Field) then begin
+      for I := 0 to High(FCurrent.Field.KVMap) do begin
+        if SameText(FCurrent.Field.KVMap[I].Value, AIdent) then begin
+          AIdent := FCurrent.Field.KVMap[I].Key;
+          Break;
+        end;
+      end;
+      if Assigned(FCurrent.Field.TypeData.IdentToInt)
+          and FCurrent.Field.TypeData.IdentToInt(AIdent, AValue) then
+        Exit(AValue);
+    end;
+    Result := GetEnumValue(FCurrent.TypeInfo, AIdent);
+    if Result < 0 then
+      raise EConvertError.CreateFmt('Invalid %s value: %s', [FCurrent.TypeInfo.Name, AIdent]);
+  end;
+
+  procedure SetFloatValue(const AValue: Extended);
+  var
+    ATypeData: PTypeData;
+  begin
+    if IsProperty then begin
+      SetFloatProp(TObject(FCurrent.Instance), FCurrent.Field.TypeData.PropInfo, AValue);
+      Exit;
+    end;
+    ATypeData := GetTypeData(FCurrent.TypeInfo);
+    case ATypeData.FloatType of
+      ftSingle: PSingle(FCurrent.Instance)^ := AValue;
+      ftDouble: PDouble(FCurrent.Instance)^ := AValue;
+      ftExtended: PExtended(FCurrent.Instance)^ := AValue;
+      ftComp: PComp(FCurrent.Instance)^ := Round(AValue);
+      ftCurr: PCurrency(FCurrent.Instance)^ := AValue;
+    end;
+  end;
+
+  procedure SetStringValue(const AValue: UnicodeString);
+  begin
+    if IsProperty then begin
+      SetStrProp(TObject(FCurrent.Instance), FCurrent.Field.TypeData.PropInfo, AValue);
+      Exit;
+    end;
+    case FCurrent.TypeInfo.Kind of
+      tkString: PShortString(FCurrent.Instance)^ := ShortString(AnsiString(AValue));
+      tkLString: PAnsiString(FCurrent.Instance)^ := AnsiString(AValue);
+      tkWString: PWideString(FCurrent.Instance)^ := AValue;
+      tkUString: PUnicodeString(FCurrent.Instance)^ := AValue;
+    end;
+  end;
+
+  procedure WriteScalar;
+  var
+    ATypeData: PQSerializeTypeData;
+    ADateTime: TDateTime;
+  begin
+    if AItem.DataType = jdtNull then
+      Exit;
+    ATypeData := ActiveTypeData;
+    case FCurrent.TypeInfo.Kind of
+      tkInteger: SetOrdinalValue(AItem.AsInt);
+      tkChar, tkWChar: begin
+        if AItem.AsString = '' then
+          SetOrdinalValue(0)
+        else
+          SetOrdinalValue(Ord(AItem.AsString[Low(AItem.AsString)]));
+      end;
+      tkEnumeration: SetOrdinalValue(EnumValue);
+      tkInt64: begin
+        if IsProperty then
+          SetInt64Prop(TObject(FCurrent.Instance), FCurrent.Field.TypeData.PropInfo, AItem.AsInt)
+        else
+          PInt64(FCurrent.Instance)^ := AItem.AsInt;
+      end;
+      tkFloat: begin
+        if Assigned(ATypeData)
+            and ((ATypeData.BaseType = TypeInfo(TDateTime)) or (ATypeData.BaseType = TypeInfo(TDate))
+                or (ATypeData.BaseType = TypeInfo(TTime))) then begin
+          case ATypeData.DateTimeFormat of
+            UnixTimeStamp: ADateTime := UnixToDateTime(AItem.AsInt, False);
+            UnixTimeStampMs: ADateTime := UnixToDateTime(AItem.AsInt div 1000, False)
+                + (AItem.AsInt mod 1000) / MSecsPerDay;
+          else
+            ADateTime := AItem.AsDateTime;
+          end;
+          SetFloatValue(ADateTime);
+        end
+        else
+          SetFloatValue(AItem.AsFloat);
+      end;
+      tkString, tkLString, tkWString, tkUString: SetStringValue(AItem.AsString);
+      tkVariant: begin
+        if IsProperty then
+          SetVariantProp(TObject(FCurrent.Instance), FCurrent.Field.TypeData.PropInfo, AItem.AsString)
+        else
+          PVariant(FCurrent.Instance)^ := AItem.AsString;
+      end;
+      tkRecord, tkMRecord: begin
+        if FCurrent.TypeInfo = TypeInfo(TBcd) then
+          PBcd(FCurrent.Instance)^ := AItem.AsBcd
+        else if FCurrent.TypeInfo = TypeInfo(TGuid) then
+          PGuid(FCurrent.Instance)^ := StringToGuid(AItem.AsString);
+      end;
+    else
+      raise EConvertError.CreateFmt('JSON scalar can not be assigned to %s', [FCurrent.TypeInfo.Name]);
+    end;
+  end;
+
+  procedure InitializeArray;
+  var
+    ALength: NativeInt;
+  begin
+    FCurrent.UserData := nil;
+    if IsProperty then
+      raise ENotSupportedException.Create('Array properties are not supported by the RTTI reader');
+    if FCurrent.TypeInfo.Kind = tkDynArray then begin
+      ALength := 0;
+      DynArraySetLength(PPointer(FCurrent.Instance)^, FCurrent.TypeInfo, 1, @ALength);
+    end
+    else if FCurrent.TypeInfo.Kind <> tkArray then
+      raise EConvertError.CreateFmt('JSON array can not be assigned to %s', [FCurrent.TypeInfo.Name]);
+  end;
+
+  function AppendArrayElement: Pointer;
+  var
+    AIndex, ALength: NativeInt;
+    ATypeData: PQSerializeTypeData;
+    AArrayData: Pointer;
+  begin
+    Result := nil;
+    ATypeData := ActiveTypeData;
+    if not Assigned(ATypeData) or not Assigned(ATypeData.ElementType)
+        or not Assigned(ATypeData.ElementTypeData) then
+      Exit;
+    AIndex := NativeInt(FCurrent.UserData);
+    case FCurrent.TypeInfo.Kind of
+      tkDynArray: begin
+        ALength := AIndex + 1;
+        DynArraySetLength(PPointer(FCurrent.Instance)^, FCurrent.TypeInfo, 1, @ALength);
+        AArrayData := PPointer(FCurrent.Instance)^;
+      end;
+      tkArray: begin
+        if AIndex >= ATypeData.BaseTypeData.ArrayData.ElCount then
+          Exit;
+        AArrayData := FCurrent.Instance;
+      end;
+    else
+      Exit;
+    end;
+    Result := PByte(AArrayData) + AIndex * ATypeData.ElementTypeData.elSize;
+    FCurrent.UserData := Pointer(AIndex + 1);
+  end;
+
+  procedure PushArrayElement;
+  var
+    AElement: Pointer;
+    ATypeData: PQSerializeTypeData;
+  begin
+    ATypeData := ActiveTypeData;
+    AElement := AppendArrayElement;
+    if not Assigned(AElement) then
+      raise EConvertError.Create('JSON array has more elements than the RTTI target');
+    Push(AElement, ATypeData.ElementType, ATypeData.ElementFields);
+  end;
+
+  procedure EnsureObject;
+  var
+    AObject: TObject;
+    AClass: TClass;
+  begin
+    if FCurrent.TypeInfo.Kind <> tkClass then
+      Exit;
+    if IsProperty then
+      AObject := GetObjectProp(TObject(FCurrent.Instance), FCurrent.Field.TypeData.PropInfo)
+    else
+      AObject := TObject(PPointer(FCurrent.Instance)^);
+    if not Assigned(AObject) then begin
+      AClass := GetTypeData(FCurrent.TypeInfo).ClassType;
+      AObject := AClass.Create;
+      if IsProperty then
+        SetObjectProp(TObject(FCurrent.Instance), FCurrent.Field.TypeData.PropInfo, AObject)
+      else
+        PPointer(FCurrent.Instance)^ := AObject;
+    end;
+  end;
+
+  function HasCustomSerializer: Boolean;
+  begin
+    Result := Assigned(FCurrent) and Assigned(FCurrent.Fields)
+        and Assigned(FCurrent.Fields.CustomSerializer);
+  end;
+
+  function HasEventSerializer: Boolean;
+  var
+    AEvents: IQCustomSerializerEvents;
+  begin
+    Result := HasCustomSerializer
+        and Supports(FCurrent.Fields.CustomSerializer, IQCustomSerializerEvents, AEvents);
+  end;
+
+  procedure ReadCustom(AItem: PQJsonNode);
+  var
+    AReader: IQSerializeReader;
+  begin
+    AReader := Self as IQSerializeReader;
+    FRawCurrent := AItem;
+    FRawPairIndex := 0;
+    try
+      FCurrent.Fields.CustomSerializer.Read(AReader, FCurrent, FCurrent.Field);
+    finally
+      FRawCurrent := nil;
+    end;
+  end;
+
+  procedure ReadCapturedCustom(AItem: PQJsonNode);
+  begin
+    try
+      ReadCustom(AItem);
+    finally
+      AParser.FinishCapture(AItem);
+    end;
+  end;
+
+  procedure ReadEventScalar(AItem: PQJsonNode);
+  begin
+    StartCustomEvents;
+    try
+      EmitCustomEvent(AItem, srekValue);
+      FinishCustomEvents(True);
+    except
+      if Assigned(FEventSerializer) then begin
+        try
+          FinishCustomEvents(False);
+        except
+          // Preserve the event callback exception.
+        end;
+      end;
+      raise;
+    end;
+  end;
+
+  procedure StartEventContainer(AItem: PQJsonNode; AKind: TQSerializeReadEventKind);
+  begin
+    StartCustomEvents;
+    EmitCustomEvent(AItem, AKind);
+    FEventDepth := 1;
+  end;
+
+  function HandleActiveEvents: Boolean;
+  var
+    AFinished: Boolean;
+  begin
+    Result := Assigned(FEventSerializer);
+    if not Result then
+      Exit;
+    AFinished := False;
+    case AStage of
+      jpsEndItem: EmitCustomEvent(AItem, srekValue);
+      jpsStartArray: begin
+        EmitCustomEvent(AItem, srekStartArray);
+        Inc(FEventDepth);
+      end;
+      jpsEndArray: begin
+        EmitCustomEvent(AItem, srekEndArray);
+        Dec(FEventDepth);
+        AFinished := FEventDepth = 0;
+      end;
+      jpsStartObject: begin
+        EmitCustomEvent(AItem, srekStartObject);
+        Inc(FEventDepth);
+      end;
+      jpsEndObject: begin
+        EmitCustomEvent(AItem, srekEndObject);
+        Dec(FEventDepth);
+        AFinished := FEventDepth = 0;
+      end;
+    end;
+    if AFinished then begin
+      FinishCustomEvents(True);
+      if FCurrent <> @FRoot then
+        Pop;
+    end;
+  end;
+
 begin
+  if HandleActiveEvents then
+    Exit;
   case AStage of
     jpsStartItem: begin
-      if not TryRead(AItem.Name) then
-        AParseAction := TQJsonParseAction.jpaSkipCurrent;
+      AItem.FUserData := nil;
+      if (FIgnoreDepth > 0) or not TryRead(AItem.Name) then
+        AItem.FUserData := Pointer(IGNORED_ITEM)
+      else if HasCustomSerializer then
+        AItem.FUserData := Pointer(CUSTOM_ITEM);
     end;
     jpsEndItem: begin
+      if (FIgnoreDepth > 0) or (NativeInt(AItem.FUserData) = IGNORED_ITEM) then
+        Exit;
+      if Assigned(AItem.FParent) and (AItem.FParent.DataType = jdtArray) then begin
+        PushArrayElement;
+        try
+          if HasEventSerializer then
+            ReadEventScalar(AItem)
+          else if HasCustomSerializer then
+            ReadCustom(AItem)
+          else
+            WriteScalar;
+        finally
+          Pop;
+        end;
+      end
+      else begin
+        if HasEventSerializer then
+          ReadEventScalar(AItem)
+        else if (NativeInt(AItem.FUserData) = CUSTOM_ITEM) or HasCustomSerializer then
+          ReadCustom(AItem)
+        else
+          WriteScalar;
+        if FCurrent <> @FRoot then
+          Pop;
+      end;
     end;
-    jpsStartArray:;
-    jpsEndArray:;
-    jpsStartObject:;
-    jpsEndObject:;
+    jpsStartArray: begin
+      if (FIgnoreDepth > 0) or (NativeInt(AItem.FUserData) = IGNORED_ITEM) then begin
+        Inc(FIgnoreDepth);
+        Exit;
+      end;
+      if Assigned(AItem.FParent) and (AItem.FParent.DataType = jdtArray) then
+        PushArrayElement;
+      if HasEventSerializer then begin
+        StartEventContainer(AItem, srekStartArray);
+        Exit;
+      end;
+      if HasCustomSerializer then begin
+        AItem.FUserData := Pointer(CUSTOM_ITEM);
+        AParser.BeginCapture(AItem);
+        Inc(FIgnoreDepth);
+        Exit;
+      end;
+      InitializeArray;
+    end;
+    jpsEndArray: begin
+      if FIgnoreDepth > 0 then begin
+        Dec(FIgnoreDepth);
+        if (FIgnoreDepth = 0) and (NativeInt(AItem.FUserData) = CUSTOM_ITEM) then begin
+          ReadCapturedCustom(AItem);
+          if FCurrent <> @FRoot then
+            Pop;
+        end;
+        Exit;
+      end;
+      if FCurrent <> @FRoot then
+        Pop;
+    end;
+    jpsStartObject: begin
+      if (FIgnoreDepth > 0) or (NativeInt(AItem.FUserData) = IGNORED_ITEM) then begin
+        Inc(FIgnoreDepth);
+        Exit;
+      end;
+      if Assigned(AItem.FParent) and (AItem.FParent.DataType = jdtArray) then
+        PushArrayElement;
+      if HasEventSerializer then begin
+        StartEventContainer(AItem, srekStartObject);
+        Exit;
+      end;
+      if HasCustomSerializer then begin
+        AItem.FUserData := Pointer(CUSTOM_ITEM);
+        AParser.BeginCapture(AItem);
+        Inc(FIgnoreDepth);
+        Exit;
+      end;
+      if IsProperty and (FCurrent.TypeInfo.Kind in [tkRecord, tkMRecord]) then
+        raise ENotSupportedException.Create('Record properties are not supported by the RTTI reader');
+      EnsureObject;
+    end;
+    jpsEndObject: begin
+      if FIgnoreDepth > 0 then begin
+        Dec(FIgnoreDepth);
+        if (FIgnoreDepth = 0) and (NativeInt(AItem.FUserData) = CUSTOM_ITEM) then begin
+          ReadCapturedCustom(AItem);
+          if FCurrent <> @FRoot then
+            Pop;
+        end;
+        Exit;
+      end;
+      if FCurrent <> @FRoot then
+        Pop;
+    end;
   end;
 end;
 
