@@ -120,7 +120,7 @@ type
     5: (FBin: PUnicodeString);
   end;
 
-  TQMsgPackEncoder = class sealed(TInterfacedObject, IQSerializeWriter)
+  TQMsgPackEncoder = class sealed(TInterfacedObject, IQSerializeWriter, IQBinarySerializeWriter)
   private
     FStream: TStream;
     procedure WriteByte(b: Byte); inline;
@@ -144,6 +144,7 @@ type
     procedure WriteValue(const V: TDateTime); overload;
     procedure WriteValue(const V: Currency; const AFormat: string = ''); overload;
     procedure WriteValue(const V: TBytes); overload;
+    procedure WriteRawValue(const ABytes: TBytes);
     procedure StartObjectPair(const AName: UnicodeString);
     procedure StartArrayPair(const AName: UnicodeString);
     procedure StartPair(const AName: UnicodeString);
@@ -156,26 +157,34 @@ type
     procedure WritePair(const AName: UnicodeString; const V: TDateTime); overload;
     procedure WritePair(const AName: UnicodeString; const V: Currency; const AFormat: string = ''); overload;
     procedure WritePair(const AName: UnicodeString; const V: TBytes); overload;
+    procedure WriteRawPair(const AName: UnicodeString; const ABytes: TBytes);
     procedure WritePair(const AName: UnicodeString); overload;
     procedure WriteName(const AName: UnicodeString);
     procedure Flush;
   end;
 
-  TQMsgPackDecoder = class sealed(TQBaseReader)
+  TQMsgPackDecoder = class sealed(TQBaseReader, IQBinarySerializeReader)
   private
     FStream: TStream;
     FPeekByte: Integer;
+    FRawPairCount: Integer;
+    FRawPairIndex: Integer;
     function ReadByte: Byte;
     function ReadUInt(ABits: Integer): UInt64;
     function ReadInt(ABits: Integer): Int64;
     function ReadStr: UnicodeString;
     function ReadDouble: Double;
+    function CopyRawLength(AOutput: TStream; AByteCount: Integer): UInt64;
+    procedure CopyRawBytes(AOutput: TStream; ACount: NativeInt);
+    procedure CopyRawValue(AOutput: TStream);
     procedure SkipValue;
     procedure ParseItem(AName: UnicodeString);
   public
     procedure DoParse; override;
     constructor Create(AStream: TStream); overload;
     constructor Create(const AText: UnicodeString); overload;
+    procedure ReadRawValue(out ABytes: TBytes);
+    function ReadRawPair(out AName: UnicodeString; out ABytes: TBytes): Boolean;
   end;
 
 implementation
@@ -669,6 +678,12 @@ begin
     WriteRaw(V[0], L);
 end;
 
+procedure TQMsgPackEncoder.WriteRawValue(const ABytes: TBytes);
+begin
+  if Length(ABytes) > 0 then
+    WriteRaw(ABytes[0], Length(ABytes));
+end;
+
 procedure TQMsgPackEncoder.StartObjectPair(const AName: UnicodeString);
 begin
   WriteName(AName);
@@ -739,6 +754,12 @@ begin
   WriteValue(V);
 end;
 
+procedure TQMsgPackEncoder.WriteRawPair(const AName: UnicodeString; const ABytes: TBytes);
+begin
+  WriteName(AName);
+  WriteRawValue(ABytes);
+end;
+
 procedure TQMsgPackEncoder.WritePair(const AName: UnicodeString);
 begin
   WriteName(AName);
@@ -749,6 +770,7 @@ constructor TQMsgPackDecoder.Create(AStream: TStream);
 begin
   FStream := AStream;
   FPeekByte := -1;
+  FRawPairCount := -1;
 end;
 constructor TQMsgPackDecoder.Create(const AText: UnicodeString);
 var
@@ -759,6 +781,173 @@ begin
   S.Position := 0;
   Create(S);
 end;
+function TQMsgPackDecoder.CopyRawLength(AOutput: TStream; AByteCount: Integer): UInt64;
+begin
+  Result := 0;
+  FStream.ReadBuffer(Result, AByteCount);
+  AOutput.WriteBuffer(Result, AByteCount);
+end;
+
+procedure TQMsgPackDecoder.CopyRawBytes(AOutput: TStream; ACount: NativeInt);
+var
+  ABuffer: array[0..4095] of Byte;
+  AChunk: Integer;
+begin
+  while ACount > 0 do begin
+    AChunk := ACount;
+    if AChunk > SizeOf(ABuffer) then
+      AChunk := SizeOf(ABuffer);
+    FStream.ReadBuffer(ABuffer[0], AChunk);
+    AOutput.WriteBuffer(ABuffer[0], AChunk);
+    Dec(ACount, AChunk);
+  end;
+end;
+
+procedure TQMsgPackDecoder.CopyRawValue(AOutput: TStream);
+var
+  B: Byte;
+  ACount, I: NativeInt;
+  ALength: UInt64;
+begin
+  B := ReadByte;
+  AOutput.WriteBuffer(B, 1);
+  if (B <= $7F) or (B >= $E0) then
+    Exit;
+  if B <= $8F then begin
+    ACount := B and $0F;
+    for I := 1 to ACount do begin
+      CopyRawValue(AOutput);
+      CopyRawValue(AOutput);
+    end;
+    Exit;
+  end;
+  if B <= $9F then begin
+    ACount := B and $0F;
+    for I := 1 to ACount do
+      CopyRawValue(AOutput);
+    Exit;
+  end;
+  if B <= $BF then begin
+    CopyRawBytes(AOutput, B and $1F);
+    Exit;
+  end;
+  case B of
+    $C0, $C2, $C3:;
+    $C4, $D9: begin
+      ALength := CopyRawLength(AOutput, 1);
+      CopyRawBytes(AOutput, ALength);
+    end;
+    $C5, $DA: begin
+      ALength := CopyRawLength(AOutput, 2);
+      CopyRawBytes(AOutput, ALength);
+    end;
+    $C6, $DB: begin
+      ALength := CopyRawLength(AOutput, 4);
+      if ALength > UInt64(High(NativeInt)) then
+        raise EReadError.Create('MessagePack value is too large');
+      CopyRawBytes(AOutput, NativeInt(ALength));
+    end;
+    $C7: begin
+      ALength := CopyRawLength(AOutput, 1);
+      CopyRawBytes(AOutput, ALength + 1);
+    end;
+    $C8: begin
+      ALength := CopyRawLength(AOutput, 2);
+      CopyRawBytes(AOutput, ALength + 1);
+    end;
+    $C9: begin
+      ALength := CopyRawLength(AOutput, 4);
+      if ALength >= UInt64(High(NativeInt)) then
+        raise EReadError.Create('MessagePack extension is too large');
+      CopyRawBytes(AOutput, NativeInt(ALength) + 1);
+    end;
+    $CA, $CE, $D2: CopyRawBytes(AOutput, 4);
+    $CB, $CF, $D3: CopyRawBytes(AOutput, 8);
+    $CC, $D0: CopyRawBytes(AOutput, 1);
+    $CD, $D1: CopyRawBytes(AOutput, 2);
+    $D4: CopyRawBytes(AOutput, 2);
+    $D5: CopyRawBytes(AOutput, 3);
+    $D6: CopyRawBytes(AOutput, 5);
+    $D7: CopyRawBytes(AOutput, 9);
+    $D8: CopyRawBytes(AOutput, 17);
+    $DC, $DD: begin
+      if B = $DC then
+        ALength := CopyRawLength(AOutput, 2)
+      else
+        ALength := CopyRawLength(AOutput, 4);
+      if ALength > UInt64(High(NativeInt)) then
+        raise EReadError.Create('MessagePack array is too large');
+      ACount := NativeInt(ALength);
+      for I := 1 to ACount do
+        CopyRawValue(AOutput);
+    end;
+    $DE, $DF: begin
+      if B = $DE then
+        ALength := CopyRawLength(AOutput, 2)
+      else
+        ALength := CopyRawLength(AOutput, 4);
+      if ALength > UInt64(High(NativeInt)) then
+        raise EReadError.Create('MessagePack map is too large');
+      ACount := NativeInt(ALength);
+      for I := 1 to ACount do begin
+        CopyRawValue(AOutput);
+        CopyRawValue(AOutput);
+      end;
+    end;
+  else
+    raise EReadError.CreateFmt('Unsupported MessagePack marker: %.2x', [B]);
+  end;
+end;
+
+function TQMsgPackDecoder.ReadRawPair(
+    out AName: UnicodeString;
+    out ABytes: TBytes
+): Boolean;
+var
+  B: Byte;
+begin
+  if FRawPairCount < 0 then begin
+    B := ReadByte;
+    if (B >= $80) and (B <= $8F) then
+      FRawPairCount := B and $0F
+    else if B = $DE then
+      FRawPairCount := Word(ReadUInt(16))
+    else if B = $DF then
+      FRawPairCount := Integer(ReadUInt(32))
+    else
+      raise EReadError.Create('MessagePack raw pair reader requires a map value');
+    FRawPairIndex := 0;
+  end;
+  Result := FRawPairIndex < FRawPairCount;
+  if not Result then begin
+    AName := '';
+    ABytes := nil;
+    Exit;
+  end;
+  AName := ReadStr;
+  if FPeekByte >= 0 then
+    raise EReadError.Create('MessagePack map key is not a string');
+  ReadRawValue(ABytes);
+  Inc(FRawPairIndex);
+end;
+
+procedure TQMsgPackDecoder.ReadRawValue(out ABytes: TBytes);
+var
+  AStream: TMemoryStream;
+begin
+  AStream := TMemoryStream.Create;
+  try
+    CopyRawValue(AStream);
+    SetLength(ABytes, AStream.Size);
+    if AStream.Size > 0 then begin
+      AStream.Position := 0;
+      AStream.ReadBuffer(ABytes[0], Length(ABytes));
+    end;
+  finally
+    FreeAndNil(AStream);
+  end;
+end;
+
 function TQMsgPackDecoder.ReadByte: Byte;
 begin
   if FPeekByte >= 0 then begin
@@ -915,12 +1104,27 @@ var
   B: Byte;
   Cnt, I: Integer;
   Key: UnicodeString;
+  AReader: IQSerializeReader;
 begin
   if AName <> '' then begin
     if not TryRead(AName) then begin
       SkipValue;
       Exit;
     end;
+  end;
+  if Assigned(FCurrent) and Assigned(FCurrent.Fields)
+      and Assigned(FCurrent.Fields.CustomSerializer) then begin
+    AReader := Self as IQSerializeReader;
+    FRawPairCount := -1;
+    FRawPairIndex := 0;
+    try
+      FCurrent.Fields.CustomSerializer.Read(AReader, FCurrent, FCurrent.Field);
+    finally
+      AReader := nil;
+      if AName <> '' then
+        EndRead;
+    end;
+    Exit;
   end;
   B := ReadByte;
   if (B <= $7F) or (B >= $E0) then begin

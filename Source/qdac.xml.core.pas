@@ -759,6 +759,7 @@ procedure TQXmlDecoder.ParseElement;
 var
   Name, AttrName, AttrVal: UnicodeString;
   IsEmpty: Boolean;
+  AReader: IQSerializeReader;
 begin
   SkipWhitespace;
   if Peek <> Ord('<') then begin
@@ -813,8 +814,19 @@ begin
     ReadByte;
   if not IsEmpty then begin
     if TryRead(Name) then begin
-      ParseElement;
-      EndRead;
+      if Assigned(FCurrent.Fields) and Assigned(FCurrent.Fields.CustomSerializer) then begin
+        AReader := Self as IQSerializeReader;
+        try
+          FCurrent.Fields.CustomSerializer.Read(AReader, FCurrent, FCurrent.Field);
+        finally
+          AReader := nil;
+          EndRead;
+        end;
+      end
+      else begin
+        ParseElement;
+        EndRead;
+      end;
     end
     else begin
       var D := 1;

@@ -2,6 +2,28 @@
 // QDAC MessagePack Core Comprehensive Test Suite
 // Covers: TQMsgPackNode, TQMsgPackEncoder, TQMsgPackDecoder
 // ====================================================================
+type
+  TMsgRawCapture = record
+    UsePairs: Boolean;
+    RawValue: TBytes;
+    PairName: UnicodeString;
+    PairValue: TBytes;
+  end;
+  PMsgRawCapture = ^TMsgRawCapture;
+
+  TMsgRawRoot = record
+    Value: TMsgRawCapture;
+    Map: TMsgRawCapture;
+  end;
+
+  TMsgRawSerializer = class(TInterfacedObject, IQCustomSerializer)
+  public
+    procedure Write(AWriter: IQSerializeWriter; AStack: PQSerializeStackItem;
+        AField: PQSerializeField);
+    procedure Read(AReader: IQSerializeReader; AStack: PQSerializeStackItem;
+        AField: PQSerializeField);
+  end;
+
 var
   GMsgErrors: Integer;
 
@@ -13,6 +35,31 @@ begin
   end
   else
     Write('.');
+end;
+
+function MBytesEqual(const ALeft, ARight: TBytes): Boolean;
+begin
+  Result := Length(ALeft) = Length(ARight);
+  if Result and (Length(ALeft) > 0) then
+    Result := CompareMem(@ALeft[0], @ARight[0], Length(ALeft));
+end;
+
+procedure TMsgRawSerializer.Read(AReader: IQSerializeReader;
+  AStack: PQSerializeStackItem; AField: PQSerializeField);
+var
+  ACapture: PMsgRawCapture;
+begin
+  ACapture := PMsgRawCapture(AStack.Instance);
+  if ACapture.UsePairs then
+    TQSerializer.ReadRawPair(AReader, ACapture.PairName, ACapture.PairValue)
+  else
+    TQSerializer.ReadRawValue(AReader, ACapture.RawValue);
+end;
+
+procedure TMsgRawSerializer.Write(AWriter: IQSerializeWriter;
+  AStack: PQSerializeStackItem; AField: PQSerializeField);
+begin
+  TQSerializer.WriteRawValue(AWriter, PMsgRawCapture(AStack.Instance).RawValue);
 end;
 
 procedure RunMsgPackTests;
@@ -27,6 +74,11 @@ var
   Dec: TQMsgPackDecoder;
   I, J: Integer;
   Codec: TQSerializeFormatCodec;
+  Reader: IQSerializeReader;
+  Raw, Raw2: TBytes;
+  RawName, RawText: UnicodeString;
+  InvalidRawRaised: Boolean;
+  RawDecoded: TMsgRawRoot;
 begin
   GMsgErrors := 0;
   Writeln;
@@ -407,6 +459,85 @@ begin
   MCheck(N.Count = 0, 'empty map count');
   MCheck(N.IsMap, 'empty map type');
   N.Free;
+  Writeln(' OK');
+
+  // ---- T22: Raw MessagePack reader ----
+  Write('T22: Raw MessagePack reader');
+  B := TBytes.Create($92, $01, $92, $C3, $A1, $78);
+  MS := TBytesStream.Create(B);
+  try
+    Reader := TQMsgPackDecoder.Create(MS);
+    TQSerializer.ReadRawValue(Reader, Raw);
+    MCheck(MBytesEqual(Raw, B), 'raw nested value bytes');
+    Reader := nil;
+  finally
+    Reader := nil;
+    MS.Free;
+  end;
+
+  B := TBytes.Create(
+      $82,
+      $A4, $6E, $61, $6D, $65,
+      $A4, $74, $65, $73, $74,
+      $A5, $69, $74, $65, $6D, $73,
+      $92, $01, $02
+  );
+  MS := TBytesStream.Create(B);
+  try
+    Reader := TQMsgPackDecoder.Create(MS);
+    MCheck(TQSerializer.ReadRawPair(Reader, RawName, Raw), 'first raw pair exists');
+    MCheck(RawName = 'name', 'first raw pair name');
+    Raw2 := TBytes.Create($A4, $74, $65, $73, $74);
+    MCheck(MBytesEqual(Raw, Raw2), 'first raw pair bytes');
+
+    MCheck(TQSerializer.ReadRawPair(Reader, RawName, Raw), 'second raw pair exists');
+    MCheck(RawName = 'items', 'second raw pair name');
+    Raw2 := TBytes.Create($92, $01, $02);
+    MCheck(MBytesEqual(Raw, Raw2), 'second raw pair bytes');
+    MCheck(not TQSerializer.ReadRawPair(Reader, RawName, Raw), 'raw pair end');
+    MCheck((RawName = '') and (Length(Raw) = 0), 'raw pair end clears outputs');
+
+    InvalidRawRaised := False;
+    try
+      TQSerializer.ReadRawValue(Reader, RawText);
+    except
+      on Exception do
+        InvalidRawRaised := True;
+    end;
+    MCheck(InvalidRawRaised, 'MessagePack rejects text raw read');
+    Reader := nil;
+  finally
+    Reader := nil;
+    MS.Free;
+  end;
+  Writeln(' OK');
+
+  // ---- T23: RTTI custom raw reader ----
+  Write('T23: RTTI custom raw reader');
+  TQSerializer.Current.RegisterType(TypeInfo(TMsgRawCapture), TMsgRawSerializer.Create);
+  RawDecoded := Default(TMsgRawRoot);
+  RawDecoded.Map.UsePairs := True;
+  B := TBytes.Create(
+      $82,
+      $A5, $56, $61, $6C, $75, $65,
+      $92, $01, $C3,
+      $A3, $4D, $61, $70,
+      $81, $A1, $78, $92, $02, $03
+  );
+  MS := TBytesStream.Create(B);
+  try
+    Reader := TQMsgPackDecoder.Create(MS);
+    TQSerializer.ToRtti<TMsgRawRoot>(Reader, RawDecoded);
+    Raw2 := TBytes.Create($92, $01, $C3);
+    MCheck(MBytesEqual(RawDecoded.Value.RawValue, Raw2), 'custom raw field value');
+    MCheck(RawDecoded.Map.PairName = 'x', 'custom raw pair name');
+    Raw2 := TBytes.Create($92, $02, $03);
+    MCheck(MBytesEqual(RawDecoded.Map.PairValue, Raw2), 'custom raw pair value');
+    Reader := nil;
+  finally
+    Reader := nil;
+    MS.Free;
+  end;
   Writeln(' OK');
 
   // ---- Summary ----
