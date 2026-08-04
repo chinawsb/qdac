@@ -118,8 +118,22 @@ type
     Instance: Pointer;
     TypeInfo: PTypeInfo;
     Fields: PQSerializeFields;
+    Field: PQSerializeField;
     Prior: PQSerializeStackItem;
     UserData: Pointer;
+  end;
+
+  TQSerializeReadEventKind = (
+      srekStartObject,
+      srekEndObject,
+      srekStartArray,
+      srekEndArray,
+      srekValue
+  );
+
+  TQSerializeReadEvent = record
+    Kind: TQSerializeReadEventKind;
+    Name: UnicodeString;
   end;
 
   // 用户定义的类型序列化
@@ -127,6 +141,16 @@ type
     ['{51BE1847-BD95-4C2D-A642-7BAE41B9BBC3}']
     procedure Write(AWriter: IQSerializeWriter; AStack: PQSerializeStackItem; AField: PQSerializeField);
     procedure Read(AReader: IQSerializeReader; AStack: PQSerializeStackItem; AField: PQSerializeField);
+  end;
+
+  // 可选的流式读取接口。ReadRawValue 仅在 srekValue 回调期间有效。
+  IQCustomSerializerEvents = interface
+    ['{CD1C07D5-BA6E-4C7F-88E4-74F9DEBB6E31}']
+    procedure BeginRead(AReader: IQSerializeReader; AStack: PQSerializeStackItem; AField: PQSerializeField);
+    procedure ReadEvent(AReader: IQSerializeReader; AStack: PQSerializeStackItem; AField: PQSerializeField;
+        const AEvent: TQSerializeReadEvent);
+    procedure EndRead(AReader: IQSerializeReader; AStack: PQSerializeStackItem; AField: PQSerializeField;
+        ACompleted: Boolean);
   end;
 
   TQSerializeFields = record
@@ -169,6 +193,18 @@ type
     procedure Flush;
   end;
 
+  IQTextSerializeWriter = interface(IQSerializeWriter)
+    ['{A3709898-54E4-4907-A615-3228A62D3C4E}']
+    procedure WriteRawValue(const AText: UnicodeString);
+    procedure WriteRawPair(const AName, AText: UnicodeString);
+  end;
+
+  IQBinarySerializeWriter = interface(IQSerializeWriter)
+    ['{F948BC27-6161-47C1-B6E0-C0F7C60A92E9}']
+    procedure WriteRawValue(const ABytes: TBytes);
+    procedure WriteRawPair(const AName: UnicodeString; const ABytes: TBytes);
+  end;
+
   // 从流或字符串中反序列化实例
   IQSerializeReader = interface
     ['{F65DB855-C751-4C84-AD91-346ADC335D62}']
@@ -180,6 +216,18 @@ type
     function GetActiveFields: PQSerializeFields;
     property ActiveInstance: Pointer read GetActiveInstance;
     property ActiveFields: PQSerializeFields read GetActiveFields;
+  end;
+
+  IQTextSerializeReader = interface(IQSerializeReader)
+    ['{D8C5503B-B68F-45A8-8FE0-7914CD7C8A77}']
+    procedure ReadRawValue(out AText: UnicodeString);
+    function ReadRawPair(out AName, AText: UnicodeString): Boolean;
+  end;
+
+  IQBinarySerializeReader = interface(IQSerializeReader)
+    ['{EF39D1A1-A39D-47B9-A3CF-C7A5F967E169}']
+    procedure ReadRawValue(out ABytes: TBytes);
+    function ReadRawPair(out AName: UnicodeString; out ABytes: TBytes): Boolean;
   end;
 
   TQSerializeWriterCreateProc = procedure(AStream: TStream; var AWriter: IQSerializeWriter);
@@ -201,7 +249,10 @@ type
     procedure SetRoot(const AInstance: Pointer; AFields: PQSerializeFields);
     procedure DoParse; virtual; abstract;
   public
-    procedure Push(AInstance: Pointer; AFields: PQSerializeFields);
+    destructor Destroy; override;
+    procedure Push(AInstance: Pointer; AFields: PQSerializeFields); overload;
+    procedure Push(AParentInstance: Pointer; AField: PQSerializeField); overload;
+    procedure Push(AInstance: Pointer; AType: PTypeInfo; AFields: PQSerializeFields); overload;
     procedure Pop;
   end;
 
@@ -239,9 +290,16 @@ type
     class function FormatName(const S: UnicodeString; const AFormat: TSerializeNameFormat): UnicodeString;
     class procedure FromRtti<T>(AWriter: IQSerializeWriter; const AInstance: T); static;
     class procedure ToRtti<T>(AReader: IQSerializeReader; var AInstance: T); static;
+    class procedure WriteRawValue(AWriter: IQSerializeWriter; const AText: UnicodeString); overload; static;
+    class procedure WriteRawPair(AWriter: IQSerializeWriter; const AName, AText: UnicodeString); overload; static;
+    class procedure WriteRawValue(AWriter: IQSerializeWriter; const ABytes: TBytes); overload; static;
+    class procedure WriteRawPair(AWriter: IQSerializeWriter; const AName: UnicodeString; const ABytes: TBytes); overload; static;
+    class procedure ReadRawValue(AReader: IQSerializeReader; out AText: UnicodeString); overload; static;
+    class function ReadRawPair(AReader: IQSerializeReader; out AName, AText: UnicodeString): Boolean; overload; static;
+    class procedure ReadRawValue(AReader: IQSerializeReader; out ABytes: TBytes); overload; static;
+    class function ReadRawPair(AReader: IQSerializeReader; out AName: UnicodeString; out ABytes: TBytes): Boolean; overload; static;
     class property Current: TQSerializer read GetCurrent;
   end;
-
   PQPageBuffer = ^TQPageBuffer;
   PQPageBuffers = ^TQPageBuffers;
 
@@ -683,6 +741,7 @@ begin
 end;
 function NewStack(AType: PTypeInfo; AInstance: Pointer; AFields: PQSerializeFields): TQSerializeStackItem;
 begin
+  FillChar(Result, SizeOf(Result), 0);
   Result.Instance := AInstance;
   Result.TypeInfo := AType;
   if not Assigned(AFields) then begin
@@ -1553,12 +1612,98 @@ class procedure TQSerializer.FromRtti<T>(AWriter: IQSerializeWriter; const AInst
 var
   AStack: TQSerializeStackItem;
 begin
+  FillChar(AStack, SizeOf(AStack), 0);
   AStack.Instance := @AInstance;
   AStack.TypeInfo := TypeInfo(T);
   AStack.Fields := Current.Find(AStack.TypeInfo);
-  AStack.Prior := nil;
   Current.DoSerialize(AWriter, AStack);
   AWriter.Flush;
+end;
+
+class function TQSerializer.ReadRawPair(
+    AReader: IQSerializeReader;
+    out AName: UnicodeString;
+    out ABytes: TBytes
+): Boolean;
+var
+  ABinaryReader: IQBinarySerializeReader;
+begin
+  if not Supports(AReader, IQBinarySerializeReader, ABinaryReader) then
+    raise Exception.CreateFmt(SSerializeRawReaderNotSupport, ['二进制']);
+  Result := ABinaryReader.ReadRawPair(AName, ABytes);
+end;
+
+class function TQSerializer.ReadRawPair(
+    AReader: IQSerializeReader;
+    out AName, AText: UnicodeString
+): Boolean;
+var
+  ATextReader: IQTextSerializeReader;
+begin
+  if not Supports(AReader, IQTextSerializeReader, ATextReader) then
+    raise Exception.CreateFmt(SSerializeRawReaderNotSupport, ['文本']);
+  Result := ATextReader.ReadRawPair(AName, AText);
+end;
+
+class procedure TQSerializer.ReadRawValue(AReader: IQSerializeReader; out ABytes: TBytes);
+var
+  ABinaryReader: IQBinarySerializeReader;
+begin
+  if not Supports(AReader, IQBinarySerializeReader, ABinaryReader) then
+    raise Exception.CreateFmt(SSerializeRawReaderNotSupport, ['二进制']);
+  ABinaryReader.ReadRawValue(ABytes);
+end;
+
+class procedure TQSerializer.ReadRawValue(AReader: IQSerializeReader; out AText: UnicodeString);
+var
+  ATextReader: IQTextSerializeReader;
+begin
+  if not Supports(AReader, IQTextSerializeReader, ATextReader) then
+    raise Exception.CreateFmt(SSerializeRawReaderNotSupport, ['文本']);
+  ATextReader.ReadRawValue(AText);
+end;
+
+class procedure TQSerializer.WriteRawPair(
+    AWriter: IQSerializeWriter;
+    const AName: UnicodeString;
+    const ABytes: TBytes
+);
+var
+  ABinaryWriter: IQBinarySerializeWriter;
+begin
+  if not Supports(AWriter, IQBinarySerializeWriter, ABinaryWriter) then
+    raise Exception.CreateFmt(SSerializeRawWriterNotSupport, ['二进制']);
+  ABinaryWriter.WriteRawPair(AName, ABytes);
+end;
+
+class procedure TQSerializer.WriteRawPair(
+    AWriter: IQSerializeWriter;
+    const AName, AText: UnicodeString
+);
+var
+  ATextWriter: IQTextSerializeWriter;
+begin
+  if not Supports(AWriter, IQTextSerializeWriter, ATextWriter) then
+    raise Exception.CreateFmt(SSerializeRawWriterNotSupport, ['文本']);
+  ATextWriter.WriteRawPair(AName, AText);
+end;
+
+class procedure TQSerializer.WriteRawValue(AWriter: IQSerializeWriter; const ABytes: TBytes);
+var
+  ABinaryWriter: IQBinarySerializeWriter;
+begin
+  if not Supports(AWriter, IQBinarySerializeWriter, ABinaryWriter) then
+    raise Exception.CreateFmt(SSerializeRawWriterNotSupport, ['二进制']);
+  ABinaryWriter.WriteRawValue(ABytes);
+end;
+
+class procedure TQSerializer.WriteRawValue(AWriter: IQSerializeWriter; const AText: UnicodeString);
+var
+  ATextWriter: IQTextSerializeWriter;
+begin
+  if not Supports(AWriter, IQTextSerializeWriter, ATextWriter) then
+    raise Exception.CreateFmt(SSerializeRawWriterNotSupport, ['文本']);
+  ATextWriter.WriteRawValue(AText);
 end;
 
 class function TQSerializer.GetCurrent: TQSerializer;
@@ -1835,7 +1980,7 @@ begin
       if not Assigned(ARttiType) then
         Exit(nil);
       ASerializeFields := Result;
-      AIncludeProps := ARttiType.TypeKind in [tkClass, tkInterface];
+      AIncludeProps := False;
       Attrs := ARttiType.GetAttributes;
       for AttrIndex := 0 to High(Attrs) do begin
         Attr := Attrs[AttrIndex];
@@ -1868,7 +2013,7 @@ begin
         end;
       if AIncludeProps then
         AddProps;
-      // 如果是记录，默认不检查属性
+      // 属性仅在 IncludePropsAttribute 显式标注时加入
       SetLength(Result.Fields, ACount);
     end;
   end
@@ -2339,21 +2484,40 @@ end;
 
 procedure TQPageBuffers.SetLength(const Value: NativeInt);
 var
-  APage: PQPageBuffer;
-  ALen: NativeInt;
+  APage, ANext: PQPageBuffer;
+  APageNo: Cardinal;
+  ARemaining: NativeInt;
 begin
+  if Value < 0 then
+    raise EArgumentOutOfRangeException.Create('Length must not be negative');
+
   APage := @First;
-  ALen := 0;
-  repeat
-    APage.NextByte := PByte(@APage.Data) + Word(Value mod PAGE_BUFFER_SIZE);
-    Inc(ALen, APage.Used);
-    if ALen < Value then
-      APage := NeedNextPage(APage)
-    else if APage.Used = sizeof(APage.Data) then begin
-      if Assigned(APage.Next) then
-        APage.Next.NextByte := @APage.Next.Data;
-    end;
-  until ALen = Value;
+  APageNo := 0;
+  ARemaining := Value;
+  while ARemaining > SizeOf(APage.Data) do begin
+    APage.NextByte := APage.EofByte;
+    APage.PageNo := APageNo;
+    Dec(ARemaining, SizeOf(APage.Data));
+    if Assigned(APage.Next) then
+      APage := APage.Next
+    else
+      APage := NeedNextPage(APage);
+    Inc(APageNo);
+  end;
+
+  APage.PageNo := APageNo;
+  APage.NextByte := PByte(@APage.Data) + ARemaining;
+  Current := APage;
+  Last := APage;
+  PageCount := APageNo + 1;
+
+  ANext := APage.Next;
+  APage.Next := nil;
+  while Assigned(ANext) do begin
+    APage := ANext.Next;
+    FreeMem(ANext);
+    ANext := APage;
+  end;
 end;
 
 procedure TQPageBuffers.ToString(var S: UnicodeString);
@@ -2406,6 +2570,13 @@ end;
 
 { TQBaseReader }
 
+destructor TQBaseReader.Destroy;
+begin
+  while Assigned(FCurrent) and (FCurrent <> @FRoot) do
+    Pop;
+  inherited;
+end;
+
 procedure TQBaseReader.EndRead;
 begin
   Pop;
@@ -2414,35 +2585,64 @@ end;
 function TQBaseReader.GetActiveFields: PQSerializeFields;
 begin
   Assert(Assigned(FCurrent));
-  Result := FCurrent.Instance;
+  Result := FCurrent.Fields;
 end;
 
 function TQBaseReader.GetActiveInstance: Pointer;
 begin
-  Result := FCurrent.Fields;
+  Assert(Assigned(FCurrent));
+  Result := FCurrent.Instance;
 end;
 
 procedure TQBaseReader.Pop;
+var
+  ACurrent: PQSerializeStackItem;
 begin
   Assert(Assigned(FCurrent), 'Can not popup,push/pop mismatch?');
-  FCurrent := FCurrent.UserData;
+  if FCurrent = @FRoot then begin
+    FCurrent := nil;
+    FillChar(FRoot, SizeOf(FRoot), 0);
+    Exit;
+  end;
+  ACurrent := FCurrent;
+  FCurrent := ACurrent.Prior;
+  Dispose(ACurrent);
 end;
 
 procedure TQBaseReader.Push(AInstance: Pointer; AFields: PQSerializeFields);
+begin
+  Assert(Assigned(AFields));
+  Push(AInstance, AFields.TypeData.TypeInfo, AFields);
+end;
+
+procedure TQBaseReader.Push(AParentInstance: Pointer; AField: PQSerializeField);
+begin
+  Assert(Assigned(AField));
+  if Assigned(AField.TypeData.PropInfo) then
+    Push(AParentInstance, AField.TypeData.TypeInfo, AField.Fields)
+  else
+    Push(AField.FieldInstance<Pointer>(AParentInstance), AField.TypeData.TypeInfo, AField.Fields);
+  FCurrent.Field := AField;
+end;
+
+procedure TQBaseReader.Push(AInstance: Pointer; AType: PTypeInfo; AFields: PQSerializeFields);
 var
   ANext: PQSerializeStackItem;
 begin
-  if not Assigned(FRoot.Instance) then
-    FCurrent := @FRoot
+  Assert(Assigned(AType));
+  if not Assigned(FCurrent) then begin
+    FillChar(FRoot, SizeOf(FRoot), 0);
+    FCurrent := @FRoot;
+  end
   else begin
     New(ANext);
-    ANext.Prior := ANext;
-    FCurrent.UserData := ANext; // 使用 UserData 来实现双向链表
+    FillChar(ANext^, SizeOf(ANext^), 0);
+    ANext.Prior := FCurrent;
     FCurrent := ANext;
   end;
   FCurrent.Instance := AInstance;
   FCurrent.Fields := AFields;
-  FCurrent.TypeInfo := AFields.TypeData.TypeInfo;
+  FCurrent.TypeInfo := AType;
 end;
 
 procedure TQBaseReader.SetRoot(const AInstance: Pointer; AFields: PQSerializeFields);
@@ -2451,19 +2651,31 @@ begin
 end;
 function TQBaseReader.TryRead(const AName: string): Boolean;
 var
-  AField: TQSerializeField;
+  AField: PQSerializeField;
+  AParentInstance: Pointer;
   I, J: Integer;
 begin
+  Result := False;
+  if not Assigned(FCurrent) or not Assigned(FCurrent.Fields) then
+    Exit;
+  AParentInstance := FCurrent.Instance;
+  if FCurrent.TypeInfo.Kind = tkClass then begin
+    if Assigned(FCurrent.Field) and Assigned(FCurrent.Field.TypeData.PropInfo) then
+      AParentInstance := GetObjectProp(TObject(FCurrent.Instance), FCurrent.Field.TypeData.PropInfo)
+    else
+      AParentInstance := PPointer(FCurrent.Instance)^;
+  end;
+  if not Assigned(AParentInstance) then
+    Exit;
   for I := 0 to High(FCurrent.Fields.Fields) do begin
-    AField := FCurrent.Fields.Fields[I];
+    AField := @FCurrent.Fields.Fields[I];
     for J := 0 to High(AField.Names) do begin
       if CompareText(AName, AField.Names[J]) = 0 then begin
-        Push(AField.FieldInstance<Pointer>(FCurrent.Instance), AField.Fields);
+        Push(AParentInstance, AField);
         Exit(True);
       end;
     end;
   end;
-  Result := False;
 end;
 
 { ---- 共享 DOM 操作实现 ---- }

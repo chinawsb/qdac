@@ -63,7 +63,8 @@ const
 
 resourcestring
   SSerializeFormatNotSupport = '不支持序列化为 %s 格式';
-
+  SSerializeRawWriterNotSupport = '当前序列化写入器不支持%s原始写入';
+  SSerializeRawReaderNotSupport = '当前序列化读取器不支持%s原始读取';
 implementation
 
 { TBaseStreamCodec }
